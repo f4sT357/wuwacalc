@@ -148,4 +148,4 @@ If there are any copyright concerns, we will address them immediately.  Please c
 本プロジェクトの開発には AI（Antigravity）による支援を受けています。
 This project was developed with the assistance of AI (Antigravity).
 
-Developed by WuwaCalc Team.
+Developed by f4sT357.
