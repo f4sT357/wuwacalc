@@ -12,8 +12,6 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QMessageBox, QFileDialog)
 from PyQt6.QtGui import QPixmap, QImage
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap, QImage
-from PyQt6.QtCore import Qt
 from constants import DEFAULT_COST_CONFIG
 from data_contracts import EchoEntry, SubStat
 
@@ -130,33 +128,7 @@ class TabManager:
             QMessageBox.critical(self.app, "Error", error_msg)
             self.logger.exception(f"Tab clear error: {e}")
     
-    def on_character_change(self, text: str) -> None:
-        """Handle character change."""
-        # Retrieve the internal name directly from the UserData of the selected item
-        current_index = self.ui.charcombo.currentIndex()
-        if current_index >= 0:
-            internal_name = self.ui.charcombo.itemData(current_index)
-            if internal_name: # Ensure internal_name is not empty
-                self.app.character_var = internal_name
-                self.logger.info(f"Character selected: {internal_name}")
-                
-                # Automatically switch tab configuration if the character has a specific one
-                new_config = self.character_manager.get_character_config_key(internal_name)
-                if new_config and new_config != self.app.current_config_key:
-                    self.logger.info(f"Auto-switching tab configuration to {new_config} for {internal_name}")
-                    if self.ui.config_combo:
-                        # Reusing internal UI logic to trigger proper cleanup/rebuild
-                        self.ui.config_combo.setCurrentText(new_config)
-                else:
-                    self.tab_mgr.apply_character_main_stats()
-                
-                self.save_config()
-            else:
-                # If the empty item is selected, clear character_var
-                self.app.character_var = ""
-                self.logger.info("Character selection cleared.")
-                self.tab_mgr.apply_character_main_stats() # Apply to clear any existing stats
-                self.save_config()
+
     
     def clear_all(self) -> None:
         """Reset all tabs, text, logs, input values, etc."""
@@ -401,7 +373,6 @@ class TabManager:
         saved_substats = data.get("substats", [])
         for i, (s_val, v_val) in enumerate(saved_substats):
             if i < len(sub_entries):
-                sub_entries[i][0].setCurrentText(s_val)
                 sub_entries[i][0].setCurrentText(s_val)
                 sub_entries[i][1].setText(v_val)
 

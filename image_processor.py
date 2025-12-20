@@ -22,15 +22,12 @@ except ImportError:
 from dialogs import CropDialog
 from utils import crop_image_by_percent
 from data_contracts import SubStat
+from ui_constants import IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT
 
 class ImageProcessor(QObject):
     """Class responsible for image processing and OCR."""
     
     ocr_completed = pyqtSignal(list, list) # substats, log_messages
-    
-    # Constants
-    IMAGE_PREVIEW_MAX_WIDTH = 400
-    IMAGE_PREVIEW_MAX_HEIGHT = 200
     
     def __init__(self, app: 'ScoreCalculatorApp', logic: 'AppLogic') -> None:
         """
@@ -161,7 +158,7 @@ class ImageProcessor(QObject):
                     
                     successful_count += 1
                 else:
-                     self.app.gui_log(f"[{filename}] No suitable free tab found (Cost: {cost if cost else 'Unknown'}). Skipping.")
+                     self.app.gui_log(f"[{filename}] No suitable free tab found (Cost: {result.cost if result.cost else 'Unknown'}). Skipping.")
                 
             except Exception as e:
                 self.app.gui_log(f"Error processing {file_path}: {e}")
@@ -453,8 +450,8 @@ class ImageProcessor(QObject):
             
             # Scale for preview
             scaled_pixmap = pixmap.scaled(
-                self.IMAGE_PREVIEW_MAX_WIDTH, 
-                self.IMAGE_PREVIEW_MAX_HEIGHT,
+                IMAGE_PREVIEW_MAX_WIDTH, 
+                IMAGE_PREVIEW_MAX_HEIGHT,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )

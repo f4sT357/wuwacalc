@@ -36,10 +36,6 @@ try:
 except ImportError:
     is_opencv_installed = False
 
-
-# from constants import (
-#     STAT_ALIASES, TAB_CONFIGS, OCR_CHAR_WHITELIST
-# )
 from constants import (
     DEFAULT_COST_CONFIG,
     KEY_CHARACTER, KEY_CHARACTER_JP, KEY_CONFIG, KEY_AUTO_APPLY, 

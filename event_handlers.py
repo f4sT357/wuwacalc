@@ -319,4 +319,4 @@ class EventHandlers:
                     self.app.config_combo.setCurrentIndex(idx)
         
         self.ui.filter_characters_by_config() # Re-filter to match the new config
-        self.tab_manager.apply_character_main_stats()
+        self.tab_mgr.apply_character_main_stats()

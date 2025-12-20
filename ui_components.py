@@ -6,16 +6,14 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap, QImage
 
-# from constants import TAB_CONFIGS, MAIN_STAT_OPTIONS, SUBSTAT_MAX_VALUES # Removed
+from ui_constants import (
+    RIGHT_TOP_HEIGHT, LOG_MIN_HEIGHT, LOG_DEFAULT_HEIGHT,
+    VALUE_ENTRY_WIDTH, CROP_ENTRY_WIDTH, NUM_SUBSTATS
+)
 
 
 class UIComponents:
     """Class responsible for UI construction."""
-    
-    # Constants
-    RIGHT_TOP_HEIGHT = 350
-    LOG_MIN_HEIGHT = 80
-    LOG_DEFAULT_HEIGHT = 150
     
     def __init__(self, app: 'ScoreCalculatorApp'):
         """
@@ -275,7 +273,7 @@ class UIComponents:
         log_layout.addWidget(self.app.log_text)
         right_splitter.addWidget(log_group)
         
-        right_splitter.setSizes([350, 150])
+        right_splitter.setSizes([RIGHT_TOP_HEIGHT, LOG_DEFAULT_HEIGHT])
 
     def create_image_frame(self, parent_layout: QVBoxLayout) -> None:
         """Create the UI for the image preview area."""
@@ -349,7 +347,7 @@ class UIComponents:
         h_layout.addWidget(QLabel(label_text))
         
         entry = QLineEdit(str(value))
-        entry.setFixedWidth(50)
+        entry.setFixedWidth(VALUE_ENTRY_WIDTH)
         entry.setObjectName(entry_name_base) # Set object name to identify later
         entry.textChanged.connect(self.app.events.on_crop_percent_change)
         h_layout.addWidget(entry)

@@ -172,3 +172,21 @@
 *   **`UIComponents` のさらなる細分化** (2025-12-21):
     *   100行を超える巨大なレイアウト作成メソッドを、目的別の小さなプライベートメソッド（`_setup_basic_settings_row` 等）に分解。
     *   コードの可読性が向上し、UIの特定箇所のデバッグが容易になりました。
+*   **コードベースのリファクタリング** (2025-12-21):
+    *   **重複コードの削除**:
+        *   `tab_manager.py` から重複した `on_character_change` メソッドを削除（`event_handlers.py` に既存）
+        *   `tab_manager.py` から重複インポート（`QPixmap`, `QImage`, `Qt`）を削除
+        *   `tab_manager.py` の `_restore_tab_data` メソッドから重複した `setCurrentText` 呼び出しを削除
+        *   `ui_components.py`, `app_logic.py` からコメントアウトされた不要なコードを削除
+    *   **バグ修正**:
+        *   `image_processor.py` (164行目): 未定義変数 `cost` を `result.cost` に修正
+        *   `event_handlers.py` (322行目): 属性名の不一致 `self.tab_manager` を `self.tab_mgr` に修正
+    *   **定数の一元化**:
+        *   新規モジュール `ui_constants.py` を作成し、UI関連の定数を集約
+        *   ウィンドウサイズ、レイアウト高さ、画像プレビューサイズ、ウィジェット幅、サブステータス数などを定数化
+        *   `wuwacalc17.py`, `ui_components.py`, `image_processor.py` で `ui_constants` モジュールから定数をインポート
+    *   **マジックナンバーの定数化**:
+        *   `ui_components.py`: `60` → `VALUE_ENTRY_WIDTH`, `50` → `CROP_ENTRY_WIDTH`, `5` → `NUM_SUBSTATS`
+        *   設定値がない場合のフォールバック処理として定数を使用（`wuwacalc17.py`）
+    *   **保守性の向上**: 定数の一元管理により、値の変更が容易になり、複数ファイルでの重複定義を解消
+    *   **検証**: 全てのPythonファイルが構文チェック（`python -m py_compile`）を通過

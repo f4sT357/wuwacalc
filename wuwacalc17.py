@@ -34,6 +34,11 @@ from image_processor import ImageProcessor
 from app_logic import AppLogic
 from data_manager import DataManager
 from html_renderer import HtmlRenderer
+from ui_constants import (
+    WINDOW_WIDTH, WINDOW_HEIGHT, RIGHT_TOP_HEIGHT,
+    LOG_MIN_HEIGHT, LOG_DEFAULT_HEIGHT,
+    IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT
+)
 
 # Tesseract setup
 setup_tesseract()
@@ -149,13 +154,14 @@ class ScoreCalculatorApp(QMainWindow):
         self.theme_manager._migrate_background_image_path()  # Migrate legacy background image path
         ui_config = self.config_manager.get_ui_config()
         
-        self.WINDOW_WIDTH = ui_config.window_width
-        self.WINDOW_HEIGHT = ui_config.window_height
-        self.RIGHT_TOP_HEIGHT = ui_config.right_top_height
-        self.LOG_MIN_HEIGHT = ui_config.log_min_height
-        self.LOG_DEFAULT_HEIGHT = ui_config.log_default_height
-        self.IMAGE_PREVIEW_MAX_WIDTH = ui_config.image_preview_max_width
-        self.IMAGE_PREVIEW_MAX_HEIGHT = ui_config.image_preview_max_height
+        # Use constants from ui_constants module, but allow config override if needed
+        self.WINDOW_WIDTH = ui_config.window_width if ui_config.window_width else WINDOW_WIDTH
+        self.WINDOW_HEIGHT = ui_config.window_height if ui_config.window_height else WINDOW_HEIGHT
+        self.RIGHT_TOP_HEIGHT = ui_config.right_top_height if ui_config.right_top_height else RIGHT_TOP_HEIGHT
+        self.LOG_MIN_HEIGHT = ui_config.log_min_height if ui_config.log_min_height else LOG_MIN_HEIGHT
+        self.LOG_DEFAULT_HEIGHT = ui_config.log_default_height if ui_config.log_default_height else LOG_DEFAULT_HEIGHT
+        self.IMAGE_PREVIEW_MAX_WIDTH = ui_config.image_preview_max_width if ui_config.image_preview_max_width else IMAGE_PREVIEW_MAX_WIDTH
+        self.IMAGE_PREVIEW_MAX_HEIGHT = ui_config.image_preview_max_height if ui_config.image_preview_max_height else IMAGE_PREVIEW_MAX_HEIGHT
         
         self.language = self.app_config.language
         self.crop_left_percent = self.app_config.crop_left_percent
