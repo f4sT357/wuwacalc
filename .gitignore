@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+ENV/
+env/
+build/
+dist/
+*.spec
+
+# Logs
+*.log
+wuwacalc.log
+error_log.txt
+log2.txt
+log3.txt
+
+# Editor / IDE
+.cursor/
+.cursorrules
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+config.json
+tesseract/
+Tesseract-OCR/
+*.png
+*.jpg
+*.jpeg
+images/
+sampleimage/
+dist.zip
+.antigravity-rules
+GEMINI.md
+THIRD_PARTY_LICENSES.md

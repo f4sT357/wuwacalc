@@ -1,0 +1,523 @@
+"""
+Tab Management Module (PyQt6)
+
+Provides functions for managing, saving, restoring, clearing, and exporting tab data.
+"""
+
+import logging
+from typing import Optional, Dict, Any
+
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
+                             QGroupBox, QComboBox, QLineEdit, QLabel, 
+                             QMessageBox, QFileDialog)
+from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtCore import Qt
+from constants import DEFAULT_COST_CONFIG
+from data_contracts import EchoEntry, SubStat
+
+class TabManager:
+    """Class responsible for managing tab data."""
+    
+    def __init__(self, app: 'ScoreCalculatorApp'):
+        """
+        Initialization
+        
+        Args:
+            app: The main application instance.
+        """
+        self.app = app
+        self.logger = logging.getLogger(__name__)
+        
+        # UI Elements
+        self.tabs_content = {}
+        
+        # Data storage for each tab
+        self._tab_images: Dict[str, Dict[str, Any]] = {}
+        self._tab_results: Dict[str, Dict[str, Any]] = {}
+    
+    def get_selected_tab_name(self) -> Optional[str]:
+        """Get the internal key of the currently selected tab."""
+        if self.app.notebook is None:
+            return None
+        index = self.app.notebook.currentIndex()
+        if index == -1:
+            return None
+            
+        # Return internal key from config instead of localized label
+        config_key = self.app.current_config_key
+        # We need direct access to TAB_CONFIGS constants
+        # It's better to import it inside method or use app attribute if stored
+        # from constants import TAB_CONFIGS # Removed
+        tab_configs = self.app.data_manager.tab_configs
+        if config_key in tab_configs:
+             keys = tab_configs[config_key]
+             if index < len(keys):
+                 return keys[index]
+        
+        # Fallback to tabText if something fails (though this shouldn't happen)
+        return self.app.notebook.tabText(index)
+    
+    def show_tab_image(self, tab_name: str) -> None:
+        """Display the image saved in the tab."""
+        if self.app.image_label is None:
+            return
+        data = self._tab_images.get(tab_name)
+        if data and data.get("cropped") is not None:
+            self.app.loaded_image = data["cropped"].copy()
+            self.app.original_image = data["original"].copy()
+            self.app.image_proc.display_image_preview(self.app.loaded_image)
+        else:
+            self.app.loaded_image = None
+            self.app.original_image = None
+            self.app.image_label.setText("No image loaded")
+            self.app.image_label.setPixmap(QPixmap()) # Clear image
+    
+    def save_tab_result(self, tab_name: str) -> None:
+        """Save the current calculation result for each tab."""
+        if self.app.result_text is None:
+            return
+        try:
+            result_content = self.app.result_text.toHtml()
+            self._tab_results[tab_name] = {
+                "content": result_content
+            }
+        except Exception as e:
+            self.logger.warning(f"Failed to save tab result: {e}", exc_info=True)
+    
+    def show_tab_result(self, tab_name: str) -> None:
+        """Restore the saved calculation result."""
+        if self.app.result_text is None:
+            return
+        
+        result_data = self._tab_results.get(tab_name)
+        if result_data:
+            try:
+                self.app.result_text.setHtml(result_data["content"])
+            except Exception as e:
+                self.logger.warning(f"Failed to restore tab result: {e}", exc_info=True)
+        else:
+            self.app.result_text.clear()
+    
+    def clear_current_tab(self) -> None:
+        """Clear the contents of the current tab only."""
+        try:
+            tab_name = self.get_selected_tab_name()
+            if not tab_name or tab_name not in self.tabs_content:
+                return
+            
+            content = self.tabs_content[tab_name]
+            # Reset widgets
+            content["main_widget"].setCurrentIndex(-1)
+            for stat_widget, val_widget in content["sub_entries"]:
+                stat_widget.setCurrentIndex(-1)
+                val_widget.clear()
+            
+            # Also clear the image
+            if tab_name in self._tab_images:
+                del self._tab_images[tab_name]
+            # Also clear the calculation result
+            if tab_name in self._tab_results:
+                del self._tab_results[tab_name]
+            
+            self.show_tab_image(tab_name)
+            self.show_tab_result(tab_name)
+            
+            self.app.gui_log(f"Cleared the contents of tab '{tab_name}'.")
+        except Exception as e:
+            error_msg = f"Failed to clear tab: {e}"
+            QMessageBox.critical(self.app, "Error", error_msg)
+            self.logger.exception(f"Tab clear error: {e}")
+    
+    def on_character_change(self, text: str) -> None:
+        """Handle character change."""
+        # Retrieve the internal name directly from the UserData of the selected item
+        current_index = self.ui.charcombo.currentIndex()
+        if current_index >= 0:
+            internal_name = self.ui.charcombo.itemData(current_index)
+            if internal_name: # Ensure internal_name is not empty
+                self.app.character_var = internal_name
+                self.logger.info(f"Character selected: {internal_name}")
+                
+                # Automatically switch tab configuration if the character has a specific one
+                new_config = self.character_manager.get_character_config_key(internal_name)
+                if new_config and new_config != self.app.current_config_key:
+                    self.logger.info(f"Auto-switching tab configuration to {new_config} for {internal_name}")
+                    if self.ui.config_combo:
+                        # Reusing internal UI logic to trigger proper cleanup/rebuild
+                        self.ui.config_combo.setCurrentText(new_config)
+                else:
+                    self.tab_mgr.apply_character_main_stats()
+                
+                self.save_config()
+            else:
+                # If the empty item is selected, clear character_var
+                self.app.character_var = ""
+                self.logger.info("Character selection cleared.")
+                self.tab_mgr.apply_character_main_stats() # Apply to clear any existing stats
+                self.save_config()
+    
+    def clear_all(self) -> None:
+        """Reset all tabs, text, logs, input values, etc."""
+        try:
+            # Reset all tab contents
+            for content in self.tabs_content.values():
+                content["main_widget"].setCurrentIndex(-1)
+                for stat_widget, val_widget in content["sub_entries"]:
+                    stat_widget.setCurrentIndex(-1)
+                    val_widget.clear()
+            
+            if self.app.result_text:
+                self.app.result_text.clear()
+            if self.app.log_text:
+                self.app.log_text.clear()
+                
+            self.app.loaded_image = None
+            self.app.original_image = None
+            self.app._image_preview = None
+            self._tab_images.clear()
+            self._tab_results.clear()
+            
+            if self.app.image_label:
+                self.app.image_label.setText("No image loaded")
+                self.app.image_label.setPixmap(QPixmap())
+                
+            self.app.gui_log("All items have been cleared.")
+        except Exception as e:
+            error_msg = f"Failed to reset items: {e}"
+            QMessageBox.critical(self.app, "Clear Error", error_msg)
+            self.logger.exception(f"Clear all error: {e}")
+    
+    def export_result_to_txt(self) -> None:
+        """Export the score calculation result to a text file."""
+        try:
+            file_path, _ = QFileDialog.getSaveFileName(
+                self.app, "Save Result", "", "Text Files (*.txt);;All Files (*.*)"
+            )
+            if not file_path:
+                return
+            text = self.app.result_text.toPlainText()
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(text)
+            QMessageBox.information(self.app, "Success", "Calculation result exported to text file.")
+            self.app.gui_log(f"Exported calculation result to TXT file: {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self.app, "Error", f"Export failed:\n{e}")
+            self.logger.exception(f"Error during export: {e}")
+            self.app.gui_log(f"Error during export: {e}")
+    
+    def save_tab_image(self, tab_name: str, original_image: 'Image.Image', cropped_image: 'Image.Image') -> None:
+        """Save image data to the tab."""
+        self._tab_images[tab_name] = {
+            "original": original_image,
+            "cropped": cropped_image
+        }
+    
+    def get_tab_image(self, tab_name: str) -> Optional[Dict[str, Any]]:
+        """Get the image data for the tab."""
+        return self._tab_images.get(tab_name)
+
+    def update_tabs(self) -> None:
+        """Update tabs based on configuration."""
+        if self.app.notebook is None:
+            return
+            
+        self.app._updating_tabs = True
+        try:
+            config_key = self._validate_config_key()
+            config_tab_names = self.app.data_manager.tab_configs[config_key]
+            
+            old_data = self._save_current_tab_state()
+            
+            self.app.notebook.clear()
+            self.tabs_content = {}
+            
+            cost_counts = self._calculate_cost_counts(config_tab_names)
+            
+            current_cost_indices = {} # Track occurrence index for each cost
+            
+            for tab_name in config_tab_names:
+                cost_num = next((ch for ch in tab_name if ch.isdigit()), "1")
+                
+                # Calculate cost key (e.g. "4_1", "4_2" or just "4" if only one)
+                total_for_cost = cost_counts[cost_num]
+                current_idx = current_cost_indices.get(cost_num, 0) + 1
+                current_cost_indices[cost_num] = current_idx
+                
+                cost_key = cost_num if total_for_cost == 1 else f"{cost_num}_{current_idx}"
+                
+                # Create and Add Page
+                self._create_and_add_tab_page(tab_name, cost_num, cost_key)
+                
+                # Restore data if available
+                if tab_name in old_data:
+                    self._restore_tab_data(tab_name, old_data[tab_name])
+
+        except Exception as e:
+            self.app.gui_log(f"Tab update error: {e}")
+            self.logger.exception("Tab update failed")
+        finally:
+            self.app._updating_tabs = False
+            
+    def _validate_config_key(self) -> str:
+        """Validates and returns the current configuration key."""
+        config_key = self.app.current_config_key
+        tab_configs = self.app.data_manager.tab_configs
+        if config_key not in tab_configs:
+            self.app.gui_log(f"Invalid cost key '{config_key}' detected, falling back to {DEFAULT_COST_CONFIG}")
+            config_key = DEFAULT_COST_CONFIG
+            self.app.current_config_key = config_key
+            if self.app.config_combo:
+                self.app.config_combo.setCurrentText(config_key)
+        return config_key
+
+    def _save_current_tab_state(self) -> Dict[str, Any]:
+        """Saves the current state of all tabs."""
+        state = {}
+        for tab_name, content in self.tabs_content.items():
+            main_val = content["main_widget"].currentText()
+            sub_vals = []
+            for stat_widget, val_widget in content["sub_entries"]:
+                sub_vals.append((stat_widget.currentText(), val_widget.text()))
+            state[tab_name] = {
+                "main_stat": main_val,
+                "substats": sub_vals
+            }
+        return state
+
+    def _calculate_cost_counts(self, tab_names: list) -> Dict[str, int]:
+        """Calculates the total count of each cost in the configuration."""
+        totals = {}
+        for name in tab_names:
+            first_digit = next((ch for ch in name if ch.isdigit()), None)
+            if first_digit:
+                totals[first_digit] = totals.get(first_digit, 0) + 1
+        return totals
+
+    def _create_and_add_tab_page(self, tab_name: str, cost_num: str, cost_key: str) -> None:
+        """Creates a single tab page and adds it to the notebook."""
+        page = QWidget()
+        page_layout = QVBoxLayout(page)
+        
+        # Main Stat Section
+        main_combo = self._create_main_stat_section(page_layout, cost_num)
+        
+        # Substats Section
+        sub_entries = self._create_substat_section(page_layout)
+        
+        page_layout.addStretch()
+        
+        # Generate Label
+        tab_label = self._generate_tab_label(tab_name)
+        
+        self.app.notebook.addTab(page, tab_label)
+        
+        # Store references
+        self.tabs_content[tab_name] = {
+            "cost": cost_num,
+            "cost_key": cost_key,
+            "main_widget": main_combo,
+            "sub_entries": sub_entries
+        }
+
+    def _create_main_stat_section(self, layout: QVBoxLayout, cost_num: str) -> QComboBox:
+        """Creates the main stat selection group."""
+        group = QGroupBox(self.app.tr("main_stat"))
+        group_layout = QVBoxLayout(group)
+        layout.addWidget(group)
+        
+        fallback_main_stats = [self.app.tr("HP"), self.app.tr("ATK"), self.app.tr("DEF")]
+        main_opts = self.app.data_manager.main_stat_options.get(cost_num, fallback_main_stats)
+        translated_main_options = [self.app.tr(s) for s in main_opts]
+        
+        combo = QComboBox()
+        combo.addItems(translated_main_options)
+        group_layout.addWidget(combo)
+        return combo
+
+    def _create_substat_section(self, layout: QVBoxLayout) -> list:
+        """Creates the substat entry group."""
+        group = QGroupBox(self.app.tr("substats"))
+        group_layout = QGridLayout(group)
+        layout.addWidget(group)
+        
+        sub_entries = []
+        sub_max_vals = self.app.data_manager.substat_max_values
+        translated_sub_options = [""] + [self.app.tr(s) for s in list(sub_max_vals.keys())]
+        
+        for i in range(5):
+            row = i // 2
+            col = i % 2
+            
+            cell_widget = QWidget()
+            cell_layout = QHBoxLayout(cell_widget)
+            cell_layout.setContentsMargins(0, 0, 0, 0)
+            
+            stat_combo = QComboBox()
+            stat_combo.addItems(translated_sub_options)
+            
+            val_entry = QLineEdit()
+            val_entry.setFixedWidth(60)
+            
+            cell_layout.addWidget(stat_combo)
+            cell_layout.addWidget(val_entry)
+            
+            group_layout.addWidget(cell_widget, row, col)
+            sub_entries.append((stat_combo, val_entry))
+            
+        return sub_entries
+
+    def _generate_tab_label(self, tab_name: str) -> str:
+        """Generates a localized label for the tab."""
+        if "cost" in tab_name:
+            try:
+                parts = tab_name.split('_')
+                # parts[0] is like "cost4"
+                c_num = parts[0].replace("cost", "")
+                base_label = self.app.tr("cost_echo", c_num)
+                
+                suffix = ""
+                # If there's a numbered suffix like _1, _2
+                if len(parts) >= 3 and parts[2].isdigit():
+                    suffix = f" {parts[2]}"
+                
+                return f"{base_label}{suffix}"
+            except Exception:
+                pass 
+        return tab_name
+
+    def _restore_tab_data(self, tab_name: str, data: Dict[str, Any]) -> None:
+        """Restores the state of a single tab."""
+        if tab_name not in self.tabs_content:
+            return
+            
+        content = self.tabs_content[tab_name]
+        main_combo = content["main_widget"]
+        sub_entries = content["sub_entries"]
+        
+        main_combo.setCurrentText(data.get("main_stat", ""))
+        
+        saved_substats = data.get("substats", [])
+        for i, (s_val, v_val) in enumerate(saved_substats):
+            if i < len(sub_entries):
+                sub_entries[i][0].setCurrentText(s_val)
+                sub_entries[i][0].setCurrentText(s_val)
+                sub_entries[i][1].setText(v_val)
+
+    def extract_tab_data(self, tab_name: str) -> Optional[EchoEntry]:
+        """
+        Extracts data from the specified tab into a structured EchoEntry.
+        Returns None if tab does not exist.
+        """
+        if tab_name not in self.tabs_content:
+            return None
+        
+        content = self.tabs_content[tab_name]
+        main_stat = content["main_widget"].currentText()
+        cost = content.get("cost")
+        
+        substats = []
+        for stat_widget, val_widget in content["sub_entries"]:
+            s_text = stat_widget.currentText()
+            v_text = val_widget.text()
+            if s_text and v_text:
+                substats.append(SubStat(stat=s_text, value=v_text))
+                
+        return EchoEntry(
+            tab_index=0, # Placeholder or lookup real index if needed
+            cost=cost,
+            main_stat=main_stat,
+            substats=substats
+        )
+
+    def apply_character_main_stats(self, force: bool = False) -> None:
+        """Automatically enters main stats."""
+        if not force and not self.app.auto_apply_main_stats:
+            return
+            
+        mainstats = self.app.character_manager.get_main_stats(self.app.character_var)
+        
+        if self.app.ui.charcombo:
+            self.app.ui.charcombo.blockSignals(True)
+
+        for tab_name, content in self.tabs_content.items():
+            combo = content["main_widget"]
+            # If no char is selected (mainstats is empty), this helper will default to "---"
+            self.update_main_stat_combobox(combo, content, mainstats or {}, tab_name)
+        
+        if self.app.ui.charcombo:
+            self.app.ui.charcombo.blockSignals(False)
+
+    def update_main_stat_combobox(self, combo: 'QComboBox', content: dict, mainstats: dict, tab_name: str) -> None:
+        """Helper to update a single main stat combobox."""
+        try:
+            combo.clear()
+            options = ["---"]
+            
+            # 1. Try lookup by exact tab name (e.g. "cost4_echo") - Used in JSON profiles
+            preferred = mainstats.get(tab_name)
+            if preferred:
+                if isinstance(preferred, list):
+                    for s in preferred:
+                        options.append(self.app.tr(s))
+                else:
+                    options.append(self.app.tr(preferred))
+            else:
+                # 2. Fallback to cost-based lookup (Legacy/General support)
+                cost_str = str(content.get("cost", ""))
+                cost_main_stats = mainstats.get(cost_str, [])
+                for stat in cost_main_stats:
+                    options.append(self.app.tr(stat))
+                
+            combo.addItems(options)
+            
+            # Select preferred stat if we found one
+            if preferred:
+                target_stat = preferred[0] if isinstance(preferred, list) else preferred
+                translated_target = self.app.tr(target_stat)
+                idx = combo.findText(translated_target)
+                if idx >= 0:
+                    combo.setCurrentIndex(idx)
+            else:
+                # Select saved value if possible (only if no new preference found)
+                saved_val = content.get("data", {}).get("main_stat", "")
+                if saved_val:
+                    translated_val = self.app.tr(saved_val)
+                    idx = combo.findText(translated_val)
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+        except Exception as e:
+            self.app.logger.exception(f"Error updating main stat combobox for '{tab_name}': {e}")
+
+    def fill_selected_tab_with_ocr_results(self, substats: list[Any], log_messages: list[str]) -> None:
+        """Applies OCR results to the currently selected tab."""
+        for msg in log_messages:
+            self.app.gui_log(msg)
+        
+        if not substats:
+            self.app.gui_log("OCR completed but no substats were parsed.")
+            return
+            
+        tab_name = self.get_selected_tab_name()
+        if not tab_name:
+            self.app.gui_log("OCR auto-fill failed: No tab selected")
+            return
+        if tab_name not in self.tabs_content:
+            self.app.gui_log(f"OCR auto-fill failed: Tab '{tab_name}' not found")
+            return
+            
+        content = self.tabs_content[tab_name]
+        sub_entries = content["sub_entries"]
+        
+        for i, substat_data in enumerate(substats):
+            if i < len(sub_entries):
+                # substat_data is likely a SubStat data class instance based on previous refactors
+                stat_found = getattr(substat_data, 'stat', "")
+                num_found = getattr(substat_data, 'value', "")
+                
+                translated_stat = self.app.tr(stat_found)
+                sub_entries[i][0].setCurrentText(translated_stat)
+                sub_entries[i][1].setText(str(num_found))
+        
+        self.app.gui_log(f"Successfully applied OCR results to tab '{tab_name}'.")
