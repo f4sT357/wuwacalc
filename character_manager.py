@@ -1,0 +1,237 @@
+
+import json
+import logging
+import os
+import copy
+import re
+from PyQt6.QtCore import QObject, pyqtSignal
+from typing import Optional
+
+from utils import get_app_path
+from constants import DEFAULT_COST_CONFIG
+from data_contracts import CharacterProfile
+
+def _sanitize_filename(name: str) -> str:
+    """Sanitizes a string to be a valid filename."""
+    return re.sub(r'[^0-9A-Za-z一-龠ぁ-んァ-ヴー_-]', '_', name)
+
+class CharacterManager(QObject):
+    """Manages character data, including loading, saving, and registration."""
+    
+    profiles_updated = pyqtSignal()
+    character_registered = pyqtSignal(str) # Emits the internal name of the new character
+
+    def __init__(self, logger: logging.Logger, data_manager, parent=None):
+        super().__init__(parent)
+        self.logger = logger
+        self.data_manager = data_manager
+        
+        # Deep copy data from DataManager to avoid modifying source
+        self._stat_weights = copy.deepcopy(data_manager.character_stat_weights)
+        self._main_stats = copy.deepcopy(data_manager.character_main_stats)
+        self._name_map_jp_to_en = copy.deepcopy(data_manager.char_name_map_jp_to_en)
+        self._name_map_en_to_jp = {v: k for k, v in self._name_map_jp_to_en.items()}
+        
+        self.tab_configs = data_manager.tab_configs
+        
+        # Initialize with deep copy from data manager
+        self._character_config_map = copy.deepcopy(data_manager.character_config_map) 
+
+        self._load_character_profiles()
+
+    def _load_character_profiles(self):
+        """Loads character profiles from JSON files in the character_settings_jsons directory."""
+        self.logger.info("Loading character profiles...")
+        char_dir = os.path.join(get_app_path(), "character_settings_jsons")
+        if not os.path.isdir(char_dir):
+            self.logger.warning(f"Character settings directory not found: {char_dir}")
+            return
+
+        for filename in os.listdir(char_dir):
+            if filename.endswith(".json"): # More generic than _character.json
+                try:
+                    filepath = os.path.join(char_dir, filename)
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    
+                    internal_name = data.get("character")
+                    jp_name = data.get("character_jp")
+                    
+                    if not internal_name:
+                        # Attempt to derive from filename for legacy files
+                        internal_name = filename.replace("_character.json", "")
+                        self.logger.warning(f"Legacy character file '{filename}' detected. Using filename as internal name: {internal_name}")
+
+                    if not internal_name:
+                         self.logger.warning(f"Skipping profile from '{filename}': missing 'character' field.")
+                         continue
+
+                    weights = data.get("character_weights")
+                    mainstats = data.get("character_mainstats")
+                    costkey = data.get("costkey")
+                    config = data.get("config")
+
+                    if not all([weights, mainstats, (costkey or config)]):
+                        self.logger.warning(f"Skipping incomplete character profile: {filename}")
+                        continue
+                    
+                    if not jp_name:
+                        jp_name = self.get_display_name(internal_name)
+
+                    # Update data stores
+                    self._stat_weights[internal_name] = weights
+                    self._main_stats[internal_name] = mainstats
+                    self._name_map_en_to_jp[internal_name] = jp_name
+                    self._name_map_jp_to_en[jp_name] = internal_name
+                    self._character_config_map[internal_name] = config or self._normalize_cost_key(costkey, DEFAULT_COST_CONFIG)
+                    
+                    self.logger.info(f"Loaded character profile: {internal_name}")
+
+                except json.JSONDecodeError:
+                    self.logger.error(f"Failed to decode JSON from {filename}")
+                except Exception as e:
+                    self.logger.error(f"Failed to load character profile {filename}: {e}", exc_info=True)
+        
+        self.logger.info("Finished loading character profiles.")
+        self.profiles_updated.emit()
+
+    def register_character(self, name_jp: str, name_en: str, costkey: str, mainstats: dict, weights: dict) -> None:
+        """Registers a new character and saves its profile to a JSON file."""
+        internal_char_name = name_en
+        
+        try:
+            # --- Save to JSON file ---
+            base_dir = get_app_path()
+            target_dir = os.path.join(base_dir, "character_settings_jsons")
+            os.makedirs(target_dir, exist_ok=True)
+            
+            # Use English name for filename for consistency
+            safe_name = _sanitize_filename(internal_char_name)
+            file_path = os.path.join(target_dir, f"{safe_name}_character.json")
+            
+            normalized_key = self._normalize_cost_key(costkey, DEFAULT_COST_CONFIG)
+            
+            payload = {
+                "character": internal_char_name,
+                "character_jp": name_jp,
+                "costkey": costkey,
+                "config": normalized_key,
+                "character_mainstats": mainstats,
+                "character_weights": weights
+            }
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            
+            self.logger.info(f"Character profile saved: {internal_char_name} -> {file_path}")
+
+            # --- Update internal data stores ---
+            self._stat_weights[internal_char_name] = weights
+            self._main_stats[internal_char_name] = mainstats
+            self._name_map_en_to_jp[internal_char_name] = name_jp
+            self._name_map_jp_to_en[name_jp] = internal_char_name
+            self._character_config_map[internal_char_name] = normalized_key
+
+            # --- Emit signal ---
+            self.character_registered.emit(internal_char_name)
+
+        except Exception as e:
+            self.logger.error(f"Error registering or saving character profile for '{internal_char_name}': {e}", exc_info=True)
+            # Optionally, re-raise or emit an error signal
+            
+    def get_all_characters(self) -> list[tuple[str, str]]:
+        """Returns a list of (display_name, internal_name) for all characters."""
+        # Sorting by display name (Japanese name)
+        return sorted(
+            [(self.get_display_name(name), name) for name in self._stat_weights.keys()],
+            key=lambda x: x[0]
+        )
+
+    def get_display_name(self, internal_name: str) -> str:
+        """Gets the Japanese display name for a given internal English name."""
+        return self._name_map_en_to_jp.get(internal_name, internal_name)
+
+    def get_internal_name(self, display_name: str) -> str:
+        """Gets the internal English name for a given Japanese display name."""
+        # Fallback for when the internal name is passed directly
+        if display_name in self._name_map_en_to_jp:
+             return display_name
+        return self._name_map_jp_to_en.get(display_name, display_name)
+
+    def get_stat_weights(self, internal_name: str) -> dict:
+        """Gets the stat weights for a character."""
+        return self._stat_weights.get(internal_name, self._stat_weights.get("General", {}))
+
+    def get_main_stats(self, internal_name: str) -> dict:
+        """Gets the main stats for a character."""
+        return self._main_stats.get(internal_name, {})
+        
+    def get_character_config_key(self, internal_name: str) -> str:
+        """Gets the cost config key for a character."""
+        return self._character_config_map.get(internal_name, "")
+
+    def get_character_config_map(self) -> dict:
+        """Returns the entire character to config key map."""
+        return self._character_config_map
+    
+    def add_or_update_character_temp(self, internal_name: str, jp_name: str, weights: dict, mainstats: dict):
+        """
+        Adds or updates a character's data in memory for the current session without saving to a file.
+        This is used for loading character data from build/session files.
+        """
+        if not all([internal_name, jp_name, weights, mainstats]):
+            self.logger.warning(f"Attempted to temporarily add character with incomplete data: EN='{internal_name}'")
+            return
+
+        self.logger.info(f"Temporarily updating data for character: {internal_name}")
+        self._stat_weights[internal_name] = weights
+        self._main_stats[internal_name] = mainstats
+        self._name_map_en_to_jp[internal_name] = jp_name
+        self._name_map_jp_to_en[jp_name] = internal_name
+        
+        # This might cause the character combobox to update, which is desired.
+        self.profiles_updated.emit()
+
+    def _normalize_cost_key(self, costkey: any, current_config: str) -> str:
+        """Normalizes a cost key to a valid tab configuration."""
+        if isinstance(costkey, str):
+            digits = ''.join(ch for ch in costkey if ch.isdigit())
+            if digits in self.tab_configs:
+                return digits
+        elif isinstance(costkey, (list, tuple)):
+            digits = ''.join(str(int(c)) for c in costkey)
+            if digits in self.tab_configs:
+                return digits
+        
+        if current_config in self.tab_configs:
+            return current_config
+        return DEFAULT_COST_CONFIG # Fallback
+
+    def get_character_profile(self, internal_name: str) -> Optional[CharacterProfile]:
+        """
+        Retrieves the full profile for a character.
+        
+        Args:
+            internal_name: The internal English ID of the character.
+            
+        Returns:
+            CharacterProfile object or None if not found.
+        """
+        if not internal_name:
+            return None
+
+        jp_name = self.get_display_name(internal_name)
+        cost_config = self.get_character_config_key(internal_name) or DEFAULT_COST_CONFIG
+        
+        # Get main stats
+        main_stats = self.get_main_stats(internal_name) or {}
+        
+        # Get weights
+        weights = self.get_stat_weights(internal_name) or {}
+        
+        return CharacterProfile(
+            internal_name=internal_name,
+            jp_name=jp_name,
+            cost_config=cost_config,
+            main_stats=main_stats,
+            weights=weights
+        )

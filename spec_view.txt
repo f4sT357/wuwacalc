@@ -1,0 +1,110 @@
+﻿# -*- mode: python ; coding: utf-8 -*-
+import os
+import glob
+
+datas = []
+binaries = []
+
+# 蠢・ｦ∵怙蟆城剞縺ｮhidden imports
+hiddenimports = [
+    'PIL.Image',
+    'PIL.ImageTk',
+    'PIL.ImageOps',
+    'PIL.ImageFilter',
+    'PIL.ImageEnhance',
+    'PIL.ImageGrab',
+    'pytesseract',
+    'PIL.ImageQt',
+    'PyQt6',
+    'PyQt6.QtCore',
+    'PyQt6.QtGui',
+    'PyQt6.QtWidgets',
+    'PyQt6.sip',
+]
+
+# 霑ｽ蜉繝輔ぃ繧､繝ｫ繧壇atas縺ｫ霑ｽ蜉
+datas += [
+    ('constants.py', '.'),
+    ('echo_data.py', '.'),
+    ('utils.py', '.'),
+    ('languages.py', '.'),
+    ('dialogs.py', '.'),
+    ('config_manager.py', '.'),
+    ('app_logic.py', '.'),
+    ('score_calculator.py', '.'),
+    ('tab_manager.py', '.'),
+    ('event_handlers.py', '.'),
+    ('ui_components.py', '.'),
+    ('image_processor.py', '.'),
+    ('config.json', '.'),
+    ('README.html', '.'),
+    ('appearance_help.html', '.'),
+    ('character_settings_jsons', 'character_settings_jsons'),
+]
+
+# Tesseract-OCR縺ｮ繝舌う繝翫Μ縺ｨ萓晏ｭ倬未菫ゅｒ繝舌Φ繝峨Ν・亥ｭ伜惠縺吶ｋ蝣ｴ蜷茨ｼ・
+tesseract_dir = r'C:\Program Files\Tesseract-OCR'
+tesseract_exe = os.path.join(tesseract_dir, 'tesseract.exe')
+
+if os.path.exists(tesseract_exe):
+    # tesseract.exe繧偵ヰ繝ｳ繝峨Ν
+    binaries += [(tesseract_exe, 'tesseract')]
+    
+    # 縺吶∋縺ｦ縺ｮDLL繝輔ぃ繧､繝ｫ繧偵ヰ繝ｳ繝峨Ν・・esseract縺ｮ萓晏ｭ倬未菫ゑｼ・
+    dll_files = glob.glob(os.path.join(tesseract_dir, '*.dll'))
+    for dll in dll_files:
+        binaries += [(dll, 'tesseract')]
+    
+    # tessdata繝輔か繝ｫ繝繧偵ヰ繝ｳ繝峨Ν・郁ｨ隱槭ョ繝ｼ繧ｿ・・
+    tessdata = os.path.join(tesseract_dir, 'tessdata')
+    if os.path.exists(tessdata):
+        datas += [(tessdata, 'tesseract/tessdata')]
+
+# 荳崎ｦ√↑螟ｧ縺阪↑繝ｩ繧､繝悶Λ繝ｪ繧帝勁螟・
+excludes = [
+    'torch', 'torchvision', 'tensorflow', 'keras',
+    'cv2', 'sklearn', 'scipy', 'pandas', 'numpy.f2py',
+    'matplotlib', 'PySide6', 'PyQt5',
+    'notebook', 'jupyter', 'IPython',
+    'pytest', 'unittest', 'doctest',
+    'pygame', 'OpenGL', 'pyarrow',
+]
+
+a = Analysis(
+    ['wuwacalc17.py'],
+    pathex=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=excludes,
+    noarchive=False,
+    optimize=0,
+)
+
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name='wuwacalc17',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=None,
+)
+
