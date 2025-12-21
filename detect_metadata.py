@@ -1,6 +1,7 @@
 import re
 import sys
 import argparse
+from logger import logger
 
 def detect_metadata_lines(filepath, fix_file=False):
     """
@@ -19,24 +20,24 @@ def detect_metadata_lines(filepath, fix_file=False):
             
         for line_num, line in enumerate(original_lines, 1):
             if pattern.match(line):
-                print(f"Metadata pattern found at line {line_num}: {line.strip()}")
+                logger.info(f"Metadata pattern found at line {line_num}: {line.strip()}")
                 found_errors = True
             else:
                 cleaned_lines.append(line) # メタデータがない行は保持
 
         if fix_file and found_errors:
-            print(f"Fixing {filepath} by removing metadata lines...")
+            logger.info(f"Fixing {filepath} by removing metadata lines...")
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.writelines(cleaned_lines)
-            print(f"Successfully cleaned {filepath}.")
+            logger.info(f"Successfully cleaned {filepath}.")
         elif not found_errors:
-            print(f"No metadata patterns found in {filepath}.")
+            logger.info(f"No metadata patterns found in {filepath}.")
 
     except FileNotFoundError:
-        print(f"Error: File not found at {filepath}")
+        logger.error(f"Error: File not found at {filepath}")
         return False
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logger.exception(f"An unexpected error occurred: {e}")
         return False
         
     return found_errors

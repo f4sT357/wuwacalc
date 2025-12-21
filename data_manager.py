@@ -28,6 +28,36 @@ class DataManager:
         """
         self.load_game_data()
         self.load_calc_config()
+        self.validate_data()
+
+    def validate_data(self) -> None:
+        """
+        Validates that loaded data contains essential keys.
+        Raises:
+            DataLoadError: If essential data is missing.
+        """
+        essential_game_keys = [
+            "substat_max_values", "main_stat_options", 
+            "substat_types", "character_stat_weights",
+            "tab_configs"
+        ]
+        
+        for key in essential_game_keys:
+            if key not in self.game_data:
+                self.logger.critical(f"Missing essential key in game_data: {key}")
+                raise DataLoadError(f"Corrupted game data: Missing '{key}'")
+
+        essential_calc_keys = [
+            "main_stat_multiplier", "roll_quality", 
+            "effective_stats", "cv_weights"
+        ]
+        
+        for key in essential_calc_keys:
+            if key not in self.calc_config:
+                self.logger.critical(f"Missing essential key in calc_config: {key}")
+                raise DataLoadError(f"Corrupted calculation config: Missing '{key}'")
+        
+        self.logger.info("Data validation successful.")
 
     def load_game_data(self) -> None:
         """

@@ -53,6 +53,7 @@ class ScoreCalculator:
                     val = float(clean_val)
                     substats[sub.stat] = val
                 except ValueError:
+                    self.app.logger.warning(f"Invalid numeric value for substat '{sub.stat}': '{sub.value}'")
                     continue
         return substats
     
@@ -95,6 +96,13 @@ class ScoreCalculator:
             
             substats = self.extract_substats_from_entry(entry)
             echo = EchoData(entry.cost, main_stat, substats)
+            
+            # Duplicate Detection Logic
+            fingerprint = echo.get_fingerprint()
+            duplicates = self.app.history_mgr.find_duplicates(fingerprint)
+            if duplicates:
+                self.app.gui_log(f"[Duplicate Detected] Echo with exact same stats found in history (IDs: {duplicates})")
+            
             config_bundle = self._get_config_bundle()
             evaluation = echo.evaluate_comprehensive(weights, config_bundle, enabled_methods)
             
@@ -105,6 +113,17 @@ class ScoreCalculator:
             
             self.app.result_text.setHtml(html)
             self.app.tab_mgr.save_tab_result(tab_name)
+            
+            # Record to history
+            result_summary = f"Score: {evaluation.total_score:.2f} ({self.app.tr(evaluation.rating)})"
+            self.app.history_mgr.add_entry(
+                character=character,
+                cost=entry.cost or "Unknown",
+                action="Single Evaluation",
+                result=result_summary,
+                fingerprint=fingerprint
+            )
+            
             self.app.gui_log(f"Individual evaluation for {tab_name} complete.")
             
         except Exception as e:
@@ -131,36 +150,14 @@ class ScoreCalculator:
             config_bundle = self._get_config_bundle()
 
             for tab_name in self.app.tab_mgr.tabs_content.keys():
-                try:
-                    entry = self.app.tab_mgr.extract_tab_data(tab_name)
-                    if not entry:
-                        continue
-
-                    main_stat = entry.main_stat
-                    if not main_stat:
-                        continue
-                    
-                    substats = self.extract_substats_from_entry(entry)
-                    echo = EchoData(entry.cost, main_stat, substats)
-                    evaluation = echo.evaluate_comprehensive(weights, config_bundle, enabled_methods)
-                    
-                    eval_data = {
-                        "tab_name": tab_name,
-                        "effective_count": evaluation['effective_count'],
-                        "total": evaluation['total_score'],
-                        "recommendation": TRANSLATIONS.get(self.app.language, TRANSLATIONS["en"])[evaluation['recommendation']]
-                    }
-                    
-                    for method, score in evaluation['individual_scores'].items():
-                        eval_data[method] = score
-                        total_scores[method] += score
-                    
+                eval_data = self._evaluate_tab_for_batch(tab_name, weights, config_bundle, enabled_methods, character)
+                if eval_data:
                     all_evaluations.append(eval_data)
-                    total_scores["total"] += evaluation['total_score']
+                    total_scores["total"] += eval_data["total"]
+                    for method, score in eval_data.items():
+                        if method in total_scores and method != "total":
+                            total_scores[method] += score
                     calculated_count += 1
-                    
-                except Exception as e:
-                    self.app.logger.exception(f"Calculation error for {tab_name}: {e}")
             
             self.app.result_text.clear()
             
@@ -178,3 +175,52 @@ class ScoreCalculator:
             self.app.logger.exception(f"Batch calculation error: {e}")
             self.app.gui_log(f"Batch calculation error: {e}")
             QMessageBox.critical(self.app, "Error", f"Batch calculation error:\n{e}")
+
+    def _evaluate_tab_for_batch(self, tab_name: str, weights: Dict[str, float], 
+                                config_bundle: Dict[str, Any], enabled_methods: Dict[str, bool], character: str) -> Optional[Dict[str, Any]]:
+        """Evaluate a single tab for batch processing."""
+        try:
+            entry = self.app.tab_mgr.extract_tab_data(tab_name)
+            if not entry:
+                return None
+
+            main_stat = entry.main_stat
+            if not main_stat:
+                return None
+            
+            substats = self.extract_substats_from_entry(entry)
+            echo = EchoData(entry.cost, main_stat, substats)
+            
+            # Duplicate Detection
+            fingerprint = echo.get_fingerprint()
+            duplicates = self.app.history_mgr.find_duplicates(fingerprint)
+            if duplicates:
+                self.app.gui_log(f"[{tab_name}] Duplicate Detected (Previous IDs: {duplicates})")
+            
+            evaluation = echo.evaluate_comprehensive(weights, config_bundle, enabled_methods)
+            
+            eval_data = {
+                "tab_name": tab_name,
+                "effective_count": evaluation.effective_count,
+                "total": evaluation.total_score,
+                "recommendation": TRANSLATIONS.get(self.app.language, TRANSLATIONS["en"])[evaluation.recommendation]
+            }
+            
+            for method, score in evaluation.individual_scores.items():
+                eval_data[method] = score
+            
+            # Record to history
+            result_summary = f"Score: {evaluation.total_score:.2f} (Batch)"
+            self.app.history_mgr.add_entry(
+                character=character,
+                cost=entry.cost or "Unknown",
+                action="Batch Evaluation",
+                result=result_summary,
+                fingerprint=fingerprint
+            )
+            
+            return eval_data
+            
+        except Exception as e:
+            self.app.logger.exception(f"Calculation error for {tab_name}: {e}")
+            return None

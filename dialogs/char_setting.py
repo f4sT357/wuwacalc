@@ -286,7 +286,10 @@ class CharSettingDialog(QDialog):
                     effweights[ename] = 1.0
 
         if self.on_register_char:
-            self.on_register_char(name, name_en, preset_key, mainstats, effweights)
+            success = self.on_register_char(name, name_en, preset_key, mainstats, effweights)
+            if not success:
+                QMessageBox.critical(self, self.app.tr("error"), f"Failed to save character profile for '{name}'.\nCheck log for details.")
+                return
 
         QMessageBox.information(self, self.app.tr("save_complete"), self.app.tr("save_msg", name))
         self.accept()

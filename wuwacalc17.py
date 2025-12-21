@@ -7,9 +7,9 @@ import webbrowser
 
 from typing import Any, Callable, Optional, List, Tuple, Dict, Union
 
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QMessageBox, QStyleFactory, QComboBox)
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QMessageBox, QStyleFactory, QComboBox, QStatusBar)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtGui import QIcon, QFont, QShortcut, QKeySequence
 
 from config_manager import ConfigManager
 from constants import (
@@ -20,7 +20,7 @@ from constants import (
 from dialogs import CharSettingDialog, CropDialog, DisplaySettingsDialog, ImagePreprocessingSettingsDialog
 from echo_data import EchoData
 from languages import TRANSLATIONS
-from utils import crop_image_by_percent, get_app_path, get_substat_display, setup_tesseract, check_and_alert_environment
+from utils import crop_image_by_percent, get_app_path, get_resource_path, get_substat_display, setup_tesseract, check_and_alert_environment
 from data_contracts import EchoEntry, SubStat
 from character_manager import CharacterManager
 
@@ -34,6 +34,8 @@ from image_processor import ImageProcessor
 from app_logic import AppLogic
 from data_manager import DataManager
 from html_renderer import HtmlRenderer
+from history_manager import HistoryManager
+from dialogs import CharSettingDialog, CropDialog, DisplaySettingsDialog, ImagePreprocessingSettingsDialog, HistoryDialog
 from ui_constants import (
     WINDOW_WIDTH, WINDOW_HEIGHT, RIGHT_TOP_HEIGHT,
     LOG_MIN_HEIGHT, LOG_DEFAULT_HEIGHT,
@@ -64,7 +66,7 @@ class ScoreCalculatorApp(QMainWindow):
 
         # Initialize DataManager
         try:
-            self.data_manager = DataManager(os.path.join(get_app_path(), "data"))
+            self.data_manager = DataManager(get_resource_path("data"))
             self.data_manager.load_all()
         except Exception as e:
             # If critical data fails to load, show error and exit/disable features
@@ -74,6 +76,7 @@ class ScoreCalculatorApp(QMainWindow):
             sys.exit(1)
 
         self.character_manager = CharacterManager(self.logger, self.data_manager)
+        self.history_mgr = HistoryManager()
 
         self.theme_manager = ThemeManager(self)
         self._init_config()
@@ -99,6 +102,11 @@ class ScoreCalculatorApp(QMainWindow):
 
         self.setWindowTitle("Wuthering Waves Echo Score Calculator")
         self.resize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
+
+        # Status Bar
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage(self.tr("settings_loaded"), 5000)
 
         # Instantiate component modules
         self.html_renderer = HtmlRenderer(self.tr, self.language)
@@ -143,6 +151,32 @@ class ScoreCalculatorApp(QMainWindow):
         
         # Post-initialization setup
         QTimer.singleShot(100, self._post_init_setup)
+        self._setup_shortcuts()
+
+    def _setup_shortcuts(self) -> None:
+        """Setup application-wide keyboard shortcuts."""
+        try:
+            # Ctrl + V: Paste from clipboard
+            QShortcut(QKeySequence("Ctrl+V"), self).activated.connect(self.image_proc.paste_from_clipboard)
+            
+            # Ctrl + Enter or F5: Calculate
+            QShortcut(QKeySequence("Ctrl+Return"), self).activated.connect(self.score_calc.calculate_all_scores)
+            QShortcut(QKeySequence("Ctrl+Enter"), self).activated.connect(self.score_calc.calculate_all_scores)
+            QShortcut(QKeySequence("F5"), self).activated.connect(self.score_calc.calculate_all_scores)
+            
+            # Ctrl + S: Export to TXT
+            QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self.tab_mgr.export_result_to_txt)
+            
+            # Ctrl + R: Clear All
+            QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self.tab_mgr.clear_all)
+
+            # Ctrl + H: History
+            QShortcut(QKeySequence("Ctrl+H"), self).activated.connect(self.open_history)
+            
+            self.logger.info("Keyboard shortcuts initialized.")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize keyboard shortcuts: {e}")
+            self.gui_log(f"Warning: Keyboard shortcuts could not be initialized.")
 
     def _init_config(self) -> None:
         """Initialize ConfigManager and load settings."""
@@ -230,6 +264,9 @@ class ScoreCalculatorApp(QMainWindow):
     def gui_log(self, msg: str) -> None:
         """Simple logging to GUI."""
         self.logger.info(msg)
+        if self.status_bar:
+            self.status_bar.showMessage(str(msg), 5000)
+            
         if self.log_text is not None:
             try:
                 self.log_text.append(str(msg))
@@ -252,9 +289,9 @@ class ScoreCalculatorApp(QMainWindow):
     def _open_readme(self) -> None:
         """Opens the README file."""
         try:
-            base_dir = get_app_path()
-            readme_path = os.path.join(base_dir, "README.html")
+            readme_path = get_resource_path("README.md")
             if os.path.exists(readme_path):
+                # Since it's .md, maybe open in browser or text editor
                 webbrowser.open(readme_path)
             else:
                 QMessageBox.critical(self, "Error", f"README file not found:\n{readme_path}")
@@ -315,6 +352,10 @@ class ScoreCalculatorApp(QMainWindow):
     def open_image_preprocessing_settings(self) -> None:
         """Display the image preprocessing settings dialog."""
         self._open_dialog(ImagePreprocessingSettingsDialog, "image preprocessing settings")
+
+    def open_history(self) -> None:
+        """Display the history dialog."""
+        self._open_dialog(HistoryDialog, "history", self.history_mgr)
 
     def update_background_image(self, new_path: str) -> None:
         """Update the background image."""

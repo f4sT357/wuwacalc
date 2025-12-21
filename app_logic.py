@@ -166,13 +166,64 @@ class AppLogic(QObject):
         """
         raw_text = self._perform_ocr(image)
         if not raw_text:
-            return OCRResult(substats=[], log_messages=[self.tr("ocr_failed_no_text")], cost=None, raw_text="")
+            return OCRResult(substats=[], log_messages=[self.tr("ocr_failed_no_text")], cost=None, main_stat=None, raw_text="")
 
         substats, log_messages = self.parse_substats_from_ocr(raw_text, language)
         cost = self.detect_cost_from_ocr(raw_text)
+        main_stat = self.detect_main_stat_from_ocr(raw_text, cost)
 
-        return OCRResult(substats=substats, log_messages=log_messages, cost=cost, raw_text=raw_text)
+        if main_stat:
+            log_messages.append(f"OCR auto-fill: Main Stat -> {self.tr(main_stat)}")
 
+        return OCRResult(substats=substats, log_messages=log_messages, cost=cost, main_stat=main_stat, raw_text=raw_text)
+
+    def detect_main_stat_from_ocr(self, ocr_text: str, cost: Optional[str]) -> Optional[str]:
+        """
+        Detects the main stat from the OCR text.
+        """
+        if not ocr_text:
+            return None
+
+        # Determine which main stats are possible based on cost
+        # If cost is unknown, we check all possible main stats
+        possible_stats = []
+        if cost and cost in self.data_manager.main_stat_options:
+            possible_stats = self.data_manager.main_stat_options[cost]
+        else:
+            # Flatten all possible main stats from all costs
+            for stats in self.data_manager.main_stat_options.values():
+                possible_stats.extend(stats)
+            possible_stats = list(set(possible_stats)) # Unique values
+
+        # Prepare aliases for matching
+        stat_aliases = self.data_manager.stat_aliases
+        
+        # Scan the first half of the OCR text (where the main stat usually resides)
+        lines = ocr_text.splitlines()
+        search_limit = min(len(lines), 10)
+        search_lines = lines[:search_limit]
+
+        self.log_message.emit(f"Searching for main stat in first {search_limit} lines using {len(possible_stats)} candidates.")
+
+        for line in search_lines:
+            line_clean = line.strip()
+            if not line_clean:
+                continue
+
+            for stat in possible_stats:
+                # Direct match
+                if stat in line_clean:
+                    self.log_message.emit(f"Main stat detected via direct match: {stat}")
+                    return stat
+                
+                # Alias match
+                aliases = stat_aliases.get(stat, [])
+                for alias in aliases:
+                    if alias in line_clean:
+                        self.log_message.emit(f"Main stat detected via alias match: {stat} (alias: {alias})")
+                        return stat
+
+        return None
 
     def parse_substats_from_ocr(self, ocr_text: str, language: str) -> tuple[list[SubStat], list[str]]:
         """Parses substats from OCR text and returns data and log messages."""
@@ -198,10 +249,10 @@ class AppLogic(QObject):
             
             cleaned_lines.append(cleaned_line)
         lines = cleaned_lines
-        self.log_message.emit(f"Parsed Lines after cleaning: {lines}") # 追加
+        self.log_message.emit(f"Parsed Lines after cleaning: {lines}")
 
         last_five = lines[-5:] if len(lines) >= 5 else lines
-        self.log_message.emit(f"Last five lines for parsing: {last_five}") # 追加
+        self.log_message.emit(f"Last five lines for parsing: {last_five}")
         
         alias_pairs = []
         stat_aliases = self.data_manager.stat_aliases
@@ -213,60 +264,65 @@ class AppLogic(QObject):
         log_messages = []
 
         for i, line in enumerate(last_five):
-            stat_found = ""
-            num_found = ""
-            is_percent = False
+            result = self._parse_single_line(line, alias_pairs)
             
-            # ステータス名と数値部分を分離するパターンを試す
-            # 例: "防御力 13.8%" -> "防御力", "13.8%"
-            # ステータス名 + 複数の空白 + 数字 + オプションの % または ％
-            match = re.search(r'(.+?)\s+([\d\.]+(?:\s*[%％])?)', line)
-            
-            if match:
-                stat_text_from_line = match.group(1).strip()
-                num_text_from_line = match.group(2).strip()
+            if result:
+                substat, is_percent = result
+                found_substats.append(substat)
                 
-                # エイリアスチェック
-                # より具体的なエイリアスからチェックするために、alias_pairsをソートすることも検討
-                # ただし、現在のalias_pairsは長さでソートされているのでそのまま使用
-                for stat, alias in alias_pairs:
-                    # stat_text_from_line がエイリアスと直接一致するか、エイリアスが stat_text_from_line に含まれるか
-                    if stat_text_from_line == stat or stat_text_from_line == alias: 
-                        stat_found = stat
-                        # 数値部分から純粋な数字を抽出
-                        nums = re.findall(r"[\d\.]+", num_text_from_line.replace('％', '%'))
-                        if nums:
-                            num_found = nums[0]
-                            if "%" in num_text_from_line or "％" in num_text_from_line:
-                                is_percent = True
-                        break # マッチしたらループを抜ける
-            
-            # 以前のロジックでパースできなかった場合、stat_aliases全体で再チェックする
-            # これは、OCRノイズによって分離パターンが失敗した場合のフォールバック
-            if not stat_found:
-                for stat, alias in alias_pairs:
-                    if alias in line: # 行全体にエイリアスが含まれるか
-                        stat_found = stat
-                        nums = re.findall(r"[\d\.]+", line.replace('％', '%'))
-                        if nums:
-                            num_found = nums[0]
-                            if "%" in line or "％" in line:
-                                is_percent = True
-                        break
-            
-            if stat_found:
-                found_substats.append(SubStat(stat=stat_found, value=num_found))
-                
-                stat_name_for_log = stat_found
+                stat_name_for_log = substat.stat
                 if language == "en":
-                    stat_name_for_log = self.data_manager.stat_translation_map.get(stat_found, stat_found)
+                    stat_name_for_log = self.data_manager.stat_translation_map.get(substat.stat, substat.stat)
                 
-                log_messages.append(f"OCR auto-fill: Sub{i+1} -> {stat_name_for_log} {num_found}{'%' if is_percent else ''}")
+                log_messages.append(f"OCR auto-fill: Sub{i+1} -> {stat_name_for_log} {substat.value}{'%' if is_percent else ''}")
         
-        self.log_message.emit(f"Found substats: {found_substats}") # 追加
-        self.log_message.emit(f"Generated log messages: {log_messages}") # 追加
+        self.log_message.emit(f"Found substats: {found_substats}")
+        self.log_message.emit(f"Generated log messages: {log_messages}")
         
         return found_substats, log_messages
+
+    def _parse_single_line(self, line: str, alias_pairs: List[Tuple[str, str]]) -> Optional[Tuple[SubStat, bool]]:
+        """
+        Parses a single line of text to extract a SubStat.
+        Returns: (SubStat, is_percent) or None if no match found.
+        """
+        stat_found = ""
+        num_found = ""
+        is_percent = False
+        
+        # ステータス名と数値部分を分離するパターンを試す
+        # 例: "防御力 13.8%" -> "防御力", "13.8%"
+        match = re.search(r'(.+?)\s+([\d\.]+(?:\s*[%％])?)', line)
+        
+        if match:
+            stat_text_from_line = match.group(1).strip()
+            num_text_from_line = match.group(2).strip()
+            
+            for stat, alias in alias_pairs:
+                if stat_text_from_line == stat or stat_text_from_line == alias: 
+                    stat_found = stat
+                    nums = re.findall(r"[\d\.]+", num_text_from_line.replace('％', '%'))
+                    if nums:
+                        num_found = nums[0]
+                        if "%" in num_text_from_line or "％" in num_text_from_line:
+                            is_percent = True
+                    break
+        
+        # フォールバック: 行全体検索
+        if not stat_found:
+            for stat, alias in alias_pairs:
+                if alias in line:
+                    stat_found = stat
+                    nums = re.findall(r"[\d\.]+", line.replace('％', '%'))
+                    if nums:
+                        num_found = nums[0]
+                        if "%" in line or "％" in line:
+                            is_percent = True
+                    break
+        
+        if stat_found and num_found:
+            return SubStat(stat=stat_found, value=num_found), is_percent
+        return None
 
     def detect_cost_from_ocr(self, ocr_text: str) -> Optional[str]:
         """

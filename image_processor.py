@@ -21,8 +21,9 @@ except ImportError:
 
 from dialogs import CropDialog
 from utils import crop_image_by_percent
-from data_contracts import SubStat
+from data_contracts import SubStat, BatchItemResult, CropConfig
 from ui_constants import IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT
+from worker_thread import OCRWorker
 
 class ImageProcessor(QObject):
     """Class responsible for image processing and OCR."""
@@ -79,93 +80,92 @@ class ImageProcessor(QObject):
 
     def process_batch_images(self, file_paths: List[str]) -> None:
         """
-        Process multiple images sequentially.
-        Auto-classifies into tabs based on Cost if possible.
+        Process multiple images sequentially in a background thread.
         """
         self.app.gui_log(f"Starting batch processing of {len(file_paths)} images...")
         
-        # Add logging for crop settings
-        self.app.gui_log(f"Current Crop Settings (L,T,W,H %): {self.app.crop_left_percent_var},"
-                          f" {self.app.crop_top_percent_var}, {self.app.crop_width_percent_var},"
-                          f" {self.app.crop_height_percent_var}")
+        # Capture current crop settings to pass to worker using data contract
+        crop_config = CropConfig(
+            mode=self.app.crop_mode_var,
+            left_p=self.app.crop_left_percent_var,
+            top_p=self.app.crop_top_percent_var,
+            width_p=self.app.crop_width_percent_var,
+            height_p=self.app.crop_height_percent_var
+        )
         
-        # Reset current tabs if needed? Users might want to append, but usually batch means fill all.
-        # For now, we won't clear explicitly unless requested, but we'll try to find empty slots.
-        # Actually, let's keep track of which tabs we've assigned to in this batch to avoid overwriting.
-        assigned_tabs = set()
+        # Initialize tracking for batch
+        self._batch_assigned_tabs = set()
+        self._batch_successful_count = 0
         
-        successful_count = 0
+        # Create and start worker
+        self.worker = OCRWorker(self.logic, file_paths, crop_config, self.app.language)
+        self.worker.signals.result.connect(self._on_worker_result)
+        self.worker.signals.finished.connect(self._on_worker_finished)
+        self.worker.signals.error.connect(self._on_worker_error)
+        self.worker.signals.progress.connect(self._on_worker_progress)
+        self.worker.signals.log.connect(self.app.gui_log)
         
-        for file_path in file_paths:
-            try:
-                if not os.path.isfile(file_path):
-                    continue
-                    
-                image = Image.open(file_path)
-                image.load() # Ensure data is loaded into memory and file can be closed safely
-                filename = os.path.basename(file_path)
+        self.worker.start()
+
+    def _on_worker_progress(self, current: int, total: int) -> None:
+        """Handle progress updates from worker."""
+        self.app.gui_log(f"Progress: {current}/{total}")
+
+    def _on_worker_error(self, err: tuple) -> None:
+        """Handle errors from worker."""
+        exctype, value, traceback_str = err
+        self.app.gui_log(f"Worker Error: {value}")
+        self.app.logger.error(f"Worker Error: {traceback_str}")
+
+    def _on_worker_result(self, data: BatchItemResult) -> None:
+        """
+        Handle a single OCR result from the worker.
+        Running in Main Thread.
+        """
+        try:
+            file_path = data.file_path
+            result = data.result
+            image = data.original_image
+            cropped_img = data.cropped_image
+            filename = os.path.basename(file_path)
+            
+            target_tab = None
+            if result.cost:
+                self.app.gui_log(f"[{filename}] Detected Cost: {result.cost}")
+                target_tab = self._find_free_tab_for_cost(result.cost, self._batch_assigned_tabs)
+            else:
+                self.app.gui_log(f"[{filename}] Cost not detected. Attempting to assign to first available empty slot.")
+                target_tab = self._find_any_free_tab(self._batch_assigned_tabs)
+            
+            if target_tab:
+                self.app.gui_log(f"[{filename}] Assigning to tab: {target_tab}")
+                self._batch_assigned_tabs.add(target_tab)
                 
-                # Apply crop
-                # We assume the user has set the crop settings for the "Cost" and stats to be visible.
-                # However, usually Cost is at top left or top right, stats below.
-                # If crop cuts off Cost, we can't detect it.
-                # Use current crop settings.
+                # Populate Tab (UI Update)
+                self._populate_tab_data(target_tab, result.substats, result.main_stat)
                 
-                if self.app.crop_mode_var == "percent":
-                    left_p = self.app.crop_left_percent_var
-                    top_p = self.app.crop_top_percent_var
-                    width_p = self.app.crop_width_percent_var
-                    height_p = self.app.crop_height_percent_var
-                    cropped_img = crop_image_by_percent(image, left_p, top_p, width_p, height_p)
-                else:
-                    # Fallback to full image if mode is weird or drag (drag is manual)
-                    # For batch, we'll just use the full image if 'drag' was last used because drag is per-image.
-                    # Or better, just don't crop if it's 'drag', assuming screenshots are uniform.
-                     cropped_img = image.copy() # Default no crop if not percent
+                # Save Image to Tab
+                self.app.tab_mgr.save_tab_image(target_tab, image.copy(), cropped_img.copy())
                 
-                # Run OCR Workflow
-                result = self.logic.perform_ocr_workflow(cropped_img, self.app.language)
+                # Update active image state if we are verifying this tab
+                current_tab = self.app.tab_mgr.get_selected_tab_name()
+                if current_tab and current_tab == target_tab:
+                    self.app.original_image = image.copy()
+                    self.app.loaded_image = cropped_img.copy()
+                    self.display_image_preview(self.app.loaded_image)
                 
-                target_tab = None
-                if result.cost:
-                    self.app.gui_log(f"[{filename}] Detected Cost: {result.cost}")
-                    # Find a tab for this cost
-                    target_tab = self._find_free_tab_for_cost(result.cost, assigned_tabs)
-                else:
-                    self.app.gui_log(f"[{filename}] Cost not detected. Attempting to assign to first available empty slot.")
-                    # Fallback: any empty tab? or just skip?
-                    # Let's try to find ANY empty tab to fill
-                    target_tab = self._find_any_free_tab(assigned_tabs)
-                
-                if target_tab:
-                    self.app.gui_log(f"[{filename}] Assigning to tab: {target_tab}")
-                    assigned_tabs.add(target_tab)
-                    
-                    # Populate Tab
-                    self._populate_tab_data(target_tab, result.substats)
-                    
-                    # Save Image to Tab
-                    # Save COPIES to ensure isolation
-                    self.app.tab_mgr.save_tab_image(target_tab, image.copy(), cropped_img.copy())
-                    
-                    # Update active image state if we are verifying this tab
-                    # This ensures "Drag" crop works immediately for the currently visible tab
-                    current_tab = self.app.tab_mgr.get_selected_tab_name()
-                    if current_tab and current_tab == target_tab:
-                        self.app.original_image = image.copy()
-                        self.app.loaded_image = cropped_img.copy()
-                        self.display_image_preview(self.app.loaded_image)
-                    
-                    successful_count += 1
-                else:
-                     self.app.gui_log(f"[{filename}] No suitable free tab found (Cost: {result.cost if result.cost else 'Unknown'}). Skipping.")
-                
-            except Exception as e:
-                self.app.gui_log(f"Error processing {file_path}: {e}")
-                
-        self.app.gui_log(f"Batch processing completed. {successful_count}/{len(file_paths)} images processed.")
-        # self.app._update_tabs() # Removed as we updated widgets directly and rebuilding is unnecessary/risky.
-        # Actually, _populate_tab_data updates widgets, so no full refresh needed.
+                self._batch_successful_count += 1
+            else:
+                 self.app.gui_log(f"[{filename}] No suitable free tab found (Cost: {result.cost if result.cost else 'Unknown'}). Skipping.")
+                 
+        except Exception as e:
+            self.app.gui_log(f"Error applying batch result for {getattr(data, 'file_path', 'unknown')}: {e}")
+            self.app.logger.exception(f"Error applying batch result: {e}")
+
+    def _on_worker_finished(self) -> None:
+        """Handle worker completion."""
+        self.app.gui_log(f"Batch processing completed. {self._batch_successful_count} images processed successfully.")
+        # self.app.set_ui_enabled(True) # Re-enable UI
 
     def _is_tab_empty(self, tab_key: str) -> bool:
         """Checks if a given tab is considered empty."""
@@ -234,21 +234,24 @@ class ImageProcessor(QObject):
                     return key
         return None
 
-    def _populate_tab_data(self, tab_name: str, substats: List[SubStat]) -> None:
+    def _populate_tab_data(self, tab_name: str, substats: List[SubStat], main_stat: Optional[str] = None) -> None:
         """Directly updates the widgets for the given tab."""
         if tab_name not in self.app.tab_mgr.tabs_content:
             return
             
         content = self.app.tab_mgr.tabs_content[tab_name]
         sub_entries = content["sub_entries"]
+        main_combo = content.get("main_widget")
         
-        # We don't have main stat from OCR usually (unless we parse it too, but logic mostly parses substats).
-        # So we leave main stat alone or user sets it? 
-        # The user's request didn't specify auto-main-stat from OCR, just allocation.
-        # But existing logic `_apply_character_main_stats` exists.
+        # Update Main Stat if detected
+        if main_stat and main_combo:
+            translated_main = self.app.tr(main_stat)
+            idx = main_combo.findText(translated_main)
+            if idx >= 0:
+                main_combo.setCurrentIndex(idx)
+                self.app.gui_log(f"Auto-selected main stat for {tab_name}: {translated_main}")
         
-        # Clear existing substats in the widget first?
-        # Yes, for a fresh load.
+        # Clear existing substats in the widget first
         for stat_widget, val_widget in sub_entries:
             stat_widget.setCurrentIndex(0) # Blank
             val_widget.clear()
@@ -394,7 +397,7 @@ class ImageProcessor(QObject):
                     self.app.gui_log(f"Automatically assigning to tab: {target_tab_name} (Cost {result.cost})")
                     
                     # Populate data and switch tab
-                    self._populate_tab_data(target_tab_name, result.substats)
+                    self._populate_tab_data(target_tab_name, result.substats, result.main_stat)
                     
                     # Find the index of the target_tab_name in the notebook
                     tab_index_to_activate = -1
@@ -414,10 +417,10 @@ class ImageProcessor(QObject):
                         self.app.gui_log(f"Could not switch to tab '{target_tab_name}'. Staying on current tab.")
                 else:
                     self.app.gui_log(f"No empty tab found for Cost {result.cost}. Populating current tab: {current_selected_tab_name}.")
-                    self._populate_tab_data(current_selected_tab_name, result.substats) # Populate current tab
+                    self._populate_tab_data(current_selected_tab_name, result.substats, result.main_stat) # Populate current tab
             else:
                 self.app.gui_log(f"No cost detected. Populating current tab: {current_selected_tab_name}.")
-                self._populate_tab_data(current_selected_tab_name, result.substats) # Populate current tab
+                self._populate_tab_data(current_selected_tab_name, result.substats, result.main_stat) # Populate current tab
             
             # Save image to the (potentially new) target tab
             self.app.tab_mgr.save_tab_image(target_tab_name, stored_original, stored_cropped)

@@ -7,7 +7,7 @@ import re
 from PyQt6.QtCore import QObject, pyqtSignal
 from typing import Optional
 
-from utils import get_app_path
+from utils import get_app_path, get_resource_path
 from constants import DEFAULT_COST_CONFIG
 from data_contracts import CharacterProfile
 
@@ -42,55 +42,69 @@ class CharacterManager(QObject):
     def _load_character_profiles(self):
         """Loads character profiles from JSON files in the character_settings_jsons directory."""
         self.logger.info("Loading character profiles...")
-        char_dir = os.path.join(get_app_path(), "character_settings_jsons")
-        if not os.path.isdir(char_dir):
-            self.logger.warning(f"Character settings directory not found: {char_dir}")
-            return
+        
+        # Paths to check: bundled resources first, then user directory (user dir can override)
+        search_dirs = [
+            get_resource_path("character_settings_jsons"),
+            os.path.join(get_app_path(), "character_settings_jsons")
+        ]
+        
+        # Use a set to avoid loading the same file twice if paths happen to be the same
+        loaded_files = set()
 
-        for filename in os.listdir(char_dir):
-            if filename.endswith(".json"): # More generic than _character.json
-                try:
+        for char_dir in search_dirs:
+            if not os.path.isdir(char_dir):
+                continue
+
+            for filename in os.listdir(char_dir):
+                if filename.endswith(".json"):
                     filepath = os.path.join(char_dir, filename)
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                    
-                    internal_name = data.get("character")
-                    jp_name = data.get("character_jp")
-                    
-                    if not internal_name:
-                        # Attempt to derive from filename for legacy files
-                        internal_name = filename.replace("_character.json", "")
-                        self.logger.warning(f"Legacy character file '{filename}' detected. Using filename as internal name: {internal_name}")
-
-                    if not internal_name:
-                         self.logger.warning(f"Skipping profile from '{filename}': missing 'character' field.")
-                         continue
-
-                    weights = data.get("character_weights")
-                    mainstats = data.get("character_mainstats")
-                    costkey = data.get("costkey")
-                    config = data.get("config")
-
-                    if not all([weights, mainstats, (costkey or config)]):
-                        self.logger.warning(f"Skipping incomplete character profile: {filename}")
+                    # Simple duplicate check by filename (overriding bundled with user file if names match)
+                    if filename in loaded_files:
                         continue
                     
-                    if not jp_name:
-                        jp_name = self.get_display_name(internal_name)
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        
+                        internal_name = data.get("character")
+                        jp_name = data.get("character_jp")
+                        
+                        if not internal_name:
+                            # Attempt to derive from filename for legacy files
+                            internal_name = filename.replace("_character.json", "")
+                            self.logger.warning(f"Legacy character file '{filename}' detected. Using filename as internal name: {internal_name}")
 
-                    # Update data stores
-                    self._stat_weights[internal_name] = weights
-                    self._main_stats[internal_name] = mainstats
-                    self._name_map_en_to_jp[internal_name] = jp_name
-                    self._name_map_jp_to_en[jp_name] = internal_name
-                    self._character_config_map[internal_name] = config or self._normalize_cost_key(costkey, DEFAULT_COST_CONFIG)
-                    
-                    self.logger.info(f"Loaded character profile: {internal_name}")
+                        if not internal_name:
+                             self.logger.warning(f"Skipping profile from '{filename}': missing 'character' field.")
+                             continue
 
-                except json.JSONDecodeError:
-                    self.logger.error(f"Failed to decode JSON from {filename}")
-                except Exception as e:
-                    self.logger.error(f"Failed to load character profile {filename}: {e}", exc_info=True)
+                        weights = data.get("character_weights")
+                        mainstats = data.get("character_mainstats")
+                        costkey = data.get("costkey")
+                        config = data.get("config")
+
+                        if not all([weights, mainstats, (costkey or config)]):
+                            self.logger.warning(f"Skipping incomplete character profile: {filename}")
+                            continue
+                        
+                        if not jp_name:
+                            jp_name = self.get_display_name(internal_name)
+
+                        # Update data stores
+                        self._stat_weights[internal_name] = weights
+                        self._main_stats[internal_name] = mainstats
+                        self._name_map_en_to_jp[internal_name] = jp_name
+                        self._name_map_jp_to_en[jp_name] = internal_name
+                        self._character_config_map[internal_name] = config or self._normalize_cost_key(costkey, DEFAULT_COST_CONFIG)
+                        
+                        self.logger.info(f"Loaded character profile: {internal_name}")
+                        loaded_files.add(filename)
+
+                    except json.JSONDecodeError:
+                        self.logger.error(f"Failed to decode JSON from {filename}")
+                    except Exception as e:
+                        self.logger.error(f"Failed to load character profile {filename}: {e}", exc_info=True)
         
         self.logger.info("Finished loading character profiles.")
         self.profiles_updated.emit()
@@ -133,9 +147,11 @@ class CharacterManager(QObject):
 
             # --- Emit signal ---
             self.character_registered.emit(internal_char_name)
+            return True
 
         except Exception as e:
             self.logger.error(f"Error registering or saving character profile for '{internal_char_name}': {e}", exc_info=True)
+            return False
             # Optionally, re-raise or emit an error signal
             
     def get_all_characters(self) -> list[tuple[str, str]]:

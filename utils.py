@@ -16,10 +16,27 @@ except ImportError:
     is_opencv_installed = False
 
 def get_app_path() -> str:
-    """Get the directory path of the executable (PyInstaller compatible)."""
+    """
+    Get the directory path where the executable is located.
+    Used for user-writable files like config.json and logs.
+    """
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
+
+def get_resource_path(relative_path: str = "") -> str:
+    """
+    Get the absolute path to a resource.
+    Works for dev and for PyInstaller (MEIPASS).
+    Used for read-only bundled assets like game data.
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    return os.path.join(base_path, relative_path)
 
 def crop_image_by_percent(img: "Image.Image", left_p: float, top_p: float, width_p: float, height_p: float) -> "Image.Image":
     """Crops an area from the image based on left, top, width, and height percentages.

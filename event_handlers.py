@@ -73,32 +73,34 @@ class EventHandlers:
             self.ui.filter_characters_by_config()
             self.save_config()
     
-    def on_character_change(self, text: str) -> None:
+    def on_character_change(self, index: int) -> None:
         """Handle character change."""
+        if index < 0:
+            return
+
         # Retrieve the internal name directly from the UserData of the selected item
-        current_index = self.ui.charcombo.currentIndex()
-        if current_index >= 0:
-            internal_name = self.ui.charcombo.itemData(current_index)
-            if internal_name: # Ensure internal_name is not empty
-                self.app.character_var = internal_name
-                self.logger.info(f"Character selected: {internal_name}")
-                
-                # Automatically switch tab configuration if the character has a specific one
-                new_config = self.character_manager.get_character_config_key(internal_name)
-                if new_config and new_config != self.app.current_config_key:
-                    self.logger.info(f"Auto-switching tab configuration to {new_config} for {internal_name}")
-                    if self.ui.config_combo:
-                        self.ui.config_combo.setCurrentText(new_config)
-                else:
-                    self.tab_mgr.apply_character_main_stats()
-                
-                self.save_config()
+        internal_name = self.ui.character_combo.itemData(index)
+        
+        if internal_name: # Ensure internal_name is not empty
+            self.app.character_var = internal_name
+            self.logger.info(f"Character selected: {internal_name}")
+            
+            # Automatically switch tab configuration if the character has a specific one
+            new_config = self.character_manager.get_character_config_key(internal_name)
+            if new_config and new_config != self.app.current_config_key:
+                self.logger.info(f"Auto-switching tab configuration to {new_config} for {internal_name}")
+                if self.ui.config_combo:
+                    self.ui.config_combo.setCurrentText(new_config)
             else:
-                # If the empty item is selected, clear character_var
-                self.app.character_var = ""
-                self.logger.info("Character selection cleared.")
-                self.tab_mgr.apply_character_main_stats() # Apply to clear any existing stats
-                self.save_config()
+                self.tab_mgr.apply_character_main_stats()
+            
+            self.save_config()
+        else:
+            # If the empty item is selected, clear character_var
+            self.app.character_var = ""
+            self.logger.info("Character selection cleared.")
+            self.tab_mgr.apply_character_main_stats() # Apply to clear any existing stats
+            self.save_config()
     
     def on_language_change(self, text: str) -> None:
         """Handle language change."""
@@ -268,9 +270,12 @@ class EventHandlers:
             # Update theme from theme_manager (special case)
             self.config_manager.update_app_setting('theme', self.theme_manager.get_current_theme())
             
-            self.config_manager.save()
-            self.logger.info("Config saved.")
+            if self.config_manager.save():
+                self.logger.info("Config saved.")
+            else:
+                self.app.gui_log("Failed to save config.json. Check logs for details.")
         except Exception as e:
+            self.app.gui_log(f"Config save error: {e}")
             self.logger.error(f"Config save error: {e}")
     
     def schedule_crop_preview(self) -> None:
@@ -295,7 +300,7 @@ class EventHandlers:
         """
         self.app.gui_log("Character profiles updated, refreshing UI.")
         all_chars = self.character_manager.get_all_characters()
-        self.ui.update_char_combobox(all_chars, self.app.character_var)
+        self.ui.update_character_combo(all_chars, self.app.character_var)
         self.ui.filter_characters_by_config()
 
     def on_character_registered(self, internal_char_name: str):
@@ -304,7 +309,7 @@ class EventHandlers:
         
         # Repopulate combobox and select the new character
         all_chars = self.character_manager.get_all_characters()
-        self.ui.update_char_combobox(all_chars, internal_char_name)
+        self.ui.update_character_combo(all_chars, internal_char_name)
         
         # Update internal state and UI to reflect the new character
         self.app.character_var = internal_char_name

@@ -1,4 +1,5 @@
 from languages import TRANSLATIONS
+from data_contracts import EvaluationResult, EchoEntry
 
 class HtmlRenderer:
     """Class responsible for generating HTML for score results."""
@@ -26,7 +27,7 @@ class HtmlRenderer:
             return "#32CD32"
         return "#666666"
 
-    def render_single_score(self, character: str, tab_name: str, entry: any, main_stat: str, echo: any, evaluation: dict) -> str:
+    def render_single_score(self, character: str, tab_name: str, entry: EchoEntry, main_stat: str, echo: any, evaluation: EvaluationResult) -> str:
         """Generate HTML for single score result."""
         html = f"<h3><u>{character} - {tab_name} Individual Score</u></h3>"
         html += f"<hr>"
@@ -35,7 +36,7 @@ class HtmlRenderer:
         html += f"Cost: {entry.cost}<br>"
         html += f"Main Stat: {main_stat}<br>"
         html += f"Level: {echo.level}<br>"
-        html += f"Number of Effective Substats: {evaluation['effective_count']}<br>"
+        html += f"Number of Effective Substats: {evaluation.effective_count}<br>"
         
         html += f"<br><b>Substats</b><br>"
         substats = echo.substats
@@ -84,7 +85,7 @@ class HtmlRenderer:
             "effective": {
                 "label": self.tr("effective_stat_label"),
                 "desc": self.tr("effective_stat_desc"),
-                "rating_func": lambda s: echo.get_rating_effective(s, evaluation['effective_count'])
+                "rating_func": lambda s: echo.get_rating_effective(s, evaluation.effective_count)
             },
             "cv": {
                 "label": self.tr("cv_score_label"),
@@ -94,7 +95,7 @@ class HtmlRenderer:
         }
         
         # Display only enabled methods
-        for method, score in evaluation['individual_scores'].items():
+        for method, score in evaluation.individual_scores.items():
             if method in method_info:
                 info = method_info[method]
                 rating = info["rating_func"](score)
@@ -102,13 +103,13 @@ class HtmlRenderer:
 
         html += f"<hr>"
         html += f"<b>Overall Evaluation</b><br>"
-        html += f"<b>Total Score: {evaluation['total_score']:.2f}</b><br>"
+        html += f"<b>Total Score: {evaluation.total_score:.2f}</b><br>"
         
-        final_rating = TRANSLATIONS.get(self.language, TRANSLATIONS["en"])[evaluation['rating']]
+        final_rating = TRANSLATIONS.get(self.language, TRANSLATIONS["en"])[evaluation.rating]
         final_color = self._get_rating_color(final_rating)
         
         html += f"<span style='color:{final_color}'>Overall Rating: {final_rating}</span><br>"
-        html += f"Recommendation: {TRANSLATIONS.get(self.language, TRANSLATIONS['en'])[evaluation['recommendation']]}<br>"
+        html += f"Recommendation: {TRANSLATIONS.get(self.language, TRANSLATIONS['en'])[evaluation.recommendation]}<br>"
         
         return html
 

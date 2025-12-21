@@ -11,6 +11,9 @@ from ui_constants import (
     VALUE_ENTRY_WIDTH, CROP_ENTRY_WIDTH, NUM_SUBSTATS
 )
 
+if TYPE_CHECKING:
+    from wuwacalc17 import ScoreCalculatorApp
+
 
 class UIComponents:
     """Class responsible for UI construction."""
@@ -23,13 +26,60 @@ class UIComponents:
             app: The main application instance.
         """
         self.app = app
-        self.main_widget = None
+        self.main_widget: Optional[QWidget] = None
 
-        self.charcombo = QComboBox()
+        self.character_combo = QComboBox()
+        self.character_combo.setEditable(True)
+        self.character_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.character_combo.lineEdit().setPlaceholderText(self.app.tr("search_character_placeholder"))
+        self._all_char_items: list[tuple[str, str]] = [] # Store (display, internal)
+        self._is_filtering = False
+
         self.mode_button_group = QButtonGroup(self.app)  # For Input Mode radio buttons
         self.calc_mode_button_group = QButtonGroup(self.app) # For Calc Mode radio buttons
-        self.charcombo.setObjectName("CharComboBox")
+        self.character_combo.setObjectName("CharComboBox")
     
+    def _filter_character_combo(self, text: str) -> None:
+        """Filter the character combobox items based on input text."""
+        if self._is_filtering:
+            return
+            
+        self._is_filtering = True
+        self.character_combo.blockSignals(True)
+        
+        try:
+            search_text = text.lower()
+            filtered_items = [
+                (disp, internal) for disp, internal in self._all_char_items 
+                if search_text in disp.lower() or search_text in internal.lower()
+            ]
+            
+            self.character_combo.clear()
+            
+            if not filtered_items:
+                if text: # Only show "Not found" if there's actually search text
+                    self.character_combo.addItem(self.app.tr("no_matching_characters"), userData="")
+            else:
+                # Add a blank option at the top if not searching or if search is empty
+                if not text:
+                    self.character_combo.addItem("", userData="")
+                
+                for disp, internal in filtered_items:
+                    self.character_combo.addItem(disp, userData=internal)
+            
+            # Restore the cursor position in the line edit
+            self.character_combo.lineEdit().setText(text)
+            
+            # Show the popup only if there's search text or if we want to show the full list
+            if text:
+                self.character_combo.showPopup()
+            else:
+                self.character_combo.hidePopup()
+            
+        finally:
+            self.character_combo.blockSignals(False)
+            self._is_filtering = False
+
     def create_main_layout(self) -> None:
         """Create the main window's entire UI."""
         self.main_widget = QWidget()
@@ -97,8 +147,8 @@ class UIComponents:
         layout.addWidget(self.app.config_combo, 0, 1)
         
         layout.addWidget(QLabel(self.app.tr("character")), 0, 2)
-        self.charcombo.currentTextChanged.connect(self.app.events.on_character_change)
-        layout.addWidget(self.charcombo, 0, 3)
+        self.character_combo.activated.connect(self.app.events.on_character_change)
+        layout.addWidget(self.character_combo, 0, 3)
         
         layout.addWidget(QLabel(self.app.tr("language")), 0, 4)
         lang_combo = QComboBox()
@@ -170,6 +220,13 @@ class UIComponents:
         self.app.cb_method_roll = QCheckBox(self.app.tr("method_roll"))
         self.app.cb_method_effective = QCheckBox(self.app.tr("method_effective"))
         self.app.cb_method_cv = QCheckBox(self.app.tr("method_cv"))
+
+        # Add tooltips for accessibility
+        self.app.cb_method_normalized.setToolTip(self.app.tr("normalized_score_desc"))
+        self.app.cb_method_ratio.setToolTip(self.app.tr("ratio_score_desc"))
+        self.app.cb_method_roll.setToolTip(self.app.tr("roll_quality_desc"))
+        self.app.cb_method_effective.setToolTip(self.app.tr("effective_stat_desc"))
+        self.app.cb_method_cv.setToolTip(self.app.tr("cv_score_desc"))
         
         enabled_methods = self.app.app_config.enabled_calc_methods
         self.app.cb_method_normalized.setChecked(enabled_methods.get("normalized", True))
@@ -210,14 +267,15 @@ class UIComponents:
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:
         """Add main action buttons: Calculate, Export, Clear."""
         buttons = [
-            ("calculate", self.app.score_calc.calculate_all_scores),
-            ("export_txt", self.app.tab_mgr.export_result_to_txt),
-            ("clear_all", self.app.tab_mgr.clear_all),
-            ("clear_tab", self.app.tab_mgr.clear_current_tab)
+            ("calculate", self.app.score_calc.calculate_all_scores, " (Ctrl+Enter / F5)"),
+            ("export_txt", self.app.tab_mgr.export_result_to_txt, " (Ctrl+S)"),
+            ("clear_all", self.app.tab_mgr.clear_all, " (Ctrl+R)"),
+            ("clear_tab", self.app.tab_mgr.clear_current_tab, "")
         ]
-        for key, command in buttons:
+        for key, command, shortcut_text in buttons:
             btn = QPushButton(self.app.tr(key))
             btn.clicked.connect(command)
+            btn.setToolTip(self.app.tr(key) + shortcut_text)
             layout.addWidget(btn)
 
     def _add_char_setting_button(self, layout: QHBoxLayout) -> None:
@@ -241,14 +299,17 @@ class UIComponents:
         layout.addWidget(btn_char)
 
     def _add_app_utility_buttons(self, layout: QHBoxLayout) -> None:
-        """Add utility buttons: Help, Settings, Test Mode."""
+        """Add utility buttons: Help, Settings, Test Mode, History."""
         buttons_others = [
             ("help", self.app._open_readme),
             ("display_settings", self.app.open_display_settings),
-            ("image_preprocessing", self.app.open_image_preprocessing_settings)
+            ("image_preprocessing", self.app.open_image_preprocessing_settings),
+            ("history_title", self.app.open_history)
         ]
         for key, command in buttons_others:
             btn = QPushButton(self.app.tr(key))
+            if key == "history_title":
+                btn.setToolTip(self.app.tr(key) + " (Ctrl+H)")
             btn.clicked.connect(command)
             layout.addWidget(btn)
 
@@ -300,6 +361,7 @@ class UIComponents:
         btn_load.clicked.connect(self.app.image_proc.import_image)
         btn_paste = QPushButton(self.app.tr("paste_clipboard"))
         btn_paste.clicked.connect(self.app.image_proc.paste_from_clipboard)
+        btn_paste.setToolTip(self.app.tr("paste_clipboard") + " (Ctrl+V)")
         btn_crop = QPushButton(self.app.tr("perform_crop"))
         btn_crop.clicked.connect(self.app.image_proc.perform_crop)
         
@@ -385,37 +447,46 @@ class UIComponents:
         else:
             self.app.image_frame.setVisible(False)
     
-    def update_char_combobox(self, items_to_add: list[tuple[str, str]], current_internal_name: str = "") -> None:
+    def update_character_combo(self, items_to_add: list[tuple[str, str]], current_internal_name: str = "") -> None:
         """
         Updates the character combobox with new items and attempts to restore selection.
         :param items_to_add: A list of (translated_name, internal_name) tuples to add to the combobox.
         :param current_internal_name: The internal name of the character to try and select after updating.
         """
-        if self.charcombo is None:
+        if self.character_combo is None:
             return
         
         # Check if the underlying C++ object is still alive
-        if not self.charcombo.parent():
+        if not self.character_combo.parent():
             return
 
-        self.charcombo.blockSignals(True)
+        self.character_combo.blockSignals(True)
         try:
-            self.charcombo.clear()
+            self._all_char_items = items_to_add # Store the master list for filtering
+            self.character_combo.clear()
 
-            self.charcombo.addItem("", userData="")
+            self.character_combo.addItem("", userData="")
 
             for translated_name, char_name in items_to_add:
-                self.charcombo.addItem(translated_name, userData=char_name)
+                self.character_combo.addItem(translated_name, userData=char_name)
             
             target_index = 0
             if current_internal_name:
-                index = self.charcombo.findData(current_internal_name)
+                index = self.character_combo.findData(current_internal_name)
                 if index != -1:
                     target_index = index
             
-            self.charcombo.setCurrentIndex(target_index)
+            self.character_combo.setCurrentIndex(target_index)
+            
+            # Re-connect search signal (ensure it's only connected once)
+            try:
+                self.character_combo.lineEdit().textEdited.disconnect()
+            except:
+                pass
+            self.character_combo.lineEdit().textEdited.connect(self._filter_character_combo)
+            
         finally:
-            self.charcombo.blockSignals(False)
+            self.character_combo.blockSignals(False)
 
     def filter_characters_by_config(self) -> None:
         try:
@@ -437,8 +508,8 @@ class UIComponents:
             current_internal_name = self.app.character_var
             # Filter items to add based on current combobox content if it's supposed to be filtered
             if allowed_chars:
-                 self.update_char_combobox(items_to_add, current_internal_name)
+                 self.update_character_combo(items_to_add, current_internal_name)
             else: # If we are showing all, just update with all
-                 self.update_char_combobox(self.app.character_manager.get_all_characters(), current_internal_name)
+                 self.update_character_combo(self.app.character_manager.get_all_characters(), current_internal_name)
         except Exception as e:
             self.app.logger.exception(f"Failed to filter characters by config: {e}")

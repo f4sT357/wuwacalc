@@ -58,9 +58,9 @@ def build():
             print(f"  [OK] Copied character_settings_jsons.")
         
         # Copy README.md and help
-        if os.path.exists("README.html"):
-            shutil.copy2("README.html", dist_dir)
-            print(f"  [OK] Copied README.html.")
+        if os.path.exists("README.md"):
+            shutil.copy2("README.md", dist_dir)
+            print(f"  [OK] Copied README.md.")
             
         if os.path.exists("appearance_help.html"):
             shutil.copy2("appearance_help.html", dist_dir)

@@ -1,3 +1,10 @@
+from constants import (
+    STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ATK_FLAT, STAT_ER,
+    CV_KEY_CRIT_RATE, CV_KEY_CRIT_DMG, CV_KEY_ATK_PERCENT, 
+    CV_KEY_ATK_FLAT_DIVISOR, CV_KEY_ATK_FLAT_MULTIPLIER, CV_KEY_ER, CV_KEY_DMG_BONUS,
+    DAMAGE_BONUS_STATS
+)
+from data_contracts import EvaluationResult
 
 class EchoData:
     """Echo data class (extended version)."""
@@ -125,32 +132,25 @@ class EchoData:
         cv_score = 0.0
         
         # Basic CV calculation (most important)
-        crit_rate = self.substats.get("クリティカル率", 0)
-        crit_dmg = self.substats.get("クリティカルダメージ", 0)
+        crit_rate = self.substats.get(STAT_CRIT_RATE, 0)
+        crit_dmg = self.substats.get(STAT_CRIT_DMG, 0)
         
-        cv_score += (crit_rate * cv_weights.get("crit_rate", 2.0)) + \
-                    (crit_dmg * cv_weights.get("crit_dmg", 1.0))
+        cv_score += (crit_rate * cv_weights.get(CV_KEY_CRIT_RATE, 2.0)) + \
+                    (crit_dmg * cv_weights.get(CV_KEY_CRIT_DMG, 1.0))
         
         # Extended scoring with other valuable stats
-        atk_pct = self.substats.get("攻撃力%", 0)
-        flat_atk = self.substats.get("攻撃力", 0)
-        er = self.substats.get("共鳴効率", 0)
+        atk_pct = self.substats.get(STAT_ATK_PERCENT, 0)
+        flat_atk = self.substats.get(STAT_ATK_FLAT, 0)
+        er = self.substats.get(STAT_ER, 0)
         
-        cv_score += (atk_pct * cv_weights.get("atk_percent", 1.1))
-        cv_score += (flat_atk / cv_weights.get("atk_flat_divisor", 10.0) * cv_weights.get("atk_flat_multiplier", 1.2))
-        cv_score += (er * cv_weights.get("er", 0.5))
+        cv_score += (atk_pct * cv_weights.get(CV_KEY_ATK_PERCENT, 1.1))
+        cv_score += (flat_atk / cv_weights.get(CV_KEY_ATK_FLAT_DIVISOR, 10.0) * cv_weights.get(CV_KEY_ATK_FLAT_MULTIPLIER, 1.2))
+        cv_score += (er * cv_weights.get(CV_KEY_ER, 0.5))
         
         # Character-specific damage bonuses (weighted by character preference)
-        damage_bonus_stats = [
-            "通常攻撃ダメージアップ", "重撃ダメージアップ", 
-            "共鳴スキルダメージアップ", "共鳴解放ダメージアップ",
-            "焦熱ダメージアップ", "凝縮ダメージアップ", "電導ダメージアップ",
-            "気動ダメージアップ", "回折ダメージアップ", "消滅ダメージアップ"
-        ]
-        
-        dmg_bonus_weight = cv_weights.get("dmg_bonus", 1.1)
+        dmg_bonus_weight = cv_weights.get(CV_KEY_DMG_BONUS, 1.1)
 
-        for stat_name in damage_bonus_stats:
+        for stat_name in DAMAGE_BONUS_STATS:
             if stat_name in self.substats:
                 stat_value = self.substats[stat_name]
                 weight = stat_weights.get(stat_name, 0.5)
@@ -211,13 +211,13 @@ class EchoData:
         else:
             avg_score = 0.0
         
-        return {
-            "individual_scores": results,
-            "total_score": avg_score,
-            "effective_count": self.effective_stats_count,
-            "rating": self.get_rating(avg_score),
-            "recommendation": "rec_continue" if avg_score < 30 else "rec_use"
-        }
+        return EvaluationResult(
+            total_score=avg_score,
+            effective_count=self.effective_stats_count,
+            recommendation="rec_continue" if avg_score < 30 else "rec_use",
+            rating=self.get_rating(avg_score),
+            individual_scores=results
+        )
 
     def get_rating(self, score):
         """Score evaluation (Community standard)."""
@@ -304,6 +304,14 @@ class EchoData:
             "rating": self.rating,
             "effective_stats_count": self.effective_stats_count
         }
+
+    def get_fingerprint(self) -> str:
+        """Generates a unique MD5 fingerprint based on all echo stats."""
+        import hashlib
+        # Sort substats to ensure consistent hashing
+        substats_str = "|".join(f"{k}:{v}" for k, v in sorted(self.substats.items()))
+        raw_data = f"{self.cost}|{self.main_stat}|{substats_str}"
+        return hashlib.md5(raw_data.encode('utf-8')).hexdigest()
 
     def __str__(self):
         """String representation."""

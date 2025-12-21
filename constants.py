@@ -1,3 +1,41 @@
+# --- Stat Name Constants (Japanese) ---
+STAT_CRIT_RATE = "クリティカル率"
+STAT_CRIT_DMG = "クリティカルダメージ"
+STAT_ATK_PERCENT = "攻撃力%"
+STAT_ATK_FLAT = "攻撃力"
+STAT_HP_PERCENT = "HP%"
+STAT_HP_FLAT = "HP"
+STAT_DEF_PERCENT = "防御力%"
+STAT_DEF_FLAT = "防御力"
+STAT_ER = "共鳴効率"
+STAT_BASIC_DMG_BONUS = "通常攻撃ダメージアップ"
+STAT_HEAVY_DMG_BONUS = "重撃ダメージアップ"
+STAT_SKILL_DMG_BONUS = "共鳴スキルダメージアップ"
+STAT_LIBERATION_DMG_BONUS = "共鳴解放ダメージアップ"
+STAT_FUSION_DMG_BONUS = "焦熱ダメージアップ"
+STAT_GLACIO_DMG_BONUS = "凝縮ダメージアップ"
+STAT_ELECTRO_DMG_BONUS = "電導ダメージアップ"
+STAT_AERO_DMG_BONUS = "気動ダメージアップ"
+STAT_SPECTRO_DMG_BONUS = "回折ダメージアップ"
+STAT_HAVOC_DMG_BONUS = "消滅ダメージアップ"
+STAT_HEALING_BONUS = "HP回復効果アップ"
+
+DAMAGE_BONUS_STATS = [
+    STAT_BASIC_DMG_BONUS, STAT_HEAVY_DMG_BONUS, 
+    STAT_SKILL_DMG_BONUS, STAT_LIBERATION_DMG_BONUS,
+    STAT_FUSION_DMG_BONUS, STAT_GLACIO_DMG_BONUS, STAT_ELECTRO_DMG_BONUS,
+    STAT_AERO_DMG_BONUS, STAT_SPECTRO_DMG_BONUS, STAT_HAVOC_DMG_BONUS
+]
+
+# --- CV Weight Keys ---
+CV_KEY_CRIT_RATE = "crit_rate"
+CV_KEY_CRIT_DMG = "crit_dmg"
+CV_KEY_ATK_PERCENT = "atk_percent"
+CV_KEY_ATK_FLAT_DIVISOR = "atk_flat_divisor"
+CV_KEY_ATK_FLAT_MULTIPLIER = "atk_flat_multiplier"
+CV_KEY_ER = "er"
+CV_KEY_DMG_BONUS = "dmg_bonus"
+
 SUBSTAT_MAX_VALUES = {
     "クリティカル率": 10.5, "クリティカルダメージ": 21.0, "攻撃力%": 11.6, "攻撃力": 60,
     "HP%": 11.6, "HP": 580, "防御力%": 11.6, "防御力": 60, "共鳴効率": 12.4,
