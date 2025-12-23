@@ -15,7 +15,8 @@ from config_manager import ConfigManager
 from constants import (
     THEME_COLORS,
     LOG_FILENAME,
-    CONFIG_FILENAME
+    CONFIG_FILENAME,
+    CHARACTER_STAT_WEIGHTS
 )
 from dialogs import CharSettingDialog, CropDialog, DisplaySettingsDialog, ImagePreprocessingSettingsDialog
 from echo_data import EchoData

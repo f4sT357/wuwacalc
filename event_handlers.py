@@ -104,7 +104,7 @@ class EventHandlers:
     
     def on_language_change(self, text: str) -> None:
         """Handle language change."""
-        if text != self.config_manager.get_app_setting('language'):
+        if text != self.app.app_config.language:
             self.config_manager.update_app_setting('language', text)
             self.save_config()
             QMessageBox.information(

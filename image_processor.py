@@ -348,9 +348,9 @@ class ImageProcessor(QObject):
         try:
             crop_dialog = CropDialog(self.app, self.app.original_image)
             if crop_dialog.exec():
-                if crop_dialog.result:
-                    if crop_dialog.result[0] == 'coords':
-                        _, left, top, right, bottom = crop_dialog.result
+                if crop_dialog.crop_result:
+                    if crop_dialog.crop_result[0] == 'coords':
+                        _, left, top, right, bottom = crop_dialog.crop_result
                         try:
                             cropped_img = self.app.original_image.crop((left, top, right, bottom))
                             self.app.gui_log(f"Cropped with coordinates: ({left},{top}) - ({right},{bottom})")
