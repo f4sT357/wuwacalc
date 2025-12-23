@@ -55,6 +55,7 @@ class AppConfig:
     custom_input_bg_color: str = "#3c3c3c"
     ocr_engine: str = "pillow"
     transparent_frames: bool = False
+    history_duplicate_mode: str = "latest"  # Options: "all", "latest", "oldest"
     enabled_calc_methods: dict = field(default_factory=lambda: {
         "normalized": True,
         "ratio": True,

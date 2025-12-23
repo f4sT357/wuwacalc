@@ -62,8 +62,25 @@ class HistoryManager:
             self.logger.error(f"Failed to save history: {e}")
             return False
 
-    def add_entry(self, character: str, cost: str, action: str, result: str, fingerprint: str = "", details: Dict[str, Any] = None) -> None:
-        """Adds a new history entry and prunes the list if necessary."""
+    def add_entry(self, character: str, cost: str, action: str, result: str, fingerprint: str = "", details: Dict[str, Any] = None, duplicate_mode: str = "latest") -> None:
+        """Adds a new history entry and prunes the list if necessary.
+        
+        duplicate_mode options:
+        - "all": Keep all entries (no duplicate checking).
+        - "latest": Remove existing entry with same fingerprint before adding new one.
+        - "oldest": Skip adding if an entry with same fingerprint already exists.
+        """
+        if fingerprint and duplicate_mode != "all":
+            exists = any(h.fingerprint == fingerprint for h in self._history)
+            
+            if exists:
+                if duplicate_mode == "oldest":
+                    self.logger.debug(f"Skipping history entry due to 'oldest' mode and existing fingerprint: {fingerprint}")
+                    return
+                elif duplicate_mode == "latest":
+                    # Remove existing entries with the same fingerprint
+                    self._history = [h for h in self._history if h.fingerprint != fingerprint]
+
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         entry = HistoryEntry(
             timestamp=timestamp,
@@ -91,7 +108,7 @@ class HistoryManager:
         # Return indices of matching entries (0 is newest)
         return [i for i, h in enumerate(self._history) if h.fingerprint == fingerprint]
 
-    def get_entries(self, keyword: str = "", character: str = "", cost: str = "", date_from: str = "", date_to: str = "", name_map: Dict[str, str] = None) -> List[HistoryEntry]:
+    def get_entries(self, keyword: str = "", character: str = "", cost: str = "", date_from: str = "", date_to: str = "", name_map: Dict[str, str] = None, rating: str = "") -> List[HistoryEntry]:
         """Returns filtered history entries."""
         filtered = self._history
         
@@ -116,6 +133,10 @@ class HistoryManager:
             
         if cost:
             filtered = [h for h in filtered if h.cost == cost]
+
+        if rating:
+            # Match rating in result string (e.g., "SSS", "SS", "S", "A", "B", "C")
+            filtered = [h for h in filtered if rating in h.result]
             
         if date_from:
             filtered = [h for h in filtered if h.timestamp >= date_from]

@@ -19,7 +19,7 @@
 | **`AppLogic`** | OCRテキストのパースなど、低レベルなビジネスロジック。 |
 | **`ScoreCalculator`** | スコア計算の実行。 |
 | **`HtmlRenderer`** | スコア計算結果の HTML フォーマット。 |
-| **`HistoryManager`** | 計算履歴の保存と検索（`history.json`）。 |
+| **`HistoryManager`** | 計算履歴の保存と検索（`history.json`）。ユーザー設定に基づき重複を自動削除。 |
 | **`ThemeManager`** | テーマ、フォント、背景画像、透明度の制御。 |
 | **`DataContracts`** | クラス間を流れるデータの型定義（`EchoEntry`, `SubStat`, `OCRResult` 等）。 |
 
@@ -46,7 +46,7 @@
 1. `ScoreCalculator` が `TabManager` からタブ内のデータを `EchoEntry` として抽出。
 2. `EchoData` クラスが重み付け設定に基づき、Normalized/CV 等のスコアを算出。
 3. `HtmlRenderer` が結果を生成し、右ペインに表示。
-4. 同時に `HistoryManager` が計算結果を履歴に追加。
+4. 同時に `HistoryManager` が計算結果を履歴に追加。設定が有効な場合、同一エコーの古い履歴は自動的に削除される。
 
 ## 3. 完了済みの主要タスク（簡略版）
 

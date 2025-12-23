@@ -52,6 +52,13 @@ class HistoryDialog(QDialog):
         self.cost_filter.addItems(["All", "4", "3", "1"])
         self.cost_filter.currentIndexChanged.connect(self.load_data)
         filter_layout.addWidget(self.cost_filter)
+
+        # Rating Filter
+        filter_layout.addWidget(QLabel(self.app.tr("history_rating")))
+        self.rating_filter = QComboBox()
+        self.rating_filter.addItems(["All", "SSS", "SS", "S", "A", "B", "C"])
+        self.rating_filter.currentIndexChanged.connect(self.load_data)
+        filter_layout.addWidget(self.rating_filter)
         
         # Date Filters
         self.date_filter_cb = QCheckBox(self.app.tr("history_filter_date"))
@@ -108,21 +115,55 @@ class HistoryDialog(QDialog):
         
         # Bottom Buttons
         btn_layout = QHBoxLayout()
+        
+        # Duplicate Setting (Left side)
+        dup_layout = QHBoxLayout()
+        dup_layout.addWidget(QLabel(self.app.tr("history_duplicate_mode")))
+        
+        self.combo_history_dup = QComboBox()
+        self.dup_mode_map = {
+            self.app.tr("history_dup_all"): "all",
+            self.app.tr("history_dup_latest"): "latest",
+            self.app.tr("history_dup_oldest"): "oldest"
+        }
+        self.dup_mode_map_inv = {v: k for k, v in self.dup_mode_map.items()}
+        
+        self.combo_history_dup.addItems(list(self.dup_mode_map.keys()))
+        current_mode = self.app.app_config.history_duplicate_mode
+        if current_mode in self.dup_mode_map_inv:
+            self.combo_history_dup.setCurrentText(self.dup_mode_map_inv[current_mode])
+        
+        self.combo_history_dup.setToolTip(self.app.tr("history_duplicate_tooltip"))
+        self.combo_history_dup.currentTextChanged.connect(self._update_history_dup_mode)
+        
+        dup_layout.addWidget(self.combo_history_dup)
+        btn_layout.addLayout(dup_layout)
+        
+        btn_layout.addStretch()
+
         btn_clear = QPushButton(self.app.tr("history_clear"))
         btn_clear.clicked.connect(self.clear_history)
         btn_close = QPushButton(self.app.tr("close"))
         btn_close.clicked.connect(self.accept)
         
         btn_layout.addWidget(btn_clear)
-        btn_layout.addStretch()
         btn_layout.addWidget(btn_close)
         layout.addLayout(btn_layout)
+
+    def _update_history_dup_mode(self, text):
+        if text in self.dup_mode_map:
+            new_mode = self.dup_mode_map[text]
+            self.app.app_config.history_duplicate_mode = new_mode
+            self.app.config_manager.save()
 
     def load_data(self):
         kw = self.kw_input.text()
         char = self.char_filter.currentData()
         cost = self.cost_filter.currentText()
         if cost == "All": cost = ""
+        
+        rating = self.rating_filter.currentText()
+        if rating == "All": rating = ""
         
         d_from = ""
         d_to = ""
@@ -132,7 +173,7 @@ class HistoryDialog(QDialog):
         
         # Pass name map for bilingual search
         name_map = self.app.character_manager._name_map_en_to_jp
-        entries = self.history_mgr.get_entries(kw, char, cost, d_from, d_to, name_map=name_map)
+        entries = self.history_mgr.get_entries(kw, char, cost, d_from, d_to, name_map=name_map, rating=rating)
         
         self.table.setRowCount(0)
         scores = []
@@ -174,6 +215,7 @@ class HistoryDialog(QDialog):
         self.kw_input.clear()
         self.char_filter.setCurrentIndex(0)
         self.cost_filter.setCurrentIndex(0)
+        self.rating_filter.setCurrentIndex(0)
         self.date_filter_cb.setChecked(False)
         self.date_from.setDate(QDate.currentDate().addMonths(-1))
         self.date_to.setDate(QDate.currentDate())

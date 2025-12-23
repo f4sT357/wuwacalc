@@ -125,7 +125,8 @@ class ScoreCalculator:
                 action="Single Evaluation",
                 result=result_summary,
                 fingerprint=fingerprint,
-                details={"score": evaluation.total_score}
+                details={"score": evaluation.total_score},
+                duplicate_mode=self.app.app_config.history_duplicate_mode
             )
             
             self.app.gui_log(f"Individual evaluation for {tab_name} complete.")
@@ -221,7 +222,8 @@ class ScoreCalculator:
                 action="Batch Evaluation",
                 result=result_summary,
                 fingerprint=fingerprint,
-                details={"score": evaluation.total_score}
+                details={"score": evaluation.total_score},
+                duplicate_mode=self.app.app_config.history_duplicate_mode
             )
             
             return eval_data
