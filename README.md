@@ -200,3 +200,6 @@ If there are copyright concerns, contact the repository maintainers via Issues.
 
 ---
 Source: `PROCESS_FLOW.md`
+
+## Third-party licenses / 同梱ライセンス
+See `THIRD_PARTY_LICENSES.md` for license texts and distribution notes for bundled third-party components (Tesseract, tessdata, DLLs等)。

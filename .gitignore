@@ -38,7 +38,6 @@ sampleimage/
 dist.zip
 .antigravity-rules
 GEMINI.md
-THIRD_PARTY_LICENSES.md
 
 # Added for logging and test artifacts
 logs/

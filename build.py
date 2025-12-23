@@ -95,6 +95,14 @@ def build():
         if os.path.exists("THIRD_PARTY_LICENSES.md"):
             shutil.copy2("THIRD_PARTY_LICENSES.md", dist_dir)
             print(f"  [OK] Copied THIRD_PARTY_LICENSES.md.")
+        
+        # Copy collected licenses folder (from tools/collect_licenses.py)
+        if os.path.isdir("licenses"):
+            dest = os.path.join(dist_dir, "licenses")
+            if os.path.exists(dest):
+                shutil.rmtree(dest)
+            shutil.copytree("licenses", dest)
+            print(f"  [OK] Copied licenses/.")
             
         print("\n" + "=" * 60)
         print("Ready for distribution!")
