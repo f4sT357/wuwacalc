@@ -465,6 +465,35 @@ class TabManager:
             substats=substats
         )
 
+    def get_all_echo_entries(self) -> List[EchoEntry]:
+        """
+        全タブのEchoEntryデータをリストで返す（重複検出用）
+        """
+        entries = []
+        for tab_name in self.tabs_content:
+            entry = self.extract_tab_data(tab_name)
+            if entry:
+                entries.append(entry)
+        return entries
+
+    @staticmethod
+    def find_duplicate_entries(entries: List[EchoEntry]) -> List[int]:
+        """
+        完全一致するEchoEntryのインデックスリストを返す（重複IDリスト）
+        各列（cost, main_stat, substats）全て一致で重複とみなす
+        """
+        seen = {}
+        duplicates = []
+        for idx, entry in enumerate(entries):
+            # サブステータスをタプル化して順序も含めて比較
+            substats_tuple = tuple((s.stat, s.value) for s in entry.substats)
+            key = (entry.cost, entry.main_stat, substats_tuple)
+            if key in seen:
+                duplicates.append(idx)
+            else:
+                seen[key] = idx
+        return duplicates
+
     def apply_character_main_stats(self, force: bool = False) -> None:
         """Automatically enters main stats."""
         if not force and not self.app.auto_apply_main_stats:
@@ -528,7 +557,7 @@ class TabManager:
         if not substats:
             self.app.gui_log("OCR completed but no substats were parsed.")
             return
-            
+        
         tab_name = self.get_selected_tab_name()
         if not tab_name:
             self.app.gui_log("OCR auto-fill failed: No tab selected")
@@ -536,18 +565,29 @@ class TabManager:
         if tab_name not in self.tabs_content:
             self.app.gui_log(f"OCR auto-fill failed: Tab '{tab_name}' not found")
             return
-            
+        
         content = self.tabs_content[tab_name]
         sub_entries = content["sub_entries"]
         
         for i, substat_data in enumerate(substats):
             if i < len(sub_entries):
-                # substat_data is likely a SubStat data class instance based on previous refactors
                 stat_found = getattr(substat_data, 'stat', "")
                 num_found = getattr(substat_data, 'value', "")
-                
                 translated_stat = self.app.tr(stat_found)
                 sub_entries[i][0].setCurrentText(translated_stat)
                 sub_entries[i][1].setText(str(num_found))
-        
+
+        # 画像が消えた場所に大きめの"OCR_COMPLETED"を画像ラベル下部に表示
+        if hasattr(self.app, 'ocr_completed_label') and self.app.ocr_completed_label is not None:
+            self.app.image_label.setText("")
+            self.app.image_label.setPixmap(QPixmap())
+            self.app.ocr_completed_label.setText("OCR_COMPLETED")
+            self.app.ocr_completed_label.show()
+        else:
+            if self.app.image_label is not None:
+                self.app.image_label.setText("OCR_COMPLETED")
+                self.app.image_label.setPixmap(QPixmap())
+        self.app.loaded_image = None
+        self.app.original_image = None
+
         self.app.gui_log(f"Successfully applied OCR results to tab '{tab_name}'.")

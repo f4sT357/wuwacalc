@@ -27,6 +27,9 @@ class ScoreCalculator:
     def calculate_all_scores(self) -> None:
         """Calculate all scores (supports mode selection)."""
         try:
+            # 計算前に全タブ重複チェック
+            self.app.show_duplicate_entries()
+            
             character = self.app.character_var
             weights = self.app.character_manager.get_stat_weights(character)
             score_mode = self.app.score_mode_var

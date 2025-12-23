@@ -1,8 +1,7 @@
 from typing import Union, Tuple, Optional, TYPE_CHECKING
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
-                             QTabWidget, QScrollArea, QTextEdit, QLabel, 
-                             QPushButton, QComboBox, QCheckBox, QRadioButton, QButtonGroup, 
-                             QGroupBox, QSplitter, QFrame, QSizePolicy, QLineEdit, QSlider, QMenu)
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QScrollArea, QTextEdit, QLabel, QPushButton, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QGroupBox, QSplitter, QFrame, QSizePolicy, QLineEdit, QSlider, QMenu
+)
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap, QImage
 
@@ -359,9 +358,23 @@ class UIComponents:
         # Image Label (Scroll Area)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        self.image_label_container = QWidget()
+        self.image_label_vbox = QVBoxLayout(self.image_label_container)
+        self.image_label_vbox.setContentsMargins(0, 0, 0, 0)
+        self.image_label_vbox.setSpacing(0)
         self.app.image_label = QLabel(self.app.tr("no_image"))
         self.app.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        scroll.setWidget(self.app.image_label)
+        self.ocr_completed_label = QLabel("")
+        self.ocr_completed_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        font = self.ocr_completed_label.font()
+        font.setPointSize(24)
+        font.setBold(True)
+        self.ocr_completed_label.setFont(font)
+        self.ocr_completed_label.setStyleSheet("color: #FFB300; margin-top: 16px;")
+        self.ocr_completed_label.hide()
+        self.image_label_vbox.addWidget(self.app.image_label)
+        self.image_label_vbox.addWidget(self.ocr_completed_label)
+        scroll.setWidget(self.image_label_container)
         layout.addWidget(scroll)
 
     def _setup_image_action_buttons(self, layout: QVBoxLayout) -> None:

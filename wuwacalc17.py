@@ -378,6 +378,17 @@ class ScoreCalculatorApp(QMainWindow):
         """Scans the 'images' directory and deletes any images not currently in use."""
         self.theme_manager.cleanup_unused_images()
 
+    def show_duplicate_entries(self) -> None:
+        """
+        全タブの完全一致重複個体を検出し、重複IDリストをログ出力する
+        """
+        entries = self.tab_mgr.get_all_echo_entries()
+        dup_ids = self.tab_mgr.find_duplicate_entries(entries)
+        if dup_ids:
+            self.gui_log(f"重複個体検出: {dup_ids}")
+        else:
+            self.gui_log("重複個体はありません。")
+
 
 if __name__ == "__main__":
     try:
