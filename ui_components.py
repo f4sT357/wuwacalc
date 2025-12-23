@@ -388,9 +388,15 @@ class UIComponents:
         self.btn_crop = QPushButton(self.app.tr("perform_crop"))
         self.btn_crop.clicked.connect(self.app.image_proc.perform_crop)
         
+        self.cb_auto_calc = QCheckBox(self.app.tr("auto_calculate"))
+        self.cb_auto_calc.setChecked(self.app.app_config.auto_calculate)
+        self.cb_auto_calc.toggled.connect(self.app.events.on_auto_calculate_change)
+        self.cb_auto_calc.setToolTip(self.app.tr("auto_calculate"))
+
         btn_layout.addWidget(self.btn_load)
         btn_layout.addWidget(self.btn_paste)
         btn_layout.addWidget(self.btn_crop)
+        btn_layout.addWidget(self.cb_auto_calc)
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
@@ -522,6 +528,8 @@ class UIComponents:
         self.btn_paste.setText(self.app.tr("paste_clipboard"))
         self.btn_paste.setToolTip(self.app.tr("paste_clipboard") + " (Ctrl+V)")
         self.btn_crop.setText(self.app.tr("perform_crop"))
+        self.cb_auto_calc.setText(self.app.tr("auto_calculate"))
+        self.cb_auto_calc.setToolTip(self.app.tr("auto_calculate"))
         
         # Crop Settings
         self.lbl_crop_mode.setText(self.app.tr("crop_mode"))

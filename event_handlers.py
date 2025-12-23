@@ -95,6 +95,10 @@ class EventHandlers:
                 self.tab_mgr.apply_character_main_stats()
             
             self.save_config()
+
+            # Trigger auto calculation if enabled
+            if self.app.app_config.auto_calculate:
+                self.app.score_calc.calculate_all_scores()
         else:
             # If the empty item is selected, clear character_var
             self.app.character_var = ""
@@ -136,6 +140,10 @@ class EventHandlers:
     
     def on_auto_main_change(self, checked: bool) -> None:
         self.config_manager.update_app_setting('auto_apply_main_stats', checked)
+        self.save_config()
+
+    def on_auto_calculate_change(self, checked: bool) -> None:
+        self.config_manager.update_app_setting('auto_calculate', checked)
         self.save_config()
 
     def on_score_mode_change(self, mode: str) -> None:

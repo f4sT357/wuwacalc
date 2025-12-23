@@ -84,9 +84,14 @@ class ImageProcessor(QObject):
         """
         self.app.gui_log(f"Starting batch processing of {len(file_paths)} images...")
         
-        # Capture current crop settings to pass to worker using data contract
+        # Capture current crop settings
+        # Use percent mode if auto_calculate is enabled
+        crop_mode = self.app.crop_mode_var
+        if self.app.app_config.auto_calculate:
+            crop_mode = "percent"
+
         crop_config = CropConfig(
-            mode=self.app.crop_mode_var,
+            mode=crop_mode,
             left_p=self.app.crop_left_percent_var,
             top_p=self.app.crop_top_percent_var,
             width_p=self.app.crop_width_percent_var,
@@ -165,6 +170,11 @@ class ImageProcessor(QObject):
     def _on_worker_finished(self) -> None:
         """Handle worker completion."""
         self.app.gui_log(f"Batch processing completed. {self._batch_successful_count} images processed successfully.")
+        
+        # Trigger auto calculation if enabled and character is selected
+        if self.app.app_config.auto_calculate and self.app.character_var:
+            self.app.score_calc.calculate_all_scores()
+            
         # self.app.set_ui_enabled(True) # Re-enable UI
 
     def _is_tab_empty(self, tab_key: str) -> bool:
@@ -305,8 +315,25 @@ class ImageProcessor(QObject):
             return
 
         self.app.original_image = image.copy()
-        # Use the entire image by default without cropping
-        self.apply_cropped_image(image)
+        
+        # If auto calculate is enabled, apply percent crop automatically
+        if self.app.app_config.auto_calculate:
+            try:
+                left_p = self.app.crop_left_percent_var
+                top_p = self.app.crop_top_percent_var
+                width_p = self.app.crop_width_percent_var
+                height_p = self.app.crop_height_percent_var
+                
+                cropped = crop_image_by_percent(self.app.original_image, left_p, top_p, width_p, height_p)
+                self.app.gui_log(f"Auto-applied percent crop: L={left_p}%, T={top_p}%, W={width_p}%, H={height_p}%")
+                self.apply_cropped_image(cropped)
+            except Exception as e:
+                self.app.logger.error(f"Auto-crop error: {e}")
+                self.apply_cropped_image(image) # Fallback to original
+        else:
+            # Use the entire image by default without cropping
+            self.apply_cropped_image(image)
+            
         self.app.gui_log(f"Image loaded: {source_name}")
     
     def perform_crop(self) -> None:
@@ -315,8 +342,9 @@ class ImageProcessor(QObject):
             QMessageBox.warning(self.app, "Warning", "No image loaded.")
             return
 
+        # If auto calculate is enabled, prioritize percent crop to avoid dialog interruption
         mode = self.app.crop_mode_var
-        if mode == "percent":
+        if mode == "percent" or self.app.app_config.auto_calculate:
             self.apply_percent_crop()
         else:
             self.open_crop_dialog()
@@ -439,7 +467,9 @@ class ImageProcessor(QObject):
             self.app.gui_log("OCR failed: No text detected.")
             # If OCR fails, still save the image to the current tab for reference
             self.app.tab_mgr.save_tab_image(current_selected_tab_name, stored_original, stored_cropped)
-            self.ocr_completed.emit(result) # result will contain error logs
+            # Trigger auto calculation if enabled and character is selected
+        if self.app.app_config.auto_calculate and self.app.character_var:
+            self.app.score_calc.calculate_all_scores()
     
     def display_image_preview(self, image: Optional['Image.Image']) -> None:
         """Update the image preview label."""
