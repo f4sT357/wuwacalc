@@ -75,10 +75,10 @@ class CropDialog(QDialog):
         layout.addWidget(self.confirm_checkbox)
 
         # パーセントで適用するチェックボックス（%設定エリアを適用）
-        self.percent_apply_checkbox = QCheckBox(self.app.tr("crop_apply_percent") if hasattr(self.app, 'tr') else "%設定エリアを適用")
+        self.percent_apply_checkbox = QCheckBox(self.app.tr("crop_apply_percent"))
         self.percent_apply_checkbox.setChecked(True)
         # ホバー時の説明（ツールチップ）
-        self.percent_apply_checkbox.setToolTip("選択した領域の幅/高さをパーセントとして扱い、元画像に対して割合で切り取ります。例: 50% x 50%")
+        self.percent_apply_checkbox.setToolTip(self.app.tr("crop_apply_percent_tooltip"))
         layout.addWidget(self.percent_apply_checkbox)
 
         # --- プリセットUI ---
@@ -87,9 +87,9 @@ class CropDialog(QDialog):
         self.preset_combo.setEditable(False)
         self.preset_combo.setMinimumWidth(120)
         self.preset_name_input = QLineEdit()
-        self.preset_name_input.setPlaceholderText(self.app.tr("preset_name_placeholder") if hasattr(self.app, 'tr') else "名前")
+        self.preset_name_input.setPlaceholderText(self.app.tr("preset_name_placeholder"))
         self.preset_input = QLineEdit()
-        self.preset_input.setPlaceholderText("例: 50x50")
+        self.preset_input.setPlaceholderText(self.app.tr("preset_placeholder_format"))
         btn_save = QPushButton(self.app.tr("save"))
         btn_load = QPushButton(self.app.tr("load"))
         btn_delete = QPushButton(self.app.tr("delete"))
@@ -102,10 +102,10 @@ class CropDialog(QDialog):
         layout.addLayout(preset_layout)
 
         # この範囲をデフォルト設定として保存 用チェックボックス
-        self.save_as_default_checkbox = QCheckBox(self.app.tr("crop_save_as_default") if hasattr(self.app, 'tr') else "この範囲をデフォルト設定として保存")
+        self.save_as_default_checkbox = QCheckBox(self.app.tr("crop_save_as_default"))
         self.save_as_default_checkbox.setChecked(False)
         # ホバー時の説明（ツールチップ）
-        self.save_as_default_checkbox.setToolTip("現在選択している切り取り範囲（またはプリセット値）を次回以降のデフォルト値として保存します。アプリ再起動後も保持されます。")
+        self.save_as_default_checkbox.setToolTip(self.app.tr("crop_save_as_default_tooltip"))
         layout.addWidget(self.save_as_default_checkbox)
 
         self._preset_file = os.path.join(os.path.dirname(__file__), "..", "crop_presets.json")
@@ -122,8 +122,8 @@ class CropDialog(QDialog):
         # CropLabelのマウスリリースでパーセント更新
         self.image_label.mouseReleaseEvent = self._wrap_mouse_release(self.image_label.mouseReleaseEvent)
 
-        # もしデフォルトの切り取り範囲が保存されていれば読み込み表示する
-        self._apply_default_crop_if_exists()
+        # もしデフォルトの切り取り範囲があれば読み込み表示する
+        self._apply_current_app_crop_settings()
 
         # Buttons
         btn_layout = QHBoxLayout()
@@ -170,7 +170,7 @@ class CropDialog(QDialog):
         text = self.preset_input.text().strip()
         name = self.preset_name_input.text().strip()
         if not name:
-            QMessageBox.warning(self, self.app.tr("warning"), self.app.tr("preset_name_required") if hasattr(self.app, 'tr') else "プリセット名を入力してください")
+            QMessageBox.warning(self, self.app.tr("warning"), self.app.tr("preset_name_required"))
             return
         # 入力が空ならlast_percentを使う
         if not text and self.last_percent:
@@ -294,43 +294,39 @@ class CropDialog(QDialog):
         self.image_label.setPixmap(pixmap)
         self.image_label.setFixedSize(new_w, new_h) 
 
-    def _apply_default_crop_if_exists(self):
-        import json, os
+    def _apply_current_app_crop_settings(self):
+        """Initialize the crop area from the main application's 4D percentage settings."""
         try:
-            preset_path = os.path.abspath(self._preset_file)
-            if not os.path.exists(preset_path):
-                return
-            with open(preset_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            dc = data.get('default_crop')
-            if not dc:
-                return
-            left_p = float(dc.get('left_p', 0.0))
-            top_p = float(dc.get('top_p', 0.0))
-            width_p = float(dc.get('width_p', 100.0))
-            height_p = float(dc.get('height_p', 100.0))
+            # Use current settings from the main app (L, T, W, H)
+            left_p = float(self.app.crop_left_percent_var)
+            top_p = float(self.app.crop_top_percent_var)
+            width_p = float(self.app.crop_width_percent_var)
+            height_p = float(self.app.crop_height_percent_var)
 
             img_w, img_h = self.pil_image.size
-            left = int(img_w * left_p / 100.0)
-            top = int(img_h * top_p / 100.0)
-            right = left + int(img_w * width_p / 100.0)
-            bottom = top + int(img_h * height_p / 100.0)
+            
+            # Convert percentages to original pixels
+            orig_l = int(img_w * left_p / 100.0)
+            orig_t = int(img_h * top_p / 100.0)
+            orig_w = int(img_w * width_p / 100.0)
+            orig_h = int(img_h * height_p / 100.0)
 
-            left_s = int(left * self.scale_ratio)
-            top_s = int(top * self.scale_ratio)
-            right_s = int(right * self.scale_ratio)
-            bottom_s = int(bottom * self.scale_ratio)
+            # Convert to display scale
+            l_s = int(orig_l * self.scale_ratio)
+            t_s = int(orig_t * self.scale_ratio)
+            w_s = int(orig_w * self.scale_ratio)
+            h_s = int(orig_h * self.scale_ratio)
 
-            self.image_label.rubberBand.setGeometry(QRect(left_s, top_s, right_s - left_s, bottom_s - top_s))
+            self.image_label.rubberBand.setGeometry(QRect(l_s, t_s, w_s, h_s))
             self.image_label.rubberBand.show()
-            self.image_label.current_rect = QRect(left_s, top_s, right_s - left_s, bottom_s - top_s)
-            # 更新表示
+            self.image_label.current_rect = QRect(l_s, t_s, w_s, h_s)
+            
+            # Update labels and input fields
             self._update_percent_label()
-            if self.preset_input is not None:
-                self.preset_input.setText(f"{width_p:.1f}x{height_p:.1f}")
-        except Exception:
-            # 読み込み失敗は致命的でないので無視
-            pass
+            
+        except Exception as e:
+            # Fallback if values are invalid
+            self.app.logger.debug(f"Failed to apply current crop settings to dialog: {e}")
 
     def _reset_selection(self):
         self.image_label.rubberBand.hide()
@@ -350,6 +346,44 @@ class CropDialog(QDialog):
             if not (self.save_as_default_checkbox and self.save_as_default_checkbox.isChecked()):
                 return
             try:
+                # 1. Update main application configuration
+                self.app.config_manager.update_app_setting('crop_left_percent', float(left_p))
+                self.app.config_manager.update_app_setting('crop_top_percent', float(top_p))
+                self.app.config_manager.update_app_setting('crop_width_percent', float(width_p))
+                self.app.config_manager.update_app_setting('crop_height_percent', float(height_p))
+                
+                # 2. Update application variables for immediate use
+                self.app.crop_left_percent_var = float(left_p)
+                self.app.crop_top_percent_var = float(top_p)
+                self.app.crop_width_percent_var = float(width_p)
+                self.app.crop_height_percent_var = float(height_p)
+                
+                # 3. Update main UI widgets (entries and sliders)
+                # Disable signals temporarily to avoid redundant processing
+                self.app.ui.entry_crop_l.blockSignals(True)
+                self.app.ui.entry_crop_t.blockSignals(True)
+                self.app.ui.entry_crop_w.blockSignals(True)
+                self.app.ui.entry_crop_h.blockSignals(True)
+                
+                self.app.ui.entry_crop_l.setText(f"{left_p:.1f}")
+                self.app.ui.entry_crop_t.setText(f"{top_p:.1f}")
+                self.app.ui.entry_crop_w.setText(f"{width_p:.1f}")
+                self.app.ui.entry_crop_h.setText(f"{height_p:.1f}")
+                
+                self.app.ui.slider_crop_l.setValue(int(left_p))
+                self.app.ui.slider_crop_t.setValue(int(top_p))
+                self.app.ui.slider_crop_w.setValue(int(width_p))
+                self.app.ui.slider_crop_h.setValue(int(height_p))
+                
+                self.app.ui.entry_crop_l.blockSignals(False)
+                self.app.ui.entry_crop_t.blockSignals(False)
+                self.app.ui.entry_crop_w.blockSignals(False)
+                self.app.ui.entry_crop_h.blockSignals(False)
+
+                # 4. Save to config.json
+                self.app.config_manager.save()
+
+                # Also keep saving to crop_presets.json for dialog-specific defaults
                 preset_path = os.path.abspath(self._preset_file)
                 data = {}
                 if os.path.exists(preset_path):
