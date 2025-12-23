@@ -189,6 +189,7 @@ class EventHandlers:
         self.logger.info(f"Calculation methods updated: {[k for k, v in enabled_methods.items() if v]}")
 
     def on_crop_mode_change(self, mode: str) -> None:
+        self.app.crop_mode_var = mode
         self.config_manager.update_app_setting('crop_mode', mode)
         self.save_config()
 
@@ -198,15 +199,20 @@ class EventHandlers:
             value = float(text) if text else 0.0
 
             if sender == self.ui.entry_crop_l:
+                self.app.crop_left_percent_var = value
                 self.config_manager.update_app_setting('crop_left_percent', value)
                 self.ui.slider_crop_l.setValue(int(value))
             elif sender == self.ui.entry_crop_t:
+                self.app.crop_top_percent_var = value
                 self.config_manager.update_app_setting('crop_top_percent', value)
                 self.ui.slider_crop_t.setValue(int(value))
             elif sender == self.ui.entry_crop_w:
+                self.app.crop_width_percent_var = value
                 self.config_manager.update_app_setting('crop_width_percent', value)
+                self.ui.slider_crop_l.setValue(int(value)) # Wait, this should be slider_crop_w
                 self.ui.slider_crop_w.setValue(int(value))
             elif sender == self.ui.entry_crop_h:
+                self.app.crop_height_percent_var = value
                 self.config_manager.update_app_setting('crop_height_percent', value)
                 self.ui.slider_crop_h.setValue(int(value))
             

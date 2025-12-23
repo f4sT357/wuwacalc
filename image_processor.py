@@ -85,10 +85,7 @@ class ImageProcessor(QObject):
         self.app.gui_log(f"Starting batch processing of {len(file_paths)} images...")
         
         # Capture current crop settings
-        # Use percent mode if auto_calculate is enabled
         crop_mode = self.app.crop_mode_var
-        if self.app.app_config.auto_calculate:
-            crop_mode = "percent"
 
         crop_config = CropConfig(
             mode=crop_mode,
@@ -316,8 +313,8 @@ class ImageProcessor(QObject):
 
         self.app.original_image = image.copy()
         
-        # If auto calculate is enabled, apply percent crop automatically
-        if self.app.app_config.auto_calculate:
+        # If auto calculate is enabled AND mode is percent, apply percent crop automatically
+        if self.app.app_config.auto_calculate and self.app.crop_mode_var == "percent":
             try:
                 left_p = self.app.crop_left_percent_var
                 top_p = self.app.crop_top_percent_var
@@ -331,8 +328,10 @@ class ImageProcessor(QObject):
                 self.app.logger.error(f"Auto-crop error: {e}")
                 self.apply_cropped_image(image) # Fallback to original
         else:
-            # Use the entire image by default without cropping
-            self.apply_cropped_image(image)
+            # Otherwise, just display the original image for preview/manual cropping
+            # We don't call apply_cropped_image yet because that triggers OCR
+            self.display_image_preview(self.app.original_image)
+            self.app.loaded_image = self.app.original_image.copy()
             
         self.app.gui_log(f"Image loaded: {source_name}")
     
@@ -342,9 +341,8 @@ class ImageProcessor(QObject):
             QMessageBox.warning(self.app, "Warning", "No image loaded.")
             return
 
-        # If auto calculate is enabled, prioritize percent crop to avoid dialog interruption
         mode = self.app.crop_mode_var
-        if mode == "percent" or self.app.app_config.auto_calculate:
+        if mode == "percent":
             self.apply_percent_crop()
         else:
             self.open_crop_dialog()
