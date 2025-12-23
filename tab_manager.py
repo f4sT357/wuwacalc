@@ -70,10 +70,14 @@ class TabManager:
             self.app.original_image = data.original.copy()
             self.app.image_proc.display_image_preview(self.app.loaded_image)
         else:
+            # If there's no saved image for this tab, do not clear the currently
+            # displayed preview. Leaving the existing preview prevents the image
+            # from disappearing immediately after it was loaded by the user.
+            # Only reset the internal references; UI preview remains until
+            # explicitly cleared by the user (e.g., Clear Tab / Clear All).
             self.app.loaded_image = None
             self.app.original_image = None
-            self.app.image_label.setText("No image loaded")
-            self.app.image_label.setPixmap(QPixmap()) # Clear image
+            self.app.logger.debug(f"No saved image for tab '{tab_name}'; keeping current preview.")
     
     def save_tab_result(self, tab_name: str) -> None:
         """Save the current calculation result for each tab."""

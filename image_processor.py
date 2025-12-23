@@ -354,13 +354,21 @@ class ImageProcessor(QObject):
                         try:
                             cropped_img = self.app.original_image.crop((left, top, right, bottom))
                             self.app.gui_log(f"Cropped with coordinates: ({left},{top}) - ({right},{bottom})")
-                            
                             self.apply_cropped_image(cropped_img)
-                            
                         except Exception as ve:
                             QMessageBox.critical(self.app, "Error", f"Failed to crop with coordinates:\n{ve}")
                             self.app.logger.exception(f"Coordinate crop error: {ve}")
                             self.app.gui_log(f"Coordinate crop error: {ve}")
+                    elif crop_dialog.crop_result[0] == 'percent':
+                        _, left_p, top_p, width_p, height_p = crop_dialog.crop_result
+                        try:
+                            cropped = crop_image_by_percent(self.app.original_image, left_p, top_p, width_p, height_p)
+                            self.app.gui_log(f"Cropped by percent: L={left_p}%, T={top_p}%, W={width_p}%, H={height_p}%")
+                            self.apply_cropped_image(cropped)
+                        except Exception as perr:
+                            QMessageBox.critical(self.app, "Error", f"Failed to crop by percent:\n{perr}")
+                            self.app.logger.exception(f"Percent crop error: {perr}")
+                            self.app.gui_log(f"Percent crop error: {perr}")
             else:
                 self.app.gui_log("Crop cancelled.")
         except Exception as e:

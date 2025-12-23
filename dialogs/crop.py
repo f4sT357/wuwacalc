@@ -74,6 +74,13 @@ class CropDialog(QDialog):
         self.confirm_checkbox.setChecked(True)
         layout.addWidget(self.confirm_checkbox)
 
+        # パーセントで適用するチェックボックス（%設定エリアを適用）
+        self.percent_apply_checkbox = QCheckBox(self.app.tr("crop_apply_percent") if hasattr(self.app, 'tr') else "%設定エリアを適用")
+        self.percent_apply_checkbox.setChecked(True)
+        # ホバー時の説明（ツールチップ）
+        self.percent_apply_checkbox.setToolTip("選択した領域の幅/高さをパーセントとして扱い、元画像に対して割合で切り取ります。例: 50% x 50%")
+        layout.addWidget(self.percent_apply_checkbox)
+
         # --- プリセットUI ---
         preset_layout = QHBoxLayout()
         self.preset_combo = QComboBox()
@@ -94,6 +101,13 @@ class CropDialog(QDialog):
         preset_layout.addWidget(btn_delete)
         layout.addLayout(preset_layout)
 
+        # この範囲をデフォルト設定として保存 用チェックボックス
+        self.save_as_default_checkbox = QCheckBox(self.app.tr("crop_save_as_default") if hasattr(self.app, 'tr') else "この範囲をデフォルト設定として保存")
+        self.save_as_default_checkbox.setChecked(False)
+        # ホバー時の説明（ツールチップ）
+        self.save_as_default_checkbox.setToolTip("現在選択している切り取り範囲（またはプリセット値）を次回以降のデフォルト値として保存します。アプリ再起動後も保持されます。")
+        layout.addWidget(self.save_as_default_checkbox)
+
         self._preset_file = os.path.join(os.path.dirname(__file__), "..", "crop_presets.json")
         self._load_presets()
         btn_save.clicked.connect(self._save_preset)
@@ -107,6 +121,9 @@ class CropDialog(QDialog):
 
         # CropLabelのマウスリリースでパーセント更新
         self.image_label.mouseReleaseEvent = self._wrap_mouse_release(self.image_label.mouseReleaseEvent)
+
+        # もしデフォルトの切り取り範囲が保存されていれば読み込み表示する
+        self._apply_default_crop_if_exists()
 
         # Buttons
         btn_layout = QHBoxLayout()
@@ -277,23 +294,92 @@ class CropDialog(QDialog):
         self.image_label.setPixmap(pixmap)
         self.image_label.setFixedSize(new_w, new_h) 
 
+    def _apply_default_crop_if_exists(self):
+        import json, os
+        try:
+            preset_path = os.path.abspath(self._preset_file)
+            if not os.path.exists(preset_path):
+                return
+            with open(preset_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            dc = data.get('default_crop')
+            if not dc:
+                return
+            left_p = float(dc.get('left_p', 0.0))
+            top_p = float(dc.get('top_p', 0.0))
+            width_p = float(dc.get('width_p', 100.0))
+            height_p = float(dc.get('height_p', 100.0))
+
+            img_w, img_h = self.pil_image.size
+            left = int(img_w * left_p / 100.0)
+            top = int(img_h * top_p / 100.0)
+            right = left + int(img_w * width_p / 100.0)
+            bottom = top + int(img_h * height_p / 100.0)
+
+            left_s = int(left * self.scale_ratio)
+            top_s = int(top * self.scale_ratio)
+            right_s = int(right * self.scale_ratio)
+            bottom_s = int(bottom * self.scale_ratio)
+
+            self.image_label.rubberBand.setGeometry(QRect(left_s, top_s, right_s - left_s, bottom_s - top_s))
+            self.image_label.rubberBand.show()
+            self.image_label.current_rect = QRect(left_s, top_s, right_s - left_s, bottom_s - top_s)
+            # 更新表示
+            self._update_percent_label()
+            if self.preset_input is not None:
+                self.preset_input.setText(f"{width_p:.1f}x{height_p:.1f}")
+        except Exception:
+            # 読み込み失敗は致命的でないので無視
+            pass
+
     def _reset_selection(self):
         self.image_label.rubberBand.hide()
         self.image_label.current_rect = QRect()
         self._update_percent_label()
 
     def _ok(self):
+        import json, os
+
         if self.confirm_checkbox and not self.confirm_checkbox.isChecked():
             QMessageBox.information(self, self.app.tr("info"), self.app.tr("crop_confirm_needed"))
             return
+
         rect = self.image_label.get_selection()
+        # Helper to persist default crop (store as percentages)
+        def _maybe_save_default(left_p, top_p, width_p, height_p):
+            if not (self.save_as_default_checkbox and self.save_as_default_checkbox.isChecked()):
+                return
+            try:
+                preset_path = os.path.abspath(self._preset_file)
+                data = {}
+                if os.path.exists(preset_path):
+                    with open(preset_path, 'r', encoding='utf-8') as f:
+                        try:
+                            data = json.load(f)
+                        except Exception:
+                            data = {}
+                data['default_crop'] = {
+                    'left_p': float(left_p), 'top_p': float(top_p),
+                    'width_p': float(width_p), 'height_p': float(height_p)
+                }
+                with open(preset_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+            except Exception:
+                # Fail silently; not critical
+                pass
+
         if rect.isEmpty():
             # Entire image
-            self.crop_result = ('coords', 0, 0, self.pil_image.size[0], self.pil_image.size[1])
+            if self.percent_apply_checkbox and self.percent_apply_checkbox.isChecked():
+                left_p, top_p, width_p, height_p = 0.0, 0.0, 100.0, 100.0
+                self.crop_result = ('percent', left_p, top_p, width_p, height_p)
+                _maybe_save_default(left_p, top_p, width_p, height_p)
+            else:
+                self.crop_result = ('coords', 0, 0, self.pil_image.size[0], self.pil_image.size[1])
             self.accept()
             return
 
-        # Convert coords
+        # Convert coords (from displayed scaled image back to original image coords)
         x1 = rect.x()
         y1 = rect.y()
         x2 = rect.right()
@@ -304,7 +390,7 @@ class CropDialog(QDialog):
         orig_right = int(x2 / self.scale_ratio)
         orig_bottom = int(y2 / self.scale_ratio)
 
-        # Limit
+        # Limit to image bounds
         orig_left = max(0, orig_left)
         orig_top = max(0, orig_top)
         orig_right = min(self.pil_image.size[0], orig_right)
@@ -314,5 +400,15 @@ class CropDialog(QDialog):
             QMessageBox.warning(self, self.app.tr("warning"), self.app.tr("crop_too_small"))
             return
 
-        self.crop_result = ('coords', orig_left, orig_top, orig_right, orig_bottom)
+        if self.percent_apply_checkbox and self.percent_apply_checkbox.isChecked():
+            img_w, img_h = self.pil_image.size
+            left_p = orig_left / img_w * 100.0
+            top_p = orig_top / img_h * 100.0
+            width_p = (orig_right - orig_left) / img_w * 100.0
+            height_p = (orig_bottom - orig_top) / img_h * 100.0
+            self.crop_result = ('percent', left_p, top_p, width_p, height_p)
+            _maybe_save_default(left_p, top_p, width_p, height_p)
+        else:
+            self.crop_result = ('coords', orig_left, orig_top, orig_right, orig_bottom)
+
         self.accept()
