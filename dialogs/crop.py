@@ -61,6 +61,12 @@ class CropDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(self.app.tr("crop_instruction")))
+        
+        # 連携説明ラベルを追加
+        sync_notice = QLabel(self.app.tr("crop_sync_notice"))
+        sync_notice.setStyleSheet("color: #FFB300; font-size: 10px;") # 目立つように少し色を変える
+        sync_notice.setWordWrap(True)
+        layout.addWidget(sync_notice)
 
         self.image_label = CropLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
@@ -172,35 +178,30 @@ class CropDialog(QDialog):
         if not name:
             QMessageBox.warning(self, self.app.tr("warning"), self.app.tr("preset_name_required"))
             return
-        # 入力が空ならlast_percentを使う
+            
+        # If input is empty, use the current selection (last_percent)
         if not text and self.last_percent:
-            w, h = self.last_percent
+            l, t, w, h = self.last_percent
         else:
-            if "x" not in text:
-                QMessageBox.warning(self, self.app.tr("warning"), self.app.tr("preset_format"))
-                return
             try:
-                # 入力値がピクセル数ならパーセントに変換
-                if self.pil_image:
-                    img_w, img_h = self.pil_image.size
-                    vals = text.split("x")
-                    if len(vals) == 2:
-                        v1, v2 = vals
-                        if v1.strip().endswith("%") or v2.strip().endswith("%"):
-                            w = float(v1.strip().replace("%", ""))
-                            h = float(v2.strip().replace("%", ""))
-                        else:
-                            # ピクセル数→パーセント
-                            w = float(v1) / img_w * 100
-                            h = float(v2) / img_h * 100
-                    else:
-                        raise ValueError()
+                # Support both comma and 'x' separators for flexibility
+                import re
+                vals = [float(v.strip().replace("%", "")) for v in re.split(r'[,x]', text)]
+                
+                if len(vals) == 4:
+                    l, t, w, h = vals
+                elif len(vals) == 2:
+                    # Legacy 2D format: center it
+                    w, h = vals
+                    l = (100.0 - w) / 2
+                    t = (100.0 - h) / 2
                 else:
                     raise ValueError()
             except Exception:
                 QMessageBox.warning(self, self.app.tr("warning"), self.app.tr("preset_format"))
                 return
-        self.presets.append({"name": name, "w": w, "h": h})
+                
+        self.presets.append({"name": name, "l": l, "t": t, "w": w, "h": h})
         self._save_presets_to_file()
         self._load_presets()
 
@@ -209,23 +210,29 @@ class CropDialog(QDialog):
         if idx < 0 or idx >= len(self.presets):
             return
         preset = self.presets[idx]
+        
+        # Extract 4D data with legacy fallback
         w, h = preset["w"], preset["h"]
+        l = preset.get("l", (100.0 - w) / 2)
+        t = preset.get("t", (100.0 - h) / 2)
+        
         img_w, img_h = self.pil_image.size
-        crop_w = int(img_w * w / 100)
-        crop_h = int(img_h * h / 100)
-        # センタリング
-        left = (img_w - crop_w) // 2
-        top = (img_h - crop_h) // 2
-        right = left + crop_w
-        bottom = top + crop_h
-        # スケール変換
-        left_s = int(left * self.scale_ratio)
-        top_s = int(top * self.scale_ratio)
-        right_s = int(right * self.scale_ratio)
-        bottom_s = int(bottom * self.scale_ratio)
-        self.image_label.rubberBand.setGeometry(QRect(left_s, top_s, right_s-left_s, bottom_s-top_s))
+        
+        # Convert percentages to original pixels
+        orig_l = int(img_w * l / 100.0)
+        orig_t = int(img_h * t / 100.0)
+        orig_w = int(img_w * w / 100.0)
+        orig_h = int(img_h * h / 100.0)
+        
+        # Scale for display
+        l_s = int(orig_l * self.scale_ratio)
+        t_s = int(orig_t * self.scale_ratio)
+        w_s = int(orig_w * self.scale_ratio)
+        h_s = int(orig_h * self.scale_ratio)
+        
+        self.image_label.rubberBand.setGeometry(QRect(l_s, t_s, w_s, h_s))
         self.image_label.rubberBand.show()
-        self.image_label.current_rect = QRect(left_s, top_s, right_s-left_s, bottom_s-top_s)
+        self.image_label.current_rect = QRect(l_s, t_s, w_s, h_s)
         self._update_percent_label()
 
     def _delete_preset(self):
@@ -240,8 +247,14 @@ class CropDialog(QDialog):
         if idx < 0 or idx >= len(self.presets):
             return
         preset = self.presets[idx]
+        
+        # Get values with fallbacks for legacy presets
+        w, h = preset["w"], preset["h"]
+        l = preset.get("l", (100.0 - w) / 2)
+        t = preset.get("t", (100.0 - h) / 2)
+        
         self.preset_name_input.setText(preset['name'])
-        self.preset_input.setText(f"{preset['w']:.1f}x{preset['h']:.1f}")
+        self.preset_input.setText(f"{l:.1f},{t:.1f},{w:.1f},{h:.1f}")
 
     def _wrap_mouse_release(self, orig_func):
         def wrapped(event):
@@ -255,17 +268,27 @@ class CropDialog(QDialog):
             self.percent_label.setText("")
             self.last_percent = None
             return
-        x1, y1, x2, y2 = rect.x(), rect.y(), rect.right(), rect.bottom()
-        w, h = self.pil_image.size
-        crop_w = int((x2 - x1) / self.scale_ratio)
-        crop_h = int((y2 - y1) / self.scale_ratio)
-        percent_w = crop_w / w * 100
-        percent_h = crop_h / h * 100
-        self.last_percent = (percent_w, percent_h)
-        self.percent_label.setText(f"{percent_w:.1f}% x {percent_h:.1f}%")
-        # 入力欄に自動反映
+
+        img_w, img_h = self.pil_image.size
+        
+        # Calculate original coordinates (reversing display scale)
+        orig_l = rect.x() / self.scale_ratio
+        orig_t = rect.y() / self.scale_ratio
+        orig_w = rect.width() / self.scale_ratio
+        orig_h = rect.height() / self.scale_ratio
+
+        # Convert to percentages
+        p_l = orig_l / img_w * 100.0
+        p_t = orig_t / img_h * 100.0
+        p_w = orig_w / img_w * 100.0
+        p_h = orig_h / img_h * 100.0
+
+        self.last_percent = (p_l, p_t, p_w, p_h)
+        self.percent_label.setText(f"L:{p_l:.1f}% T:{p_t:.1f}% W:{p_w:.1f}% H:{p_h:.1f}%")
+        
+        # Auto-update preset input field in L,T,W,H format
         if self.preset_input is not None:
-            self.preset_input.setText(f"{percent_w:.1f}x{percent_h:.1f}")
+            self.preset_input.setText(f"{p_l:.1f},{p_t:.1f},{p_w:.1f},{p_h:.1f}")
 
     def _load_and_display_image(self):
         if not self.pil_image or not is_pil_installed:
