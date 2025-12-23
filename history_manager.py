@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from data_contracts import HistoryEntry
@@ -135,7 +136,6 @@ class HistoryManager:
             filtered = [h for h in filtered if h.cost == cost]
 
         if rating:
-            import re
             # Match rating precisely (e.g., "S" should not match "SS" or "SSS")
             # We look for the rating followed by a space or end of string, 
             # and preceded by a space or opening parenthesis.

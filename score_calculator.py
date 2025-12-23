@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QMessageBox
 from echo_data import EchoData
 from languages import TRANSLATIONS
 from data_contracts import EchoEntry
+from constants import ACTION_SINGLE, ACTION_BATCH
 
 class ScoreCalculator:
     """Class responsible for score calculation."""
@@ -122,7 +123,7 @@ class ScoreCalculator:
             self.app.history_mgr.add_entry(
                 character=character,
                 cost=entry.cost or "Unknown",
-                action="Single Evaluation",
+                action=ACTION_SINGLE,
                 result=result_summary,
                 fingerprint=fingerprint,
                 details={"score": evaluation.total_score},
@@ -219,7 +220,7 @@ class ScoreCalculator:
             self.app.history_mgr.add_entry(
                 character=character,
                 cost=entry.cost or "Unknown",
-                action="Batch Evaluation",
+                action=ACTION_BATCH,
                 result=result_summary,
                 fingerprint=fingerprint,
                 details={"score": evaluation.total_score},

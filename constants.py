@@ -264,6 +264,11 @@ KEY_ECHOES = "echoes"
 KEY_MAIN_STAT = "main_stat"
 KEY_CHARACTER_WEIGHTS = "character_weights"
 KEY_CHARACTER_MAINSTATS = "character_mainstats"
+# --- History Constants ---
+ACTION_SINGLE = "Single Evaluation"
+ACTION_BATCH = "Batch Evaluation"
+ACTION_OCR = "OCR"
+
 # --- UI Constants ---
 # Default window dimensions
 DEFAULT_WINDOW_WIDTH = 1000
