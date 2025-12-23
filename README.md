@@ -73,79 +73,116 @@ python wuwacalc17.py
     - *Tip*: 一括読み込み時は「コスト」表示を含めてキャプチャすると自動分類が働きます。
 3. **キャラ設定**: 使用するキャラクターを選択または新規作成し、重みを調整。
 
-1. **Manual Input**: Enter stats and click "Calculate".
-2. **OCR Mode**: Import images in the "OCR" tab to automatically fill stats.
-    - *Tip*: Include the "Cost" display in your capture for better auto-classification.
-3. **Character Settings**: Select or create character presets and adjust weights.
+# Wuthering Waves Echo Score Calculator (鳴潮 音骸スコア計算機)
+
+このリポジトリは、`wuwacalc17.py` をエントリーポイントとするデスクトップアプリケーションです。
+本 README は現在の実装構造と処理フロー（`PROCESS_FLOW.md` に基づく）を要約します。
+
+## 目次 / Table of Contents
+- [主要コンポーネントと責務](#主要コンポーネントと責務)
+- [処理フロー（概要）](#処理フロー概要)
+- [セットアップ（詳細）](#セットアップ詳細)
+- [実行方法](#実行方法)
+- [PyInstaller での配布（任意）](#pyinstaller-での配布任意)
+- [トラブルシューティング](#トラブルシューティング)
+- [貢献と連絡先](#貢献と連絡先)
+- [ライセンスと免責](#ライセンスと免責)
+
+## 主要コンポーネントと責務
+- **`wuwacalc17.py`** — エントリーポイント。各マネージャー初期化とシグナル仲介（Mediator）。
+- **`data_manager.py`** — ゲームデータ、エイリアス、検証ロジック。
+- **`config_manager.py`** — `config.json` による設定の永続化と読み込み。
+- **`character_manager.py`** — キャラクター別重み付け設定の管理。
+- **`tab_manager.py`** — タブ生成、OCR結果の反映、データ抽出/復元。
+- **`ui_components.py` / `event_handlers.py`** — UI ビルドとイベント制御（ロジック非混入を目標）。
+- **`image_processor.py` / `worker_thread.py`** — 画像前処理、クロップ、OCR ワーカーの管理。
+- **`score_calculator.py`** — スコア算出と履歴追加ロジック（`fingerprint` による重複判定）。
+- **`history_manager.py`** — 履歴保存・検索・フィルタリング。重複モード（`all` / `latest` / `oldest`）を実装。
+
+詳細は `PROCESS_FLOW.md` を参照してください。
+
+## 処理フロー（概要）
+- 起動: `ScoreCalculatorApp` が各マネージャーを初期化し、`config.json` の設定を反映します。
+- 画像/OCR: `ImageProcessor` が自動クロップを行い、`WorkerThread` で OCR を実行。結果は `TabManager` を通じて UI に反映されます。
+- 計算/履歴: `ScoreCalculator` が統合データからスコアを算出し、`fingerprint`（MD5）で重複チェックを行った上で `HistoryManager` に保存します。
+
+## セットアップ（手短に）
+### 前提条件 / Prerequisites
+- Python 3.8 以上（3.8+ 推奨）
+- Windows 環境の場合は Visual C++ 再頒布可能パッケージが必要になる場合があります（特に PyQt6 / numpy / cv2 使用時）。
+
+### 仮想環境と依存関係のインストール
+1. リポジトリのルートで仮想環境を作成・有効化します（PowerShell の例）：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+2. 依存関係をインストールします。
+
+```powershell
+pip install -r requirements.txt
+```
+
+### Tesseract OCR のインストール（OCR 機能を使う場合）
+1. Windows 向けのインストーラ（UB-Mannheim など）をダウンロードしてインストールします。
+    - 推奨パス: `C:\Program Files\Tesseract-OCR`。
+2. インストール時に日本語データ（`jpn`）を追加してください。
+3. PATH に Tesseract のインストール先を追加するか、アプリ内で `pytesseract.pytesseract.tesseract_cmd` に明示的なパスを設定します。
+
+```python
+import pytesseract
+# 例: Windows の標準インストール先を指定
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+```
+
+4. 代替: `TESSDATA_PREFIX` 環境変数を使って tessdata の場所を指定できます。
+
+### (任意) 追加の手順
+- 設定ファイル: `config.json` を編集して初期設定を変更できます。
+- キャラクタープリセット: `character_settings_jsons/` 配下に JSON ファイルとして保存されます。
+
+## 実行方法
+```powershell
+python wuwacalc17.py
+```
+
+## PyInstaller での配布（任意）
+1. 仮想環境を有効化した状態で PyInstaller をインストールします（未インストールの場合）。
+
+```powershell
+pip install --upgrade pyinstaller
+```
+
+2. 単一ファイル exe を作る基本コマンド:
+
+```powershell
+.\.venv\Scripts\python.exe -m PyInstaller --onefile --noconfirm --clean wuwacalc17.py
+```
+
+3. データファイル（`tessdata` や `character_settings_jsons`、`images` 等）を同梱する場合は `--add-data` を使うか、生成される `.spec` を編集してください。
+
+```powershell
+# 例: tessdata を同梱（Windows のパス区切りは ";" ではなく ":" を使用）
+.\.venv\Scripts\python.exe -m PyInstaller --onefile --add-data "tesseract/tessdata;tesseract/tessdata" wuwacalc17.py
+```
+
+4. ビルド後の成果物は `dist/` に入ります。実行時にログやエラーが出る場合は `build/` 下のログや `warn-*.txt` を確認してください。
+
+## 現在の機能と重点改善点
+- 履歴管理: `history_duplicate_mode`（`all`/`latest`/`oldest`）を持ち、`fingerprint` による同一性判定を行います。
+- 検索: 評価ランク（SSS〜C）を区別する正規表現ベースのフィルタ。
+- 改善予定: エイリアスマッチングの整理、OCR の後処理強化、履歴統計の可視化。
+
+## 開発・メンテナンス
+- ドキュメントリンク自動生成: `tools/doc_linker.py` を利用。
+- 主要設定: `config.json`、キャラクター設定は `character_settings_jsons/` 配下。
+
+## ライセンスと免責
+本ツールはファンメイドの非公式ツールです。`Wuthering Waves` および関連権利は KURO GAMES に帰属します。
+
+問題や改善提案は Issue を立ててください。
 
 ---
-
-## 📊 計算方式の詳細 / Calculation Methods
-
-| 方式 / Method | 概要 / Description |
-| :--- | :--- |
-| **正規化スコア (GameWith)** | メイン15点＋サブ最大100点の加点方式。 / Base 15 + Sub max 100 pts. |
-| **比率重視方式 (Keisan)** | 最大値に対する比率に重みを掛けて合計。 / Weighted ratio relative to max values. |
-| **ロール品質方式** | 各サブステの「引き」の強さを評価。 / Evaluates the quality of each roll. |
-| **有効ステータス数** | 重み0.5以上の有効ステ数をカウント。 / Counts sub-stats with weight ≥ 0.5. |
-| **CV換算方式** | 会心を重視したコミュニティ標準。 / Community standard emphasizing Crit. |
-
----
-
-## ⚠️ 免責事項 / Disclaimer
-本ツールはファンによる非公式ツールです。開発元（KURO GAMES）とは一切関係ありません。
-This is an unofficial fan-made tool and is not affiliated with the developer (KURO GAMES).
-
-## 📜 著作権とデータの帰属
-
-### ゲームデータについて
-本アプリケーションで使用されているゲームデータ（ステータス値、装備情報、ゲーム用語など）は、
-「鳴潮（Wuthering Waves）」の公開情報およびコミュニティによって収集されたデータに基づいています。
-
-**「鳴潮（Wuthering Waves）」および関連する全ての権利は KURO GAMES に帰属します。**
-
-- ゲーム名:  鳴潮 / Wuthering Waves
-- 開発元: KURO GAMES
-- 公式サイト: https://wutheringwaves.kurogames.com/
-
-### データソース
-本アプリケーションで使用しているゲームデータは以下のソースから取得しています：
-- ゲーム内公開情報
-- コミュニティによって検証されたデータ
-- 各種データベースサイト
-
-### 使用許諾について
-本ツールは非公式のファンメイドツールです。KURO GAMES からの公式な承認や支援は受けていません。
-ゲームデータの使用は、ファンコミュニティの健全な活動の範囲内であることを意図しています。
-
-もし著作権に関する問題がある場合は、直ちに対応いたしますので、リポジトリのIssueよりご連絡ください。
-
-## 📜 Copyright and Data Attribution
-
-### About Game Data
-The game data used in this application (stat values, equipment information, game terminology, etc.)
-is based on publicly available information from "Wuthering Waves" and data collected by the community.
-
-**"Wuthering Waves" and all related rights belong to KURO GAMES.**
-
-- Game Title: Wuthering Waves / 鳴潮
-- Developer: KURO GAMES
-- Official Website: https://wutheringwaves.kurogames.com/
-
-### Data Sources
-The game data used in this application is obtained from:
-- Publicly available in-game information
-- Community-verified data
-- Various database websites
-
-### Usage Permission
-This tool is an unofficial fan-made project. It is not officially endorsed or supported by KURO GAMES.
-The use of game data is intended to be within the scope of healthy fan community activities.
-
-If there are any copyright concerns, we will address them immediately.  Please contact us via the repository's Issues.
-
----
-本プロジェクトの開発には AI（Antigravity）による支援を受けています。
-This project was developed with the assistance of AI (Antigravity).
-
-Developed by f4sT357.
+更新元ドキュメント: `PROCESS_FLOW.md`
