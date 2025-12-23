@@ -28,7 +28,7 @@ from worker_thread import OCRWorker
 class ImageProcessor(QObject):
     """Class responsible for image processing and OCR."""
     
-    ocr_completed = pyqtSignal(list, list) # substats, log_messages
+    ocr_completed = pyqtSignal(object) # OCRResult
     
     def __init__(self, app: 'ScoreCalculatorApp', logic: 'AppLogic') -> None:
         """
@@ -434,12 +434,12 @@ class ImageProcessor(QObject):
             self.app.tab_mgr.save_tab_image(target_tab_name, stored_original, stored_cropped)
             
             # Emit signal for the tab that was actually populated
-            self.ocr_completed.emit(result.substats, result.log_messages)
+            self.ocr_completed.emit(result)
         else:
             self.app.gui_log("OCR failed: No text detected.")
             # If OCR fails, still save the image to the current tab for reference
             self.app.tab_mgr.save_tab_image(current_selected_tab_name, stored_original, stored_cropped)
-            self.ocr_completed.emit([], ["OCR failed: No text detected."]) # Emit with empty data
+            self.ocr_completed.emit(result) # result will contain error logs
     
     def display_image_preview(self, image: Optional['Image.Image']) -> None:
         """Update the image preview label."""

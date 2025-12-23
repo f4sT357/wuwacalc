@@ -553,27 +553,43 @@ class TabManager:
         except Exception as e:
             self.app.logger.exception(f"Error updating main stat combobox for '{tab_name}': {e}")
 
-    def fill_selected_tab_with_ocr_results(self, substats: List['SubStat'], log_messages: List[str]) -> None:
-        """Applies OCR results to the currently selected tab."""
-        for msg in log_messages:
+    def apply_ocr_result(self, result: 'OCRResult') -> None:
+        """
+        Applies comprehensive OCR results to the currently selected tab.
+        Includes substats and main stat.
+        """
+        for msg in result.log_messages:
             self.app.gui_log(msg)
         
-        if not substats:
-            self.app.gui_log("OCR completed but no substats were parsed.")
+        if not result.substats and not result.main_stat:
+            self.app.gui_log("OCR completed but no usable data was parsed.")
             return
         
         tab_name = self.get_selected_tab_name()
-        if not tab_name:
-            self.app.gui_log("OCR auto-fill failed: No tab selected")
-            return
-        if tab_name not in self.tabs_content:
-            self.app.gui_log(f"OCR auto-fill failed: Tab '{tab_name}' not found")
+        if not tab_name or tab_name not in self.tabs_content:
+            self.app.gui_log(f"OCR auto-fill failed: Tab '{tab_name}' not found or not selected")
             return
         
         content = self.tabs_content[tab_name]
-        sub_entries = content["sub_entries"]
         
-        for i, substat_data in enumerate(substats):
+        # 1. Update Main Stat if detected
+        if result.main_stat:
+            main_combo = content.get("main_widget")
+            if main_combo:
+                translated_main = self.app.tr(result.main_stat)
+                idx = main_combo.findText(translated_main)
+                if idx >= 0:
+                    main_combo.setCurrentIndex(idx)
+                    self.app.gui_log(f"Auto-selected main stat: {translated_main}")
+
+        # 2. Update Substats
+        sub_entries = content["sub_entries"]
+        # Clear substats first for clarity
+        for stat_widget, val_widget in sub_entries:
+            stat_widget.setCurrentIndex(0)
+            val_widget.clear()
+
+        for i, substat_data in enumerate(result.substats):
             if i < len(sub_entries):
                 stat_found = getattr(substat_data, 'stat', "")
                 num_found = getattr(substat_data, 'value', "")
@@ -581,17 +597,10 @@ class TabManager:
                 sub_entries[i][0].setCurrentText(translated_stat)
                 sub_entries[i][1].setText(str(num_found))
 
-        # 画像が消えた場所に大きめの"OCR_COMPLETED"を画像ラベル下部に表示
-        if hasattr(self.app, 'ocr_completed_label') and self.app.ocr_completed_label is not None:
-            self.app.image_label.setText("")
-            self.app.image_label.setPixmap(QPixmap())
-            self.app.ocr_completed_label.setText("OCR_COMPLETED")
-            self.app.ocr_completed_label.show()
-        else:
-            if self.app.image_label is not None:
-                self.app.image_label.setText("OCR_COMPLETED")
-                self.app.image_label.setPixmap(QPixmap())
-        self.app.loaded_image = None
-        self.app.original_image = None
-
         self.app.gui_log(f"Successfully applied OCR results to tab '{tab_name}'.")
+
+    def fill_selected_tab_with_ocr_results(self, substats: List['SubStat'], log_messages: List[str]) -> None:
+        """Legacy compatibility wrapper."""
+        from data_contracts import OCRResult
+        fake_result = OCRResult(substats=substats, log_messages=log_messages, cost=None, main_stat=None, raw_text="")
+        self.apply_ocr_result(fake_result)

@@ -1,5 +1,16 @@
 [
   {
+    "timestamp": "2025-12-24 01:12:36",
+    "character": "Changli",
+    "cost": "1",
+    "action": "Single Evaluation",
+    "result": "Score: 51.58 (S - 優秀な音骸)",
+    "fingerprint": "088368bce546778c207b9ccf4a602205",
+    "details": {
+      "score": 51.57733333333333
+    }
+  },
+  {
     "timestamp": "2025-12-24 00:02:46",
     "character": "",
     "cost": "4",

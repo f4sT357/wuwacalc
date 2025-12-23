@@ -154,3 +154,22 @@ class DataManager:
     @property
     def character_config_map(self) -> Dict[str, str]:
         return self.game_data.get("character_config_map", {})
+
+    def get_alias_pairs(self) -> List[tuple[str, str]]:
+        """
+        Returns a sorted list of (stat, alias) pairs for OCR matching.
+        Aliases are sorted by length (descending) to ensure longest match first.
+        """
+        if hasattr(self, "_alias_pairs_cache"):
+            return self._alias_pairs_cache
+            
+        alias_pairs = []
+        stat_aliases = self.stat_aliases
+        for stat, aliases in stat_aliases.items():
+            for alias in aliases:
+                alias_pairs.append((stat, alias))
+        
+        # Sort by alias length descending
+        alias_pairs.sort(key=lambda x: -len(x[1]))
+        self._alias_pairs_cache = alias_pairs
+        return alias_pairs

@@ -254,11 +254,7 @@ class AppLogic(QObject):
         last_five = lines[-5:] if len(lines) >= 5 else lines
         self.log_message.emit(f"Last five lines for parsing: {last_five}")
         
-        alias_pairs = []
-        stat_aliases = self.data_manager.stat_aliases
-        for stat, aliases in stat_aliases.items():
-            for alias in aliases:
-                alias_pairs.append((stat, alias))
+        alias_pairs = self.data_manager.get_alias_pairs()
         
         found_substats = []
         log_messages = []

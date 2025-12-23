@@ -48,8 +48,6 @@ setup_tesseract()
 
 class ScoreCalculatorApp(QMainWindow):
 
-    _ALIAS_PAIRS_CACHED: list[tuple[str, str]] = []
-
     def __init__(self) -> None:
         super().__init__()
         self.log_text = None
@@ -86,20 +84,6 @@ class ScoreCalculatorApp(QMainWindow):
         # Theme handling
         self._current_app_theme = self.app_config.theme
         self.theme_manager.apply_theme(self._current_app_theme)
-
-        # Cache alias_pairs
-        if not ScoreCalculatorApp._ALIAS_PAIRS_CACHED:
-            alias_pairs = []
-            # Use data_manager for stat aliases
-            stat_aliases = self.data_manager.stat_aliases
-            if not stat_aliases: 
-                 stat_aliases = {} # Fallback to empty if load failed
-
-            for stat, aliases in stat_aliases.items():
-                for alias in aliases:
-                    alias_pairs.append((stat, alias))
-            alias_pairs.sort(key=lambda x: -len(x[1]))
-            ScoreCalculatorApp._ALIAS_PAIRS_CACHED = alias_pairs
 
         self.setWindowTitle("Wuthering Waves Echo Score Calculator")
         self.resize(self.WINDOW_WIDTH, self.WINDOW_HEIGHT)
@@ -283,9 +267,9 @@ class ScoreCalculatorApp(QMainWindow):
         """Slot to show an informational message box."""
         QMessageBox.information(self, title, message)
         
-    def on_ocr_completed(self, substats: List['SubStat'], log_messages: List[str]) -> None:
+    def on_ocr_completed(self, result: 'OCRResult') -> None:
         """Slot to handle the results of OCR processing."""
-        self.tab_mgr.fill_selected_tab_with_ocr_results(substats, log_messages)
+        self.tab_mgr.apply_ocr_result(result)
 
     def _open_readme(self) -> None:
         """Opens the README file."""
