@@ -1,0 +1,83 @@
+[
+  {
+    "timestamp": "2025-12-24 00:02:46",
+    "character": "",
+    "cost": "4",
+    "action": "Single Evaluation",
+    "result": "Score: 43.12 (A - 良好な音骸)",
+    "fingerprint": "eaaa71b2b3929d4cf0a6e8bf559512cd",
+    "details": {}
+  },
+  {
+    "timestamp": "2025-12-24 00:01:28",
+    "character": "Changli",
+    "cost": "1",
+    "action": "Single Evaluation",
+    "result": "Score: 37.83 (A - 良好な音骸)",
+    "fingerprint": "e6cd6553a2c7ef05908ebc094a3818d0",
+    "details": {}
+  },
+  {
+    "timestamp": "2025-12-23 22:29:50",
+    "character": "Changli",
+    "cost": "4",
+    "action": "Single Evaluation",
+    "result": "Score: 43.76 (A - 良好な音骸)",
+    "fingerprint": "c02cca9db93ff2da14172ce7fa831494",
+    "details": {}
+  },
+  {
+    "timestamp": "2025-12-23 22:29:03",
+    "character": "Changli",
+    "cost": "4",
+    "action": "Single Evaluation",
+    "result": "Score: 49.57 (A - 良好な音骸)",
+    "fingerprint": "62f6708876de57b71991435fdcfd0881",
+    "details": {}
+  },
+  {
+    "timestamp": "2025-12-23 22:25:53",
+    "character": "",
+    "cost": "1",
+    "action": "Single Evaluation",
+    "result": "Score: 42.40 (A - 良好な音骸)",
+    "fingerprint": "855e242b989a6b256be4be1a8cd99ba8",
+    "details": {}
+  },
+  {
+    "timestamp": "2025-12-23 22:24:10",
+    "character": "",
+    "cost": "1",
+    "action": "Single Evaluation",
+    "result": "Score: 42.40 (A - 良好な音骸)",
+    "fingerprint": "2719400bb3caaa456f2fe15138d4826d",
+    "details": {}
+  },
+  {
+    "timestamp": "2025-12-23 21:29:22",
+    "character": "Changli",
+    "cost": "1",
+    "action": "Single Evaluation",
+    "result": "Score: 48.92 (A - 良好な音骸)",
+    "fingerprint": "6218d0fc5bbc3e1ee3f537d4e2f23c70",
+    "details": {}
+  },
+  {
+    "timestamp": "2025-12-23 21:28:44",
+    "character": "Changli",
+    "cost": "1",
+    "action": "Single Evaluation",
+    "result": "Score: 42.40 (A - 良好な音骸)",
+    "fingerprint": "2719400bb3caaa456f2fe15138d4826d",
+    "details": {}
+  },
+  {
+    "timestamp": "2025-12-23 12:12:36",
+    "character": "Changli",
+    "cost": "4",
+    "action": "Single Evaluation",
+    "result": "Score: 49.57 (A - 良好な音骸)",
+    "fingerprint": "62f6708876de57b71991435fdcfd0881",
+    "details": {}
+  }
+]

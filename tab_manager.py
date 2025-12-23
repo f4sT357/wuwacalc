@@ -233,6 +233,65 @@ class TabManager:
         finally:
             self.app._updating_tabs = False
             
+    def retranslate_tabs(self) -> None:
+        """Update all tab titles and internal labels based on the current language."""
+        if self.app.notebook is None:
+            return
+            
+        self.app._updating_tabs = True
+        try:
+            # Update Tab Titles
+            for i in range(self.app.notebook.count()):
+                # We need to find the tab_name for this index
+                # Since we don't store index to tab_name mapping directly, 
+                # we can use the order in config_tab_names
+                config_key = self.app.current_config_key
+                config_tab_names = self.app.data_manager.tab_configs.get(config_key, [])
+                if i < len(config_tab_names):
+                    tab_name = config_tab_names[i]
+                    new_label = self._generate_tab_label(tab_name)
+                    self.app.notebook.setTabText(i, new_label)
+            
+            # Update Content in each tab
+            for tab_name, content in self.tabs_content.items():
+                # Update Group Titles
+                content["main_group"].setTitle(self.app.tr("main_stat"))
+                content["sub_group"].setTitle(self.app.tr("substats"))
+                
+                # Update Main Stat ComboBox
+                main_combo = content["main_widget"]
+                current_main_key = main_combo.currentData()
+                main_combo.blockSignals(True)
+                main_combo.clear()
+                cost_num = content["cost"]
+                fallback_main_stats = ["HP", "ATK", "DEF"]
+                main_opts = self.app.data_manager.main_stat_options.get(cost_num, fallback_main_stats)
+                for s in main_opts:
+                    main_combo.addItem(self.app.tr(s), userData=s)
+                if current_main_key:
+                    idx = main_combo.findData(current_main_key)
+                    if idx != -1:
+                        main_combo.setCurrentIndex(idx)
+                main_combo.blockSignals(False)
+                
+                # Update Substat ComboBoxes
+                sub_max_vals = self.app.data_manager.substat_max_values
+                for stat_combo, _ in content["sub_entries"]:
+                    current_sub_key = stat_combo.currentData()
+                    stat_combo.blockSignals(True)
+                    stat_combo.clear()
+                    stat_combo.addItem("", userData="")
+                    for s in sub_max_vals.keys():
+                        stat_combo.addItem(self.app.tr(s), userData=s)
+                    if current_sub_key:
+                        idx = stat_combo.findData(current_sub_key)
+                        if idx != -1:
+                            stat_combo.setCurrentIndex(idx)
+                    stat_combo.blockSignals(False)
+                    
+        finally:
+            self.app._updating_tabs = False
+
     def _validate_config_key(self) -> str:
         """Validates and returns the current configuration key."""
         config_key = self.app.current_config_key
@@ -274,10 +333,10 @@ class TabManager:
         page_layout = QVBoxLayout(page)
         
         # Main Stat Section
-        main_combo = self._create_main_stat_section(page_layout, cost_num)
+        main_group, main_combo = self._create_main_stat_section(page_layout, cost_num)
         
         # Substats Section
-        sub_entries = self._create_substat_section(page_layout)
+        sub_group, sub_entries = self._create_substat_section(page_layout)
         
         page_layout.addStretch()
         
@@ -290,26 +349,28 @@ class TabManager:
         self.tabs_content[tab_name] = {
             "cost": cost_num,
             "cost_key": cost_key,
+            "main_group": main_group,
             "main_widget": main_combo,
+            "sub_group": sub_group,
             "sub_entries": sub_entries
         }
 
-    def _create_main_stat_section(self, layout: QVBoxLayout, cost_num: str) -> QComboBox:
+    def _create_main_stat_section(self, layout: QVBoxLayout, cost_num: str) -> Tuple[QGroupBox, QComboBox]:
         """Creates the main stat selection group."""
         group = QGroupBox(self.app.tr("main_stat"))
         group_layout = QVBoxLayout(group)
         layout.addWidget(group)
         
-        fallback_main_stats = [self.app.tr("HP"), self.app.tr("ATK"), self.app.tr("DEF")]
+        fallback_main_stats = ["HP", "ATK", "DEF"]
         main_opts = self.app.data_manager.main_stat_options.get(cost_num, fallback_main_stats)
-        translated_main_options = [self.app.tr(s) for s in main_opts]
         
         combo = QComboBox()
-        combo.addItems(translated_main_options)
+        for s in main_opts:
+            combo.addItem(self.app.tr(s), userData=s)
         group_layout.addWidget(combo)
-        return combo
+        return group, combo
 
-    def _create_substat_section(self, layout: QVBoxLayout) -> List[Tuple[QComboBox, QLineEdit]]:
+    def _create_substat_section(self, layout: QVBoxLayout) -> Tuple[QGroupBox, List[Tuple[QComboBox, QLineEdit]]]:
         """Creates the substat entry group."""
         group = QGroupBox(self.app.tr("substats"))
         group_layout = QGridLayout(group)
@@ -317,7 +378,6 @@ class TabManager:
         
         sub_entries = []
         sub_max_vals = self.app.data_manager.substat_max_values
-        translated_sub_options = [""] + [self.app.tr(s) for s in list(sub_max_vals.keys())]
         
         for i in range(5):
             row = i // 2
@@ -328,7 +388,9 @@ class TabManager:
             cell_layout.setContentsMargins(0, 0, 0, 0)
             
             stat_combo = QComboBox()
-            stat_combo.addItems(translated_sub_options)
+            stat_combo.addItem("", userData="")
+            for s in sub_max_vals.keys():
+                stat_combo.addItem(self.app.tr(s), userData=s)
             
             val_entry = QLineEdit()
             val_entry.setFixedWidth(60)
@@ -339,7 +401,7 @@ class TabManager:
             group_layout.addWidget(cell_widget, row, col)
             sub_entries.append((stat_combo, val_entry))
             
-        return sub_entries
+        return group, sub_entries
 
     def _generate_tab_label(self, tab_name: str) -> str:
         """Generates a localized label for the tab."""

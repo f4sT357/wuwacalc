@@ -1,0 +1,97 @@
+createdAt: "2025-12-21T16:32:28.226Z"
+updatedAt: "2025-12-21T16:34:09.615Z"
+content: '''
+  # Wuthering Waves Echo Score Calculator - プロセスフローと設計図
+  
+  このドキュメントは、アプリケーションの構造、データの流れ、および現在の課題を管理するためのマスターガイドです。AIがコードを理解し、一貫したリファクタリングを行うためのコンテキストを提供します。
+  
+  ## 1. システムアーキテクチャ
+  
+  各コンポーネントは `ScoreCalculatorApp` (Main) によって管理され、シグナル/スロットを通じて通信します。
+  
+  ```mermaid
+  graph TD
+      Main[[`wuwacalc17.py`](./wuwacalc17.py): ScoreCalculatorApp] --> DM[DataManager: データ永続化]
+      Main --> CM[CharacterManager: キャラ設定管理]
+      Main --> Conf[ConfigManager: アプリ設定管理]
+      Main --> TM[ThemeManager: 外観・テーマ]
+      Main --> SC[ScoreCalculator: 計算ロジック]
+      Main --> TBM[TabManager: UI状態・タブ管理]
+      Main --> AL[AppLogic: OCR・コアロジック]
+      Main --> IP[ImageProcessor: 画像処理フロー]
+      Main --> EH[EventHandlers: イベント中継]
+      Main --> UI[UIComponents: ウィジェット構築]
+      
+      IP --> WT[OCRWorker: バックグラウンド実行]
+      WT -- シグナル/スロット -- IP
+      WT --> AL
+      
+      TBM --> HR[HtmlRenderer: 結果描画]
+      SC --> HR
+  ```
+  
+  ## 2. 主要プロセスの詳細
+  
+  ### 2.1 起動プロセス
+  1.  **初期化**: `ScoreCalculatorApp.__init__` で全マネージャークラスをインスタンス化。
+  2.  **UI構築**: `UIComponents.create_main_layout()` を実行し、ウィジェット階層を作成。
+  3.  **イベント接続**: `EventHandlers` がウィジェットのシグナルをロジックに接続。
+  4.  **事後セットアップ**: `_post_init_setup` (遅延実行) により、初期タブの生成、保存データの復元、テーマの適用を行う。
+  
+  ### 2.2 OCR処理フロー (非同期)
+  1.  **入力**: `ImageProcessor` が画像ファイルまたはクリップボードから画像を取得。
+  2.  **スレッド起動**: `OCRWorker` (QThread) を生成。
+  3.  **画像処理 (Worker)**: クロップ、グレースケール化、二値化。
+  4.  **解析 (Worker)**: `AppLogic` を通じて Tesseract を呼び出し、テキストを抽出。
+  5.  **パース (Worker)**: `AppLogic.parse_substats_from_ocr` で `SubStat` オブジェクトのリストを生成。
+  6.  **反映 (Main Thread)**: `ImageProcessor._on_worker_result` がシグナルを受け取り、`TabManager` を介してUIにデータをセット。
+  
+  ### 2.3 スコア計算フロー
+  1.  **データ抽出**: `TabManager.extract_tab_data` がUIから数値を収集。
+  2.  **データモデル化**: `EchoData` オブジェクトを生成。
+  3.  **評価**: `EchoData.evaluate_comprehensive` が複数の計算方式でスコアを算出。
+  4.  **レンダリング**: `HtmlRenderer` が `EvaluationResult` を HTML に変換し、`QTextEdit` に表示。
+  
+  ## 3. データ契約 (Data Contracts)
+  
+  [`data_contracts.py`](./data_contracts.py) で定義されている主要なデータ構造：
+  
+  | クラス | 用途 | 
+  | :--- | :--- |
+  | `SubStat` | OCR結果や手入力されたサブステータスの1件分（名称、数値）。 |
+  | `OCRResult` | 1枚の画像から得られた全サブステータス、メインステータス、コスト。 |
+  | `EvaluationResult` | 計算後のスコア、ランク、HTML表現を含む結果。 |
+  | `EchoEntry` | JSON保存用のエコーデータ構造。 |
+  | `CharacterProfile` | キャラクターごとの重み付け設定。 |
+  | `BatchItemResult` | ワーカーからメインスレッドに渡される処理結果（画像含む）。 |
+  
+  ## 4. 現在の課題と技術的負債
+  
+  | ファイル | 場所 | 課題内容 | 優先度 |
+  | :--- | :--- | :--- | :--- |
+  | 全体 | 各メソッド | 型ヒント (Type Hinting) がまだ不完全な箇所がある。 | 中 |
+  | [`ui_components.py`](./ui_components.py) | `create_main_layout` | UI構築ロジックが依然として大きく、更なる細分化が可能。 | 低 |
+  | [`app_logic.py`](./app_logic.py) | `parse_substats_from_ocr` | 正規表現によるパースが一部の複雑なフォントで失敗しやすい。 | 中 |
+  | [`image_processor.py`](./image_processor.py) | - | OCRエンジンの選択肢（OpenCV/Pillow）が混在しており、整理が必要。 | 低 |
+  | [`data_manager.py`](./data_manager.py) | `validate_data` | バリデーションエラー時のユーザー通知をより詳細にする余地あり。 | 低 |
+  
+  ## 5. メンテナンスツール
+  
+  - **ドキュメント自動リンク**: [`tools/doc_linker.py`](./tools/doc_linker.py) を実行することで、このファイル内のファイル名を自動的にリンク化します。
+  
+  ## 6. 完了済みの主要なマイルストーン (要約)
+  
+  - [x] **責務の分離**: Mainクラスから各Managerへのロジック移譲完了。
+  - [x] **非同期OCR**: `QThread` によるUIフリーズの解消。
+  - [x] **データ契約の導入**: `dict` 依存からデータクラスへの移行。
+  - [x] **履歴機能**: 計算結果の自動保存と履歴ダイアログの実装。
+  - [x] **EXE最適化**: パス管理の改善とSpecファイル作成。
+  - [x] **メインステータスOCR**: コストとメインステータスの自動検知強化。
+'''
+folder: "bbc831843a42ee4c9906"
+title: "PROCESS_FLOW"
+type: "MARKDOWN_NOTE"
+tags: []
+isStarred: false
+isTrashed: false
+linesHighlighted: []

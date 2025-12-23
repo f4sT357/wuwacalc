@@ -105,14 +105,20 @@ class EventHandlers:
     def on_language_change(self, text: str) -> None:
         """Handle language change."""
         if text != self.app.app_config.language:
+            self.app.language = text
+            self.app.html_renderer.language = text
             self.config_manager.update_app_setting('language', text)
             self.save_config()
-            QMessageBox.information(
-                self.app,
-                self.app.tr("language_changed_title"), 
-                self.app.tr("language_changed_message")
-            )
-            self.logger.info(f"Language changed to: {text} (will be fully applied after restart)")
+            
+            # Instant UI Update
+            self.ui.retranslate_ui()
+            self.tab_mgr.retranslate_tabs()
+            
+            # Update character list (names might be translated)
+            self.ui.filter_characters_by_config()
+            
+            self.logger.info(f"Language changed to: {text}")
+            self.app.status_bar.showMessage(self.app.tr("settings_loaded"), 5000)
     
     def on_mode_change(self, mode: str) -> None:
         """Handle input mode change."""
@@ -299,7 +305,7 @@ class EventHandlers:
         This triggers the UI to update the character list.
         """
         self.app.gui_log("Character profiles updated, refreshing UI.")
-        all_chars = self.character_manager.get_all_characters()
+        all_chars = self.character_manager.get_all_characters(self.app.language)
         self.ui.update_character_combo(all_chars, self.app.character_var)
         self.ui.filter_characters_by_config()
 
@@ -308,7 +314,7 @@ class EventHandlers:
         self.app.gui_log(f"New character '{internal_char_name}' registered. Updating UI.")
         
         # Repopulate combobox and select the new character
-        all_chars = self.character_manager.get_all_characters()
+        all_chars = self.character_manager.get_all_characters(self.app.language)
         self.ui.update_character_combo(all_chars, internal_char_name)
         
         # Update internal state and UI to reflect the new character

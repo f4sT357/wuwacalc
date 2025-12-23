@@ -9,7 +9,7 @@ from utils import get_app_path
 class HistoryManager:
     """Manages application history, including saving, loading, and filtering."""
     
-    def __init__(self, filename: str = "history.json", max_entries: int = 100):
+    def __init__(self, filename: str = "history.json", max_entries: int = 1000):
         self.history_path = os.path.join(get_app_path(), filename)
         self.max_entries = max_entries
         self.logger = logging.getLogger(__name__)
@@ -91,16 +91,25 @@ class HistoryManager:
         # Return indices of matching entries (0 is newest)
         return [i for i, h in enumerate(self._history) if h.fingerprint == fingerprint]
 
-    def get_entries(self, keyword: str = "", character: str = "", cost: str = "", date_from: str = "", date_to: str = "") -> List[HistoryEntry]:
+    def get_entries(self, keyword: str = "", character: str = "", cost: str = "", date_from: str = "", date_to: str = "", name_map: Dict[str, str] = None) -> List[HistoryEntry]:
         """Returns filtered history entries."""
         filtered = self._history
         
         if keyword:
             kw = keyword.lower()
-            filtered = [
-                h for h in filtered 
-                if kw in h.action.lower() or kw in h.result.lower() or kw in h.character.lower()
-            ]
+            new_filtered = []
+            for h in filtered:
+                match = (kw in h.action.lower() or 
+                         kw in h.result.lower() or 
+                         kw in h.character.lower())
+                
+                if not match and name_map and h.character in name_map:
+                    if kw in name_map[h.character].lower():
+                        match = True
+                
+                if match:
+                    new_filtered.append(h)
+            filtered = new_filtered
             
         if character:
             filtered = [h for h in filtered if h.character == character]

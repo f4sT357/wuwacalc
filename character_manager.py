@@ -154,16 +154,18 @@ class CharacterManager(QObject):
             return False
             # Optionally, re-raise or emit an error signal
             
-    def get_all_characters(self) -> list[tuple[str, str]]:
+    def get_all_characters(self, lang: str = "ja") -> list[tuple[str, str]]:
         """Returns a list of (display_name, internal_name) for all characters."""
-        # Sorting by display name (Japanese name)
+        # Sorting by display name
         return sorted(
-            [(self.get_display_name(name), name) for name in self._stat_weights.keys()],
+            [(self.get_display_name(name, lang), name) for name in self._stat_weights.keys()],
             key=lambda x: x[0]
         )
 
-    def get_display_name(self, internal_name: str) -> str:
-        """Gets the Japanese display name for a given internal English name."""
+    def get_display_name(self, internal_name: str, lang: str = "ja") -> str:
+        """Gets the display name for a given internal English name."""
+        if lang == "en":
+            return internal_name
         return self._name_map_en_to_jp.get(internal_name, internal_name)
 
     def get_internal_name(self, display_name: str) -> str:

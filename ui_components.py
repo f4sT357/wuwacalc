@@ -125,9 +125,9 @@ class UIComponents:
     
     def create_settings_frame(self, parent_layout: QVBoxLayout) -> None:
         """Create the UI for the basic settings area."""
-        settings_group = QGroupBox(self.app.tr("basic_settings"))
-        settings_layout = QGridLayout(settings_group)
-        parent_layout.addWidget(settings_group)
+        self.settings_group = QGroupBox(self.app.tr("basic_settings"))
+        settings_layout = QGridLayout(self.settings_group)
+        parent_layout.addWidget(self.settings_group)
         
         # Decompose into individual row setups
         self._setup_basic_settings_row(settings_layout)
@@ -137,7 +137,8 @@ class UIComponents:
 
     def _setup_basic_settings_row(self, layout: QGridLayout) -> None:
         """Row 0: Cost Config, Character, and Language."""
-        layout.addWidget(QLabel(self.app.tr("cost_config")), 0, 0)
+        self.lbl_cost_config = QLabel(self.app.tr("cost_config"))
+        layout.addWidget(self.lbl_cost_config, 0, 0)
         self.app.config_combo = QComboBox()
         self.app.config_combo.addItems(list(self.app.data_manager.tab_configs.keys()))
         self.app.config_combo.blockSignals(True)
@@ -146,20 +147,23 @@ class UIComponents:
         self.app.config_combo.currentTextChanged.connect(self.app.events.on_config_change)
         layout.addWidget(self.app.config_combo, 0, 1)
         
-        layout.addWidget(QLabel(self.app.tr("character")), 0, 2)
+        self.lbl_character = QLabel(self.app.tr("character"))
+        layout.addWidget(self.lbl_character, 0, 2)
         self.character_combo.activated.connect(self.app.events.on_character_change)
         layout.addWidget(self.character_combo, 0, 3)
         
-        layout.addWidget(QLabel(self.app.tr("language")), 0, 4)
-        lang_combo = QComboBox()
-        lang_combo.addItems(["ja", "en"])
-        lang_combo.setCurrentText(self.app.language)
-        lang_combo.currentTextChanged.connect(self.app.events.on_language_change)
-        layout.addWidget(lang_combo, 0, 5)
+        self.lbl_language = QLabel(self.app.tr("language"))
+        layout.addWidget(self.lbl_language, 0, 4)
+        self.lang_combo = QComboBox()
+        self.lang_combo.addItems(["ja", "en"])
+        self.lang_combo.setCurrentText(self.app.language)
+        self.lang_combo.currentTextChanged.connect(self.app.events.on_language_change)
+        layout.addWidget(self.lang_combo, 0, 5)
 
     def _setup_input_mode_row(self, layout: QGridLayout) -> None:
         """Row 1: Input Mode (Manual/OCR) and Auto Main Stats."""
-        layout.addWidget(QLabel(self.app.tr("input_mode")), 1, 0)
+        self.lbl_input_mode = QLabel(self.app.tr("input_mode"))
+        layout.addWidget(self.lbl_input_mode, 1, 0)
         mode_layout = QHBoxLayout()
         
         self.rb_manual = QRadioButton(self.app.tr("manual"))
@@ -189,7 +193,8 @@ class UIComponents:
 
     def _setup_calc_mode_row(self, layout: QGridLayout) -> None:
         """Row 2: Calculation mode (Batch/Single)."""
-        layout.addWidget(QLabel(self.app.tr("calc_mode")), 2, 0)
+        self.lbl_calc_mode = QLabel(self.app.tr("calc_mode"))
+        layout.addWidget(self.lbl_calc_mode, 2, 0)
         calc_mode_layout = QHBoxLayout()
         self.rb_batch = QRadioButton(self.app.tr("batch"))
         self.rb_single = QRadioButton(self.app.tr("single_only"))
@@ -211,7 +216,8 @@ class UIComponents:
 
     def _setup_calc_methods_row(self, layout: QGridLayout) -> None:
         """Row 3: Calculation methods checkboxes."""
-        layout.addWidget(QLabel(self.app.tr("calc_methods")), 3, 0)
+        self.lbl_calc_methods = QLabel(self.app.tr("calc_methods"))
+        layout.addWidget(self.lbl_calc_methods, 3, 0)
         
         methods_layout = QHBoxLayout()
         
@@ -266,6 +272,7 @@ class UIComponents:
 
     def _add_action_buttons(self, layout: QHBoxLayout) -> None:
         """Add main action buttons: Calculate, Export, Clear."""
+        self.action_buttons = {}
         buttons = [
             ("calculate", self.app.score_calc.calculate_all_scores, " (Ctrl+Enter / F5)"),
             ("export_txt", self.app.tab_mgr.export_result_to_txt, " (Ctrl+S)"),
@@ -277,29 +284,31 @@ class UIComponents:
             btn.clicked.connect(command)
             btn.setToolTip(self.app.tr(key) + shortcut_text)
             layout.addWidget(btn)
+            self.action_buttons[key] = (btn, shortcut_text)
 
     def _add_char_setting_button(self, layout: QHBoxLayout) -> None:
         """Add Character Setting button with its dropdown menu."""
-        btn_char = QPushButton(self.app.tr("char_setting"))
-        char_menu = QMenu(btn_char)
+        self.btn_char_setting = QPushButton(self.app.tr("char_setting"))
+        self.char_menu = QMenu(self.btn_char_setting)
         
         # New Action
-        action_new = char_menu.addAction(self.app.tr("new"))
-        if action_new.text() == "new": # Fallback
-             action_new.setText(self.app.tr("char_setting") + " (New)")
-        action_new.triggered.connect(self.app.open_char_settings_new)
+        self.action_new = self.char_menu.addAction(self.app.tr("new"))
+        if self.action_new.text() == "new": # Fallback
+            self.action_new.setText(self.app.tr("char_setting") + " (New)")
+        self.action_new.triggered.connect(self.app.open_char_settings_new)
 
         # Edit Action
-        action_edit = char_menu.addAction(self.app.tr("edit"))
-        if action_edit.text() == "edit": # Fallback
-             action_edit.setText(self.app.tr("char_setting") + " (Edit)")
-        action_edit.triggered.connect(self.app.open_char_settings_edit)
+        self.action_edit = self.char_menu.addAction(self.app.tr("edit"))
+        if self.action_edit.text() == "edit": # Fallback
+            self.action_edit.setText(self.app.tr("char_setting") + " (Edit)")
+        self.action_edit.triggered.connect(self.app.open_char_settings_edit)
         
-        btn_char.setMenu(char_menu)
-        layout.addWidget(btn_char)
+        self.btn_char_setting.setMenu(self.char_menu)
+        layout.addWidget(self.btn_char_setting)
 
     def _add_app_utility_buttons(self, layout: QHBoxLayout) -> None:
         """Add utility buttons: Help, Settings, Test Mode, History."""
+        self.utility_buttons = {}
         buttons_others = [
             ("help", self.app._open_readme),
             ("display_settings", self.app.open_display_settings),
@@ -312,6 +321,7 @@ class UIComponents:
                 btn.setToolTip(self.app.tr(key) + " (Ctrl+H)")
             btn.clicked.connect(command)
             layout.addWidget(btn)
+            self.utility_buttons[key] = btn
 
     def create_right_pane(self, parent_layout: QVBoxLayout) -> None:
         """Create the UI for the right pane (results, log, image)."""
@@ -327,12 +337,12 @@ class UIComponents:
         right_splitter.addWidget(self.image_container)
         
         # Log Area
-        log_group = QGroupBox(self.app.tr("log"))
-        log_layout = QVBoxLayout(log_group)
+        self.log_group = QGroupBox(self.app.tr("log"))
+        log_layout = QVBoxLayout(self.log_group)
         self.app.log_text = QTextEdit()
         self.app.log_text.setReadOnly(True)
         log_layout.addWidget(self.app.log_text)
-        right_splitter.addWidget(log_group)
+        right_splitter.addWidget(self.log_group)
         
         right_splitter.setSizes([RIGHT_TOP_HEIGHT, LOG_DEFAULT_HEIGHT])
 
@@ -357,24 +367,25 @@ class UIComponents:
     def _setup_image_action_buttons(self, layout: QVBoxLayout) -> None:
         """Add image action buttons: Load, Paste, Crop."""
         btn_layout = QHBoxLayout()
-        btn_load = QPushButton(self.app.tr("load_image"))
-        btn_load.clicked.connect(self.app.image_proc.import_image)
-        btn_paste = QPushButton(self.app.tr("paste_clipboard"))
-        btn_paste.clicked.connect(self.app.image_proc.paste_from_clipboard)
-        btn_paste.setToolTip(self.app.tr("paste_clipboard") + " (Ctrl+V)")
-        btn_crop = QPushButton(self.app.tr("perform_crop"))
-        btn_crop.clicked.connect(self.app.image_proc.perform_crop)
+        self.btn_load = QPushButton(self.app.tr("load_image"))
+        self.btn_load.clicked.connect(self.app.image_proc.import_image)
+        self.btn_paste = QPushButton(self.app.tr("paste_clipboard"))
+        self.btn_paste.clicked.connect(self.app.image_proc.paste_from_clipboard)
+        self.btn_paste.setToolTip(self.app.tr("paste_clipboard") + " (Ctrl+V)")
+        self.btn_crop = QPushButton(self.app.tr("perform_crop"))
+        self.btn_crop.clicked.connect(self.app.image_proc.perform_crop)
         
-        btn_layout.addWidget(btn_load)
-        btn_layout.addWidget(btn_paste)
-        btn_layout.addWidget(btn_crop)
+        btn_layout.addWidget(self.btn_load)
+        btn_layout.addWidget(self.btn_paste)
+        btn_layout.addWidget(self.btn_crop)
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
     def _setup_crop_settings_row(self, layout: QVBoxLayout) -> None:
         """Add crop mode selection and 4-value percent crop sliders/entries."""
         crop_layout = QHBoxLayout()
-        crop_layout.addWidget(QLabel(self.app.tr("crop_mode")))
+        self.lbl_crop_mode = QLabel(self.app.tr("crop_mode"))
+        crop_layout.addWidget(self.lbl_crop_mode)
         
         self.rb_crop_drag = QRadioButton(self.app.tr("drag"))
         self.rb_crop_percent = QRadioButton(self.app.tr("percent"))
@@ -431,13 +442,81 @@ class UIComponents:
 
     def create_result_frame(self, parent_layout: QVBoxLayout) -> None:
         """Create the UI for the result display area."""
-        group = QGroupBox(self.app.tr("calc_result"))
-        layout = QVBoxLayout(group)
-        parent_layout.addWidget(group)
+        self.result_group = QGroupBox(self.app.tr("calc_result"))
+        layout = QVBoxLayout(self.result_group)
+        parent_layout.addWidget(self.result_group)
         
         self.app.result_text = QTextEdit()
         self.app.result_text.setReadOnly(True)
         layout.addWidget(self.app.result_text)
+
+    def retranslate_ui(self) -> None:
+        """Update all UI text based on the current language."""
+        # Basic Settings
+        self.settings_group.setTitle(self.app.tr("basic_settings"))
+        self.lbl_cost_config.setText(self.app.tr("cost_config"))
+        self.lbl_character.setText(self.app.tr("character"))
+        self.lbl_language.setText(self.app.tr("language"))
+        self.character_combo.lineEdit().setPlaceholderText(self.app.tr("search_character_placeholder"))
+        
+        # Input Mode
+        self.lbl_input_mode.setText(self.app.tr("input_mode"))
+        self.rb_manual.setText(self.app.tr("manual"))
+        self.rb_ocr.setText(self.app.tr("ocr"))
+        self.cb_auto_main.setText(self.app.tr("auto_main"))
+        
+        # Calc Mode
+        self.lbl_calc_mode.setText(self.app.tr("calc_mode"))
+        self.rb_batch.setText(self.app.tr("batch"))
+        self.rb_single.setText(self.app.tr("single_only"))
+        
+        # Calc Methods
+        self.lbl_calc_methods.setText(self.app.tr("calc_methods"))
+        self.app.cb_method_normalized.setText(self.app.tr("method_normalized"))
+        self.app.cb_method_ratio.setText(self.app.tr("method_ratio"))
+        self.app.cb_method_roll.setText(self.app.tr("method_roll"))
+        self.app.cb_method_effective.setText(self.app.tr("method_effective"))
+        self.app.cb_method_cv.setText(self.app.tr("method_cv"))
+        
+        self.app.cb_method_normalized.setToolTip(self.app.tr("normalized_score_desc"))
+        self.app.cb_method_ratio.setToolTip(self.app.tr("ratio_score_desc"))
+        self.app.cb_method_roll.setToolTip(self.app.tr("roll_quality_desc"))
+        self.app.cb_method_effective.setToolTip(self.app.tr("effective_stat_desc"))
+        self.app.cb_method_cv.setToolTip(self.app.tr("cv_score_desc"))
+        
+        # Action Buttons
+        for key, (btn, shortcut) in self.action_buttons.items():
+            btn.setText(self.app.tr(key))
+            btn.setToolTip(self.app.tr(key) + shortcut)
+            
+        self.btn_char_setting.setText(self.app.tr("char_setting"))
+        self.action_new.setText(self.app.tr("new"))
+        self.action_edit.setText(self.app.tr("edit"))
+        
+        # Utility Buttons
+        for key, btn in self.utility_buttons.items():
+            btn.setText(self.app.tr(key))
+            if key == "history_title":
+                btn.setToolTip(self.app.tr(key) + " (Ctrl+H)")
+                
+        # Right Pane
+        self.log_group.setTitle(self.app.tr("log"))
+        self.result_group.setTitle(self.app.tr("calc_result"))
+        self.app.image_frame.setTitle(self.app.tr("ocr_image"))
+        
+        # Image Actions
+        self.btn_load.setText(self.app.tr("load_image"))
+        self.btn_paste.setText(self.app.tr("paste_clipboard"))
+        self.btn_paste.setToolTip(self.app.tr("paste_clipboard") + " (Ctrl+V)")
+        self.btn_crop.setText(self.app.tr("perform_crop"))
+        
+        # Crop Settings
+        self.lbl_crop_mode.setText(self.app.tr("crop_mode"))
+        self.rb_crop_drag.setText(self.app.tr("drag"))
+        self.rb_crop_percent.setText(self.app.tr("percent"))
+        
+        if self.app.image_label and not self.app.loaded_image:
+            self.app.image_label.setText(self.app.tr("no_image"))
 
     def update_ui_mode(self) -> None:
         """Update the UI mode (OCR vs Manual)."""
@@ -492,24 +571,25 @@ class UIComponents:
         try:
             current_key = self.app.current_config_key
             config_map = self.app.character_manager.get_character_config_map()
+            lang = self.app.language
             
             allowed_chars = [name for name, cfg in config_map.items() if cfg == current_key]
             
             items_to_add = []
             if allowed_chars:
                 items_to_add = sorted(
-                    [(self.app.character_manager.get_display_name(name), name) for name in allowed_chars],
+                    [(self.app.character_manager.get_display_name(name, lang), name) for name in allowed_chars],
                     key=lambda x: x[0]
                 )
             else:
                 # If no characters match, show all characters
-                items_to_add = self.app.character_manager.get_all_characters()
+                items_to_add = self.app.character_manager.get_all_characters(lang)
             
             current_internal_name = self.app.character_var
             # Filter items to add based on current combobox content if it's supposed to be filtered
             if allowed_chars:
-                 self.update_character_combo(items_to_add, current_internal_name)
+                self.update_character_combo(items_to_add, current_internal_name)
             else: # If we are showing all, just update with all
-                 self.update_character_combo(self.app.character_manager.get_all_characters(), current_internal_name)
+                self.update_character_combo(self.app.character_manager.get_all_characters(lang), current_internal_name)
         except Exception as e:
             self.app.logger.exception(f"Failed to filter characters by config: {e}")

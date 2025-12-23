@@ -121,7 +121,8 @@ class ScoreCalculator:
                 cost=entry.cost or "Unknown",
                 action="Single Evaluation",
                 result=result_summary,
-                fingerprint=fingerprint
+                fingerprint=fingerprint,
+                details={"score": evaluation.total_score}
             )
             
             self.app.gui_log(f"Individual evaluation for {tab_name} complete.")
@@ -216,7 +217,8 @@ class ScoreCalculator:
                 cost=entry.cost or "Unknown",
                 action="Batch Evaluation",
                 result=result_summary,
-                fingerprint=fingerprint
+                fingerprint=fingerprint,
+                details={"score": evaluation.total_score}
             )
             
             return eval_data
