@@ -460,6 +460,32 @@ class TabManager(QObject):
         data = self._tab_results.get(tab_name)
         return data.content if data else None
 
+    def has_calculatable_data(self, mode: str = "single") -> bool:
+        """
+        Check if there is any data to calculate.
+        If mode is 'single', check only the currently selected tab.
+        If mode is 'batch', check all tabs.
+        """
+        if mode == "single":
+            tab_name = self.get_selected_tab_name()
+            if not tab_name:
+                return False
+            # Check for image
+            if tab_name in self._tab_images:
+                return True
+            # Check for entered substats
+            entry = self.extract_tab_data(tab_name)
+            return entry is not None and len(entry.substats) > 0
+        else:
+            # Batch mode: Check if any tab has an image or substats
+            if self._tab_images:
+                return True
+            for tab_name in self.tabs_content:
+                entry = self.extract_tab_data(tab_name)
+                if entry and len(entry.substats) > 0:
+                    return True
+        return False
+
     def export_to_txt(self, parent_window: QWidget, text: str) -> None:
         try:
             file_path, _ = QFileDialog.getSaveFileName(

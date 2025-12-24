@@ -96,9 +96,15 @@ class EventHandlers:
             
             self.save_config()
 
-            # Trigger calculation if waiting or auto calculate is enabled
-            if getattr(self.app, "_waiting_for_character", False) or self.app.app_config.auto_calculate:
-                self.app.trigger_calculation()
+            # Trigger calculation if waiting or auto calculate is enabled, 
+            # but ONLY if there is actual data to calculate (image or substats).
+            should_calc = getattr(self.app, "_waiting_for_character", False) or self.app.app_config.auto_calculate
+            if should_calc:
+                score_mode = self.app.score_mode_var # "single" or "batch"
+                if self.tab_mgr.has_calculatable_data(mode=score_mode):
+                    self.app.trigger_calculation()
+                else:
+                    self.logger.info("Character changed but no data to calculate. Skipping auto-calc.")
         else:
             # If the empty item is selected, clear character_var
             self.app.character_var = ""
@@ -108,6 +114,7 @@ class EventHandlers:
     
     def on_language_change(self, text: str) -> None:
         """Handle language change."""
+        self.logger.info(f"Language change requested: {text}")
         if text != self.app.app_config.language:
             self.app.language = text
             self.app.html_renderer.language = text
@@ -115,14 +122,17 @@ class EventHandlers:
             self.save_config()
             
             # Instant UI Update
+            self.logger.info("Retranslating UI and Tabs...")
             self.ui.retranslate_ui()
             self.tab_mgr.retranslate_tabs(text)
             
             # Update character list (names might be translated)
             self.ui.filter_characters_by_config()
             
-            self.logger.info(f"Language changed to: {text}")
+            self.logger.info(f"Language change to {text} completed.")
             self.app.status_bar.showMessage(self.app.tr("settings_loaded"), 5000)
+        else:
+            self.logger.debug(f"Language already set to {text}, skipping update.")
     
     def on_mode_change(self, mode: str) -> None:
         """Handle input mode change."""

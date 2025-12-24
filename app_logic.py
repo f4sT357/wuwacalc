@@ -104,6 +104,22 @@ class AppLogic(QObject):
             self.log_message.emit(self.tr("ocr_process_error_log", ocr_error))
         return None
 
+    def _parse_ocr_text(self, ocr_text: str) -> OCRResult:
+        """
+        Parses raw OCR text into a structured OCRResult.
+        """
+        app_config = self.config_manager.get_app_config()
+        language = app_config.language
+        
+        substats, log_messages = self.parse_substats_from_ocr(ocr_text, language)
+        cost = self.detect_cost_from_ocr(ocr_text)
+        main_stat = self.detect_main_stat_from_ocr(ocr_text, cost)
+
+        if main_stat:
+            log_messages.append(f"OCR auto-fill: Main Stat -> {self.tr(main_stat)}")
+
+        return OCRResult(substats=substats, log_messages=log_messages, cost=cost, main_stat=main_stat, raw_text=ocr_text)
+
     def _preprocess_for_ocr(self, image: 'Image.Image') -> 'Image.Image':
         if not is_pil_installed or image is None:
             return image
@@ -334,6 +350,35 @@ class AppLogic(QObject):
                     break
         
         if stat_found and num_found:
+            # --- Logic to distinguish Flat vs Percent based on stat value ranges ---
+            try:
+                val_num = float(num_found)
+                # Only apply auto-correction for stats that have both Flat and Percent versions.
+                # Other stats like Crit Rate or Energy Regen always use their base name (without %).
+                if stat_found in ["攻撃力", "HP", "防御力"]:
+                    if "." in num_found and val_num < 20.0:
+                        if not is_percent:
+                            self.log_message.emit(f"Force-correcting {stat_found} {num_found} to Percent based on value range.")
+                            is_percent = True
+                    elif val_num > 20.0:
+                        if is_percent:
+                            self.log_message.emit(f"Force-correcting {stat_found} {num_found} to Flat based on value range.")
+                            is_percent = False
+                
+                    # Update stat name to % version ONLY for ATK, HP, DEF
+                    if is_percent and not stat_found.endswith('%'):
+                        stat_found += '%'
+                    elif not is_percent and stat_found.endswith('%'):
+                        stat_found = stat_found.rstrip('%')
+                else:
+                    # For other stats, ensure we DON'T add % to the internal key name
+                    # as constants.py doesn't use it for ER, Crit, etc.
+                    if stat_found.endswith('%'):
+                        stat_found = stat_found.rstrip('%')
+
+            except ValueError:
+                pass
+
             return SubStat(stat=stat_found, value=num_found), is_percent
         return None
 

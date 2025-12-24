@@ -27,48 +27,54 @@ class HtmlRenderer:
             return "#32CD32"
         return "#666666"
 
+    def format_score_block(self, label, score, rating_info, desc):
+        """Helper to format a single method score block."""
+        block = f"[{label}]<br>"
+        block += f"<b>Score: {score:.2f}</b><br>"
+        
+        if isinstance(rating_info, tuple):
+            rating_key = rating_info[0]
+            rating_args = rating_info[1:]
+            # Use self.tr to handle tuple args
+            rating_text = self.tr(rating_key, *rating_args)
+        else:
+            rating_text = self.tr(rating_info)
+
+        color = self._get_rating_color(rating_text)
+        block += f"<span style='color:{color}'>Rating: {rating_text}</span><br>"
+        block += f"Description: {desc}<br><br>"
+        return block
+
     def render_single_score(self, character: str, tab_name: str, entry: EchoEntry, main_stat: str, echo: any, evaluation: EvaluationResult) -> str:
         """Generate HTML for single score result."""
-        html = f"<h3><u>{character} - {tab_name} {self.tr('individual_score_title')}</u></h3>"
+        # Use formatting for title
+        title = self.tr('individual_score_title', character, tab_name).replace('\n', '')
+        html = f"<h3><u>{title}</u></h3>"
         html += f"<hr>"
         
-        html += f"<b>{self.tr('echo_info')}</b><br>"
+        html += f"<b>{self.tr('echo_info').replace('\n', '')}</b><br>"
         html += f"{self.tr('cost')}: {entry.cost}<br>"
         html += f"{self.tr('main_stat')}: {self.tr(main_stat)}<br>"
-        html += f"{self.tr('level')}: {echo.level}<br>"
-        html += f"{self.tr('effective_stats_num')}: {evaluation.effective_count}<br>"
+        # Use formatting for level
+        html += f"{self.tr('level', echo.level).replace('\n', '')}<br>"
+        # Use formatting for effective stats count
+        html += f"{self.tr('effective_substat_count', evaluation.effective_count).replace('\n', '')}<br>"
         
-        html += f"<br><b>{self.tr('substats')}</b><br>"
+        html += f"<br><b>{self.tr('substats').replace('\n', '')}</b><br>"
         substats = echo.substats
         if substats:
             for name, value in substats.items():
                 html += f"&nbsp;&nbsp;• {self.tr(name)}: {value}<br>"
         else:
-            html += f"{self.tr('none')}<br>"
+            html += f"{self.tr('none').replace('\n', '')}<br>"
         html += f"<br><hr>"
         
-        html += f"<b>{self.tr('score_by_method')}</b><br>"
+        html += f"<b>{self.tr('score_by_method').replace('\n', '')}</b><br>"
         
-        def format_score_block(label, score, rating_info, desc):
-            block = f"[{label}]<br>"
-            block += f"<b>Score: {score:.2f}</b><br>"
-            
-            if isinstance(rating_info, tuple):
-                rating_key = rating_info[0]
-                rating_args = rating_info[1:]
-                rating_text = TRANSLATIONS.get(self.language, TRANSLATIONS["en"])[rating_key].format(*rating_args)
-            else:
-                rating_text = TRANSLATIONS.get(self.language, TRANSLATIONS["en"])[rating_info]
-
-            color = self._get_rating_color(rating_text)
-            block += f"<span style='color:{color}'>Rating: {rating_text}</span><br>"
-            block += f"Description: {desc}<br><br>"
-            return block
-
         # Method information
         method_info = {
             "normalized": {
-                "label": self.tr("normalized_score_label"),
+                "label": self.tr("method_normalized"),
                 "desc": self.tr("normalized_score_desc"),
                 "rating_func": lambda s: echo.get_rating_normalized(s)
             },
@@ -99,25 +105,28 @@ class HtmlRenderer:
             if method in method_info:
                 info = method_info[method]
                 rating = info["rating_func"](score)
-                html += format_score_block(info["label"], score, rating, info["desc"])
+                html += self.format_score_block(info["label"], score, rating, info["desc"])
 
         html += f"<hr>"
-        html += f"<b>{self.tr('overall_eval')}</b><br>"
+        html += f"<b>{self.tr('overall_eval').replace('\n', '')}</b><br>"
         html += f"<b>{self.tr('total_score')}: {evaluation.total_score:.2f}</b><br>"
         
         final_rating = self.tr(evaluation.rating)
         final_color = self._get_rating_color(final_rating)
         
         html += f"<span style='color:{final_color}'>{self.tr('overall_rating')}: {final_rating}</span><br>"
+        # Ensure recommendation is translated
         html += f"{self.tr('recommendation')}: {self.tr(evaluation.recommendation)}<br>"
         
         return html
 
     def render_batch_score(self, character: str, calculated_count: int, total_count: int, all_evaluations: list, total_scores: dict, enabled_methods: dict) -> str:
         """Generate HTML for batch score result."""
-        html = f"<h3><u>{character} {self.tr('batch_score_title')}</u></h3>"
+        # Use formatting for title and calculated count
+        batch_title = self.tr('batch_score_title', character).replace('\n', '')
+        html = f"<h3><u>{batch_title}</u></h3>"
         html += f"<hr>"
-        html += f"{self.tr('calculated')}: {calculated_count} / {total_count} echoes<br>"
+        html += f"{self.tr('calculated', calculated_count, total_count).replace('\n', '')}<br>"
         html += f"<hr>"
         
         # Method display info
@@ -154,7 +163,8 @@ class HtmlRenderer:
             html += f"&nbsp;&nbsp;{self.tr('recommendation')}: {eval_data['recommendation']}<br><br>"
         
         html += f"<hr>"
-        html += f"<b>{self.tr('avg_scores_title')} ({calculated_count} echoes)</b><br>"
+        # Use formatting for avg_scores_title
+        html += f"<b>{self.tr('avg_scores_title', calculated_count).replace('\n', '')}</b><br>"
         
         for method in ["normalized", "ratio", "roll", "effective", "cv"]:
             if enabled_methods.get(method, False) and method in total_scores:

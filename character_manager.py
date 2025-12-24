@@ -191,6 +191,20 @@ class CharacterManager(QObject):
         """Returns the entire character to config key map."""
         return self._character_config_map
     
+    def get_character_list_by_config(self, config_key: str) -> list[dict]:
+        """
+        Returns a list of characters that match the given cost configuration.
+        Each item is a dict with 'name_jp' and 'name_en'.
+        """
+        results = []
+        for internal_name, config in self._character_config_map.items():
+            if config == config_key:
+                results.append({
+                    'name_en': internal_name,
+                    'name_jp': self.get_display_name(internal_name)
+                })
+        return results
+
     def add_or_update_character_temp(self, internal_name: str, jp_name: str, weights: dict, mainstats: dict):
         """
         Adds or updates a character's data in memory for the current session without saving to a file.

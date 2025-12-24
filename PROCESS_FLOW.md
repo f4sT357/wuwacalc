@@ -4,136 +4,93 @@
 
 ```mermaid
 graph TD
-    subgraph UI_Layer [UI Layer (ui_components.py, tab_manager.py)]
-        MainWin[ScoreCalculatorApp]
-        Tabs[TabManager / QTabWidget]
-        Settings[SettingsPanel]
+    subgraph UI_Layer [UI Layer]
+        MainWin[ScoreCalculatorApp / Mediator]
+        UI[UIComponents / View]
+        Events[EventHandlers / Controller]
     end
 
-    subgraph Logic_Layer [Logic Layer]
-        Events[EventHandlers]
-        Calc[ScoreCalculator]
-        ImgProc[ImageProcessor]
-        AppLogic[AppLogic]
+    subgraph Logic_Layer [Logic Layer / Services]
+        TabM[TabManager / Data Storage]
+        Calc[ScoreCalculator / Domain Logic]
+        ImgProc[ImageProcessor / Image Logic]
+        AppLogic[AppLogic / OCR Engine]
     end
 
     subgraph Data_Layer [Data & State Management]
-        DM[DataManager]
-        CM[ConfigManager]
-        CharM[CharacterManager]
-        HistM[HistoryManager]
+        DM[DataManager / Game Data]
+        CM[ConfigManager / Settings]
+        CharM[CharacterManager / Profiles]
+        HistM[HistoryManager / History]
     end
 
     %% Flow: Startup
     MainWin -->|Initializes| DM
     MainWin -->|Initializes| CM
-    MainWin -->|Initializes| Events
+    MainWin -->|Initializes| UI
+    MainWin -->|Initializes & Injects| TabM
+    MainWin -->|Initializes & Injects| Calc
+    MainWin -->|Initializes & Injects| ImgProc
     
     %% Flow: Interaction
-    Settings -->|Signal| Events
-    Events -->|Invoke| TabM[TabManager]
-    Events -->|Invoke| ImgProc
+    UI -->|Signal| MainWin
+    MainWin -->|Route to| Events
+    Events -->|Invoke| Logic_Layer
     
-    %% Flow: Image/OCR
-    ImgProc -->|Request OCR| AppLogic
-    AppLogic -->|OCR Result| ImgProc
-    ImgProc -->|Signal: ocr_completed| MainWin
-    MainWin -->|Update UI| TabM
-    
-    %% Flow: Calculation
-    MainWin -->|Calculate Request| Calc
-    Calc -->|Get Weights| CharM
-    Calc -->|Get Data| DM
-    Calc -->|Check Duplicates| HistM
-    Calc -->|Render HTML| Renderer[HtmlRenderer]
-    Renderer -->|Display| MainWin
+    %% Flow: Logic to UI (Decoupled)
+    Logic_Layer -->|pyqtSignal| MainWin
+    MainWin -->|Update| UI
 ```
 
 ## 2. 詳細プロセスフロー
 
 1.  **起動フェーズ**:
-    *   `wuwacalc17.py` がエントリーポイントとして各マネージャー（Data, Config, Character, History, Theme）をインスタンス化。
-    *   `DataManager` が JSON データをロード。
-    *   `UIComponents` がウィジェットを構築し、`EventHandlers` がシグナルを接続。
+    *   `wuwacalc17.py` がエントリーポイント（Mediator）として機能。
+    *   依存関係の順序（Data -> UI実体化 -> Logic Manager -> Signals）を厳守して初期化。
+    *   `UIComponents` が全ウィジェットを即座に実体化し、`None` 参照を防止。
 2.  **画像処理・OCRフェーズ**:
-    *   ユーザーが画像を選択またはクリップボードから貼り付け。
-    *   `ImageProcessor` がクロップ処理を行い、`AppLogic`（Tesseract）でテキスト抽出。
-    *   抽出結果を正規化し、`ocr_completed` シグナルを発行。
-    *   `TabManager` が結果を UI に反映。
+    *   `ScoreCalculatorApp` がファイル選択 UI を担当。
+    *   `ImageProcessor` がクロップと OCR 命令を管理（UI 非依存）。
+    *   `AppLogic` が Tesseract テキスト解析と正規化（エイリアス対応）を実行。
 3.  **スコア計算フェーズ**:
-    *   `ScoreCalculator` が UI からステータス値を抽出。
-    *   `CharacterManager` から選択中のキャラクターの重み付けを取得。
-    *   `EchoData` クラスを用いて計算実行。
-    *   `HistoryManager` で重複チェックを行い、履歴に保存。
-    *   `HtmlRenderer` を介して結果を WebView に表示。
+    *   `ScoreCalculator` が注入されたマネージャーを使用して純粋な計算ロジックを実行。
+    *   キャラ未選択時は `waiting_for_character` 状態となり、ユーザー入力を待機。
 
-## 3. 現状分析 (Current Situation Analysis)
+## 3. 現状分析
 
-*   **アーキテクチャ**: メディエーターパターンを採用しており、`ScoreCalculatorApp` が全てのコンポーネントを保持している。
-*   **コンポーネント分割**: 機能ごとにクラスが分割されており、一定の整理はなされている。
-*   **通信方式**: 一部でシグナル（Signals/Slots）が使われているが、直接参照も多い。
+*   **アーキテクチャ**: 疎結合なメディエーターパターンへの移行が完了。
+*   **コンポーネント独立性**: `ScoreCalculator`, `TabManager`, `ImageProcessor` が GUI なしでテスト可能な状態になった。
+*   **堅牢性**: 初期化順序の整理と属性の事前宣言により、起動時の `AttributeError` や `NameError` が解消。
 
-## 4. 問題点抽出 (Problem Extraction)
+## 4. 完了済みの主要タスク (2025/12/25)
 
-1.  **タイトカップリング (Tight Coupling)**:
-    *   `ScoreCalculator`, `TabManager`, `EventHandlers` などが `self.app` (メインウィンドウ) を直接保持し、そのプロパティや UI ウィジェットに直接アクセスしている。
-    *   **影響**: ロジック単体でのテストが不可能であり、UI の構造変更がロジックを破壊するリスクが高い。
-2.  **神オブジェクト (God Object)**:
-    *   `ScoreCalculatorApp` が状態保持、UI管理、シグナル仲介の全てを担っており、責任が集中しすぎている。
-3.  **依存関係の逆転原則 (DIP) の欠如**:
-    *   上位モジュール（ロジック）が下位モジュール（UI）の具体的な実装に依存している。
+*   **UI とロジックの完全分離**:
+    *   ロジック層クラス（`Calc`, `TabM`, `ImgProc`）から `self.app` への直接参照を全廃。
+    *   UI 操作を `ScoreCalculatorApp` 側のシグナルハンドラーに集約。
+    *   UI コンポーネントからのロジック参照をラッパーメソッド経由に一本化。
+*   **UI 構造の刷新**:
+    *   `SettingsPanel` の委譲を廃止し `UIComponents` に統合。属性アクセスの不整合を解消。
+    *   「基本設定」枠のレイアウト修正（ボタンや計算方式を枠内に収容）。
+    *   キャラクター選択ボックスの検索機能（部分一致）を有効化。
+*   **OCR・計算精度の向上**:
+    *   有効ステータスカウント時の浮動小数点誤差（`eps`）対応。
+    *   ダメージアップ系・共鳴効率のエイリアス拡充。
+    *   OCR テキストからのノイズ記号除去。
+*   **表示設定ボタンの復元**:
+    - `ui_components.py` に欠落していた「表示設定」ボタンを再実装。
+    - `wuwacalc17.py` に `DisplaySettingsDialog` が要求する委譲メソッド群（`update_text_color`, `apply_theme`等）を実装し、テーマ変更機能の完全な復旧。
+*   **各種ダイアログボタンの追加**:
+    - 「履歴 (History)」「前処理設定 (Preprocessing)」ボタンを `ui_components.py` に追加。
+    - `wuwacalc17.py` にそれぞれのダイアログを開くメソッドを追加。
+*   **OCR判別精度の向上**:
+    - 実数値(Flat)とパーセント(%)の誤認を防ぐバリデーションロジックを `app_logic.py` に追加。攻撃力等が20未満で小数点を含む場合は自動的に「%」として扱う。
+*   **出力フォーマットの修正**:
+    - `html_renderer.py` にて `self.tr` への引数渡しが漏れていた箇所を修正し、`{}` プレースホルダが残る問題を解消。
+*   **起動待機ロジック**:
+    *   キャラ未選択時の計算保留と、選択後の自動実行フローを実装。
 
-## 5. 改善提案 (Improvement Proposal)
+## 5. 現在の課題とネクストアクション
 
-1.  **依存性注入 (Dependency Injection) の適用**:
-    *   各クラスに `app` インスタンスを渡すのではなく、必要なマネージャー（`DataManager` 等）やロガーのみを渡すように変更する。
-2.  **シグナルベースの通信への移行**:
-    *   ロジック層から UI への直接操作を排除し、計算結果やログ出力は全てシグナルで行う。
-3.  **データモデルの独立**:
-    *   UI（ウィジェット）から直接データを読み取るのではなく、データクラス（`EchoEntry` 等）を介した通信に統一する。
-
-## 6. 具体的な修正計画 (Action Plan)
-
-## 7. 完了済みの疎結合化タスク
-
-
-
-*   **`ScoreCalculator` のリファクタリング (2025/12/25)**:
-
-
-
-    *   `ScoreCalculatorApp` (app) への直接参照を完全に排除。
-
-
-
-    *   必要なコンポーネント（DataManager, CharacterManager, HistoryManager, ConfigManager, HtmlRenderer）をコンストラクタで注入する方式に変更。
-
-
-
-    *   UI への通知をシグナル（`log_requested`, `error_occurred`, `single_calculation_completed`, `batch_calculation_completed`）に移行。
-
-
-
-    *   この変更により、`ScoreCalculator` は GUI なしでユニットテストが可能になった。
-
-
-
-    *   **バグ修正**: リファクタリングに伴い発生した `AttributeError` (calculate_all_scores 削除漏れ) を `ui_components.py`, `image_processor.py`, `event_handlers.py` で修正。呼び出しを `app.trigger_calculation()` に統合。
-    *   **新機能**: キャラクター未選択時の計算待機ロジックを実装。画像取り込み時にキャラが未選択なら待機メッセージを表示し、キャラ選択後に自動で計算を実行するように改善。
-    *   **改善**: 有効サブステータスカウントの精度向上。OCRテキストのノイズ除去、エイリアスの拡充（ダメージアップ系、共鳴効率）、および浮動小数点誤差を考慮した判定ロジックへの修正により、重み0.5のステータスを確実にカウントするように改善。
-    *   **リファクタリング**: `TabManager` の疎結合化 (2025/12/25)。`ScoreCalculatorApp` への依存を排除し、依存性の注入方式へ移行。UI操作をシグナルベースに整理し、ロジックの独立性を向上。
-    *   **リファクタリング**: `ImageProcessor` の疎結合化 (2025/12/25)。UI 操作（ファイルダイアログ、app 参照）をロジック層から排除し、シグナル駆動のアーキテクチャへ移行。画像読み込みフローを `ScoreCalculatorApp` に集約し、責務の分離を徹底。
-
-
-
-
-
-
-
-## 8. 次の課題
-
-
-
-*   **`TabManager` の疎結合化**: 現在 `TabManager` は UI ウィジェット（`QTabWidget`）を直接管理している。これを「タブデータモデル」と「タブビュー」に分離することを検討する。
-
-*   **`EventHandlers` の整理**: 引き続き `self.app` への依存を減らし、各マネージャー間の仲介をシグナルベースに移行する。
+*   **コードの重複整理**: `ScoreCalculatorApp` に追加した多くのラッパーメソッドを、より洗練されたイベントバスやコントローラー構造に整理する余地がある。
+*   **バッチ処理のUIフィードバック**: バッチ処理中の進捗表示をよりグラフィカルにする（現在はログ出力のみ）。
+*   **エラーガイダンスの強化**: Tesseract がインストールされていない場合などのエラーメッセージをよりユーザーフレンドリーにする。
