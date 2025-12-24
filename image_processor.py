@@ -29,6 +29,8 @@ class ImageProcessor(QObject):
     """Class responsible for image processing and OCR."""
     
     ocr_completed = pyqtSignal(object) # OCRResult
+    logMessage = pyqtSignal(str)
+    imageUpdated = pyqtSignal(object) # Image.Image
     
     def __init__(self, app: 'ScoreCalculatorApp', logic: 'AppLogic') -> None:
         """
@@ -56,7 +58,7 @@ class ImageProcessor(QObject):
             "Image Files (*.png *.jpg *.jpeg *.bmp *.gif);;All Files (*.*)"
         )
         if not file_paths:
-            self.app.gui_log("Image selection was cancelled.")
+            self.logMessage.emit("Image selection was cancelled.")
             return
             
         try:
@@ -76,13 +78,13 @@ class ImageProcessor(QObject):
         except Exception as e:
             QMessageBox.critical(self.app, "Error", f"Failed to load image(s):\n{e}")
             self.app.logger.exception(f"Image load error: {e}")
-            self.app.gui_log(f"Image load error: {e}")
+            self.logMessage.emit(f"Image load error: {e}")
 
     def process_batch_images(self, file_paths: List[str]) -> None:
         """
         Process multiple images sequentially in a background thread.
         """
-        self.app.gui_log(f"Starting batch processing of {len(file_paths)} images...")
+        self.logMessage.emit(f"Starting batch processing of {len(file_paths)} images...")
         
         # Capture current crop settings
         crop_mode = self.app.crop_mode_var
@@ -105,18 +107,18 @@ class ImageProcessor(QObject):
         self.worker.signals.finished.connect(self._on_worker_finished)
         self.worker.signals.error.connect(self._on_worker_error)
         self.worker.signals.progress.connect(self._on_worker_progress)
-        self.worker.signals.log.connect(self.app.gui_log)
+        self.worker.signals.log.connect(self.logMessage.emit)
         
         self.worker.start()
 
     def _on_worker_progress(self, current: int, total: int) -> None:
         """Handle progress updates from worker."""
-        self.app.gui_log(f"Progress: {current}/{total}")
+        self.logMessage.emit(f"Progress: {current}/{total}")
 
     def _on_worker_error(self, err: tuple) -> None:
         """Handle errors from worker."""
         exctype, value, traceback_str = err
-        self.app.gui_log(f"Worker Error: {value}")
+        self.logMessage.emit(f"Worker Error: {value}")
         self.app.logger.error(f"Worker Error: {traceback_str}")
 
     def _on_worker_result(self, data: BatchItemResult) -> None:
@@ -133,14 +135,14 @@ class ImageProcessor(QObject):
             
             target_tab = None
             if result.cost:
-                self.app.gui_log(f"[{filename}] Detected Cost: {result.cost}")
+                self.logMessage.emit(f"[{filename}] Detected Cost: {result.cost}")
                 target_tab = self._find_free_tab_for_cost(result.cost, self._batch_assigned_tabs)
             else:
-                self.app.gui_log(f"[{filename}] Cost not detected. Attempting to assign to first available empty slot.")
+                self.logMessage.emit(f"[{filename}] Cost not detected. Attempting to assign to first available empty slot.")
                 target_tab = self._find_any_free_tab(self._batch_assigned_tabs)
             
             if target_tab:
-                self.app.gui_log(f"[{filename}] Assigning to tab: {target_tab}")
+                self.logMessage.emit(f"[{filename}] Assigning to tab: {target_tab}")
                 self._batch_assigned_tabs.add(target_tab)
                 
                 # Populate Tab (UI Update)
@@ -154,19 +156,19 @@ class ImageProcessor(QObject):
                 if current_tab and current_tab == target_tab:
                     self.app.original_image = image.copy()
                     self.app.loaded_image = cropped_img.copy()
-                    self.display_image_preview(self.app.loaded_image)
+                    self.imageUpdated.emit(self.app.loaded_image)
                 
                 self._batch_successful_count += 1
             else:
-                 self.app.gui_log(f"[{filename}] No suitable free tab found (Cost: {result.cost if result.cost else 'Unknown'}). Skipping.")
+                 self.logMessage.emit(f"[{filename}] No suitable free tab found (Cost: {result.cost if result.cost else 'Unknown'}). Skipping.")
                  
         except Exception as e:
-            self.app.gui_log(f"Error applying batch result for {getattr(data, 'file_path', 'unknown')}: {e}")
+            self.logMessage.emit(f"Error applying batch result for {getattr(data, 'file_path', 'unknown')}: {e}")
             self.app.logger.exception(f"Error applying batch result: {e}")
 
     def _on_worker_finished(self) -> None:
         """Handle worker completion."""
-        self.app.gui_log(f"Batch processing completed. {self._batch_successful_count} images processed successfully.")
+        self.logMessage.emit(f"Batch processing completed. {self._batch_successful_count} images processed successfully.")
         
         # Trigger auto calculation if enabled and character is selected
         if self.app.app_config.auto_calculate and self.app.character_var:
@@ -250,7 +252,7 @@ class ImageProcessor(QObject):
             idx = main_combo.findText(translated_main)
             if idx >= 0:
                 main_combo.setCurrentIndex(idx)
-                self.app.gui_log(f"Auto-selected main stat for {tab_name}: {translated_main}")
+                self.logMessage.emit(f"Auto-selected main stat for {tab_name}: {translated_main}")
         
         # Clear existing substats in the widget first
         for stat_widget, val_widget in sub_entries:
@@ -291,12 +293,12 @@ class ImageProcessor(QObject):
                     # Convert QImage to PIL
                     buffer = qimage.bits().asstring(qimage.sizeInBytes())
                     # This conversion is complex, let's stick to ImageGrab for now as it was working
-                    self.app.gui_log("No compatible image found on clipboard via PIL.")
+                    self.logMessage.emit("No compatible image found on clipboard via PIL.")
             else:
-                self.app.gui_log("No image found on the clipboard.")
+                self.logMessage.emit("No image found on the clipboard.")
         except Exception as e:
             self.app.logger.exception(f"Error loading image from clipboard: {e}")
-            self.app.gui_log(f"Error loading image from clipboard: {e}")
+            self.logMessage.emit(f"Error loading image from clipboard: {e}")
     
     def process_loaded_image(self, image: 'Image.Image', source_name: str) -> None:
         """Common image loading process."""
@@ -316,7 +318,7 @@ class ImageProcessor(QObject):
                 height_p = self.app.crop_height_percent_var
                 
                 cropped = crop_image_by_percent(self.app.original_image, left_p, top_p, width_p, height_p)
-                self.app.gui_log(f"Auto-applied percent crop: L={left_p}%, T={top_p}%, W={width_p}%, H={height_p}%")
+                self.logMessage.emit(f"Auto-applied percent crop: L={left_p}%, T={top_p}%, W={width_p}%, H={height_p}%")
                 self.apply_cropped_image(cropped)
             except Exception as e:
                 self.app.logger.error(f"Auto-crop error: {e}")
@@ -324,10 +326,10 @@ class ImageProcessor(QObject):
         else:
             # Otherwise, just display the original image for preview/manual cropping
             # We don't call apply_cropped_image yet because that triggers OCR
-            self.display_image_preview(self.app.original_image)
+            self.imageUpdated.emit(self.app.original_image)
             self.app.loaded_image = self.app.original_image.copy()
             
-        self.app.gui_log(f"Image loaded: {source_name}")
+        self.logMessage.emit(f"Image loaded: {source_name}")
     
     def perform_crop(self) -> None:
         """Perform cropping based on the current mode."""
@@ -351,13 +353,13 @@ class ImageProcessor(QObject):
             
             cropped = crop_image_by_percent(self.app.original_image, left_p, top_p, width_p, height_p)
             
-            self.app.gui_log(f"Applied percent crop: L={left_p}%, T={top_p}%, W={width_p}%, H={height_p}%")
+            self.logMessage.emit(f"Applied percent crop: L={left_p}%, T={top_p}%, W={width_p}%, H={height_p}%")
             self.apply_cropped_image(cropped)
             
         except Exception as e:
             QMessageBox.critical(self.app, "Error", f"Error applying percent crop: {e}")
             self.app.logger.exception(f"Percent crop error: {e}")
-            self.app.gui_log(f"Percent crop error: {e}")
+            self.logMessage.emit(f"Percent crop error: {e}")
     
     def open_crop_dialog(self) -> None:
         """Open a crop dialog for the current original image."""
@@ -373,27 +375,27 @@ class ImageProcessor(QObject):
                         _, left, top, right, bottom = crop_dialog.crop_result
                         try:
                             cropped_img = self.app.original_image.crop((left, top, right, bottom))
-                            self.app.gui_log(f"Cropped with coordinates: ({left},{top}) - ({right},{bottom})")
+                            self.logMessage.emit(f"Cropped with coordinates: ({left},{top}) - ({right},{bottom})")
                             self.apply_cropped_image(cropped_img)
                         except Exception as ve:
                             QMessageBox.critical(self.app, "Error", f"Failed to crop with coordinates:\n{ve}")
                             self.app.logger.exception(f"Coordinate crop error: {ve}")
-                            self.app.gui_log(f"Coordinate crop error: {ve}")
+                            self.logMessage.emit(f"Coordinate crop error: {ve}")
                     elif crop_dialog.crop_result[0] == 'percent':
                         _, left_p, top_p, width_p, height_p = crop_dialog.crop_result
                         try:
                             cropped = crop_image_by_percent(self.app.original_image, left_p, top_p, width_p, height_p)
-                            self.app.gui_log(f"Cropped by percent: L={left_p}%, T={top_p}%, W={width_p}%, H={height_p}%")
+                            self.logMessage.emit(f"Cropped by percent: L={left_p}%, T={top_p}%, W={width_p}%, H={height_p}%")
                             self.apply_cropped_image(cropped)
                         except Exception as perr:
                             QMessageBox.critical(self.app, "Error", f"Failed to crop by percent:\n{perr}")
                             self.app.logger.exception(f"Percent crop error: {perr}")
-                            self.app.gui_log(f"Percent crop error: {perr}")
+                            self.logMessage.emit(f"Percent crop error: {perr}")
             else:
-                self.app.gui_log("Crop cancelled.")
+                self.logMessage.emit("Crop cancelled.")
         except Exception as e:
             self.app.logger.exception(f"Crop dialog error: {e}")
-            self.app.gui_log(f"Crop dialog error: {e}")
+            self.logMessage.emit(f"Crop dialog error: {e}")
     
     def apply_cropped_image(self, cropped_img: 'Image.Image') -> None:
         """Save, display, and run OCR on the cropped image."""
@@ -407,7 +409,7 @@ class ImageProcessor(QObject):
         stored_cropped = cropped_img.copy()
         self.app.loaded_image = stored_cropped.copy()
         
-        self.display_image_preview(self.app.loaded_image)
+        self.imageUpdated.emit(self.app.loaded_image)
         
         # Run OCR Workflow
         result = self.logic.perform_ocr_workflow(cropped_img, self.app.language)
@@ -416,13 +418,13 @@ class ImageProcessor(QObject):
         
         if result.substats or result.cost:
             if result.cost:
-                self.app.gui_log(f"Detected Cost: {result.cost}")
+                self.logMessage.emit(f"Detected Cost: {result.cost}")
                 # Try to find a free tab for this specific cost
                 found_tab_for_cost = self._find_free_tab_for_cost(result.cost, set())
                 
                 if found_tab_for_cost:
                     target_tab_name = found_tab_for_cost
-                    self.app.gui_log(f"Automatically assigning to tab: {target_tab_name} (Cost {result.cost})")
+                    self.logMessage.emit(f"Automatically assigning to tab: {target_tab_name} (Cost {result.cost})")
                     
                     # Populate data and switch tab
                     self._populate_tab_data(target_tab_name, result.substats, result.main_stat)
@@ -437,17 +439,17 @@ class ImageProcessor(QObject):
                         try:
                             tab_index_to_activate = tab_keys_in_order.index(target_tab_name)
                         except ValueError:
-                            self.app.gui_log(f"Warning: Target tab '{target_tab_name}' not found in current TAB_CONFIGS order.")
+                            self.logMessage.emit(f"Warning: Target tab '{target_tab_name}' not found in current TAB_CONFIGS order.")
                             
                     if tab_index_to_activate != -1:
                         self.app.notebook.setCurrentIndex(tab_index_to_activate)
                     else:
-                        self.app.gui_log(f"Could not switch to tab '{target_tab_name}'. Staying on current tab.")
+                        self.logMessage.emit(f"Could not switch to tab '{target_tab_name}'. Staying on current tab.")
                 else:
-                    self.app.gui_log(f"No empty tab found for Cost {result.cost}. Populating current tab: {current_selected_tab_name}.")
+                    self.logMessage.emit(f"No empty tab found for Cost {result.cost}. Populating current tab: {current_selected_tab_name}.")
                     self._populate_tab_data(current_selected_tab_name, result.substats, result.main_stat) # Populate current tab
             else:
-                self.app.gui_log(f"No cost detected. Populating current tab: {current_selected_tab_name}.")
+                self.logMessage.emit(f"No cost detected. Populating current tab: {current_selected_tab_name}.")
                 self._populate_tab_data(current_selected_tab_name, result.substats, result.main_stat) # Populate current tab
             
             # Save image to the (potentially new) target tab
@@ -456,48 +458,14 @@ class ImageProcessor(QObject):
             # Emit signal for the tab that was actually populated
             self.ocr_completed.emit(result)
         else:
-            self.app.gui_log("OCR failed: No text detected.")
+            self.logMessage.emit("OCR failed: No text detected.")
             # If OCR fails, still save the image to the current tab for reference
             self.app.tab_mgr.save_tab_image(current_selected_tab_name, stored_original, stored_cropped)
             # Trigger auto calculation if enabled and character is selected
         if self.app.app_config.auto_calculate and self.app.character_var:
             self.app.score_calc.calculate_all_scores()
     
-    def display_image_preview(self, image: Optional['Image.Image']) -> None:
-        """Update the image preview label."""
-        if not is_pil_installed or self.app.image_label is None or image is None:
-            return
-        
-        try:
-            image_hash_data = (image.mode, image.size, hashlib.md5(image.tobytes()).hexdigest())
-            
-            if image_hash_data == self.app._last_displayed_image_hash and self.app._last_image_preview is not None:
-                self.app.image_label.setPixmap(self.app._last_image_preview)
-                self.app.image_label.setText("")
-                return
-            
-            # Convert PIL to QPixmap
-            # ImageQt.ImageQt(image) returns a QImage-compatible object
-            qim = ImageQt.ImageQt(image)
-            pixmap = QPixmap.fromImage(qim)
-            
-            # Scale for preview
-            scaled_pixmap = pixmap.scaled(
-                IMAGE_PREVIEW_MAX_WIDTH, 
-                IMAGE_PREVIEW_MAX_HEIGHT,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
-            
-            self.app._image_preview = scaled_pixmap
-            self.app._last_displayed_image_hash = image_hash_data
-            self.app._last_image_preview = scaled_pixmap
-            
-            self.app.image_label.setPixmap(scaled_pixmap)
-            self.app.image_label.setText("")
-        except Exception as e:
-            self.app.logger.exception(f"Image preview update error: {e}")
-            self.app.gui_log(f"Image preview update error: {e}")
+
     
     def perform_crop_preview(self) -> None:
         """Preview the image with the current crop settings."""
@@ -511,13 +479,13 @@ class ImageProcessor(QObject):
             
             cropped = crop_image_by_percent(self.app.original_image, left_p, top_p, width_p, height_p)
             
-            self.display_image_preview(cropped)
+            self.imageUpdated.emit(cropped)
         except Exception as e:
             self.app.logger.debug(f"Crop preview error: {e}")
     
     def perform_image_preview_update_on_resize(self) -> None:
         """Update the image preview on resize."""
         if self.app.loaded_image is not None:
-            self.display_image_preview(self.app.loaded_image)
+            self.imageUpdated.emit(self.app.loaded_image)
 
 

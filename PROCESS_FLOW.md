@@ -64,6 +64,7 @@
         - `tab_manager.py`: タブ内容のクリア処理を `_reset_tab_content` に統合。
 - **疎結合化 (Decoupling)**:
     - **UIとロジックの分離**: `SettingsPanel` (UI) から `EventHandlers` への直接参照を廃止し、PyQt のシグナル (`pyqtSignal`) を使用してイベントを通知する設計に変更。メインクラスでシグナルとスロットを接続することで、コンポーネント間の依存度を低減。
+    - **画像処理とUIの分離**: `ImageProcessor` から UI (`image_label`, `log_text`) への直接操作を排除。ログ出力や画像更新をシグナル (`logMessage`, `imageUpdated`) で通知する設計に変更し、表示ロジックをメインアプリケーション側に移動。
 - **高度な履歴管理**:
     - 重複データの3つのモード（Keep All / Latest / Oldest）の実装。
     - 評価ランクによる正確な検索機能（単語境界を考慮した正規表現マッチング）。

@@ -4,12 +4,19 @@ import os
 import shutil
 import sys
 import webbrowser
+import hashlib
 
 from typing import Any, Callable, Optional, List, Tuple, Dict, Union
 
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QMessageBox, QStyleFactory, QComboBox, QStatusBar)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QIcon, QFont, QShortcut, QKeySequence
+from PyQt6.QtGui import QIcon, QFont, QShortcut, QKeySequence, QPixmap
+
+try:
+    from PIL import Image, ImageQt
+    is_pil_installed = True
+except ImportError:
+    is_pil_installed = False
 
 from config_manager import ConfigManager
 from constants import (
@@ -122,6 +129,8 @@ class ScoreCalculatorApp(QMainWindow):
 
         # Connect signals from image processor
         self.image_proc.ocr_completed.connect(self.on_ocr_completed)
+        self.image_proc.logMessage.connect(self.gui_log)
+        self.image_proc.imageUpdated.connect(self.update_image_preview)
         
         # Timer references (using QTimer in PyQt6, handled in events or here)
         self._debounce_timers = {}
@@ -281,6 +290,41 @@ class ScoreCalculatorApp(QMainWindow):
     def on_ocr_completed(self, result: 'OCRResult') -> None:
         """Slot to handle the results of OCR processing."""
         self.tab_mgr.apply_ocr_result(result)
+
+    def update_image_preview(self, image: Optional['Image.Image']) -> None:
+        """Update the image preview label."""
+        if not is_pil_installed or self.image_label is None or image is None:
+            return
+        
+        try:
+            image_hash_data = (image.mode, image.size, hashlib.md5(image.tobytes()).hexdigest())
+            
+            if image_hash_data == self._last_displayed_image_hash and self._last_image_preview is not None:
+                self.image_label.setPixmap(self._last_image_preview)
+                self.image_label.setText("")
+                return
+            
+            # Convert PIL to QPixmap
+            qim = ImageQt.ImageQt(image)
+            pixmap = QPixmap.fromImage(qim)
+            
+            # Scale for preview
+            scaled_pixmap = pixmap.scaled(
+                self.IMAGE_PREVIEW_MAX_WIDTH, 
+                self.IMAGE_PREVIEW_MAX_HEIGHT,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            
+            self._image_preview = scaled_pixmap
+            self._last_displayed_image_hash = image_hash_data
+            self._last_image_preview = scaled_pixmap
+            
+            self.image_label.setPixmap(scaled_pixmap)
+            self.image_label.setText("")
+        except Exception as e:
+            self.logger.exception(f"Image preview update error: {e}")
+            self.gui_log(f"Image preview update error: {e}")
 
     def _open_readme(self) -> None:
         """Opens the README file."""
