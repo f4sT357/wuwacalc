@@ -128,6 +128,17 @@ class ScoreCalculatorApp(QMainWindow):
 
         # UI construction
         self.ui.create_main_layout()
+        
+        # Connect SettingsPanel signals to EventHandlers (Decoupling)
+        settings = self.ui.settings_panel
+        settings.configChanged.connect(self.events.on_config_change)
+        settings.characterSelected.connect(self.events.on_character_change)
+        settings.languageChanged.connect(self.events.on_language_change)
+        settings.inputModeChanged.connect(self.events.on_mode_change)
+        settings.autoMainChanged.connect(self.events.on_auto_main_change)
+        settings.calcModeChanged.connect(self.events.on_score_mode_change)
+        settings.calcMethodsChanged.connect(self.events.on_calc_method_changed)
+
         self.setCentralWidget(self.ui.main_widget)
         
         # Apply transparent frames setting if enabled

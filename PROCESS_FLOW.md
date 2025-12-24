@@ -62,6 +62,8 @@
     - **その他コンポーネントの共通化**:
         - `image_processor.py`: 空きタブ検索ロジックを `_find_free_tab` に統合。
         - `tab_manager.py`: タブ内容のクリア処理を `_reset_tab_content` に統合。
+- **疎結合化 (Decoupling)**:
+    - **UIとロジックの分離**: `SettingsPanel` (UI) から `EventHandlers` への直接参照を廃止し、PyQt のシグナル (`pyqtSignal`) を使用してイベントを通知する設計に変更。メインクラスでシグナルとスロットを接続することで、コンポーネント間の依存度を低減。
 - **高度な履歴管理**:
     - 重複データの3つのモード（Keep All / Latest / Oldest）の実装。
     - 評価ランクによる正確な検索機能（単語境界を考慮した正規表現マッチング）。

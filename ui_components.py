@@ -2,7 +2,7 @@ from typing import Union, Tuple, Optional, TYPE_CHECKING
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QScrollArea, QTextEdit, QLabel, QPushButton, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QGroupBox, QSplitter, QFrame, QSizePolicy, QLineEdit, QSlider, QMenu
 )
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QObject, pyqtSignal
 from PyQt6.QtGui import QPixmap, QImage
 
 from ui_constants import (
@@ -14,9 +14,19 @@ if TYPE_CHECKING:
     from wuwacalc17 import ScoreCalculatorApp
 
 
-class SettingsPanel:
+class SettingsPanel(QObject):
     """Class responsible for the settings UI (Settings Frame)."""
+    
+    configChanged = pyqtSignal(str)
+    characterSelected = pyqtSignal(int)
+    languageChanged = pyqtSignal(str)
+    inputModeChanged = pyqtSignal(str)
+    autoMainChanged = pyqtSignal(bool)
+    calcModeChanged = pyqtSignal(str)
+    calcMethodsChanged = pyqtSignal()
+
     def __init__(self, app: 'ScoreCalculatorApp', ui: 'UIComponents'):
+        super().__init__()
         self.app = app
         self.ui = ui # Back reference if needed, though app should suffice
         self.settings_group: Optional[QGroupBox] = None
@@ -72,12 +82,12 @@ class SettingsPanel:
         self.app.config_combo.blockSignals(True)
         self.app.config_combo.setCurrentText(self.app.current_config_key)
         self.app.config_combo.blockSignals(False)
-        self.app.config_combo.currentTextChanged.connect(self.app.events.on_config_change)
+        self.app.config_combo.currentTextChanged.connect(self.configChanged.emit)
         layout.addWidget(self.app.config_combo, 0, 1)
         
         self.lbl_character = QLabel(self.app.tr("character"))
         layout.addWidget(self.lbl_character, 0, 2)
-        self.character_combo.activated.connect(self.app.events.on_character_change)
+        self.character_combo.activated.connect(self.characterSelected.emit)
         layout.addWidget(self.character_combo, 0, 3)
         
         self.lbl_language = QLabel(self.app.tr("language"))
@@ -85,7 +95,7 @@ class SettingsPanel:
         self.lang_combo = QComboBox()
         self.lang_combo.addItems(["ja", "en"])
         self.lang_combo.setCurrentText(self.app.language)
-        self.lang_combo.currentTextChanged.connect(self.app.events.on_language_change)
+        self.lang_combo.currentTextChanged.connect(self.languageChanged.emit)
         layout.addWidget(self.lang_combo, 0, 5)
 
     def _setup_input_mode_row(self, layout: QGridLayout) -> None:
@@ -107,14 +117,14 @@ class SettingsPanel:
         else:
             self.rb_ocr.setChecked(True)
             
-        self.rb_manual.toggled.connect(self.app.events.on_mode_manual_toggled)
-        self.rb_ocr.toggled.connect(self.app.events.on_mode_ocr_toggled)
+        self.rb_manual.toggled.connect(lambda c: self.inputModeChanged.emit("manual") if c else None)
+        self.rb_ocr.toggled.connect(lambda c: self.inputModeChanged.emit("ocr") if c else None)
         
         layout.addLayout(mode_layout, 1, 1, 1, 3)
         
         self.cb_auto_main = QCheckBox(self.app.tr("auto_main"))
         self.cb_auto_main.setChecked(self.app.auto_apply_main_stats)
-        self.cb_auto_main.toggled.connect(self.app.events.on_auto_main_change)
+        self.cb_auto_main.toggled.connect(self.autoMainChanged.emit)
         layout.addWidget(self.cb_auto_main, 1, 4, 1, 2)
 
     def _setup_calc_mode_row(self, layout: QGridLayout) -> None:
@@ -129,8 +139,8 @@ class SettingsPanel:
         else:
             self.rb_single.setChecked(True)
             
-        self.rb_batch.toggled.connect(self.app.events.on_score_mode_batch_toggled)
-        self.rb_single.toggled.connect(self.app.events.on_score_mode_single_toggled)
+        self.rb_batch.toggled.connect(lambda c: self.calcModeChanged.emit("batch") if c else None)
+        self.rb_single.toggled.connect(lambda c: self.calcModeChanged.emit("single") if c else None)
         
         calc_mode_layout.addWidget(self.rb_batch)
         calc_mode_layout.addWidget(self.rb_single)
@@ -164,11 +174,11 @@ class SettingsPanel:
         self.cb_method_effective.setChecked(enabled_methods.get("effective", True))
         self.cb_method_cv.setChecked(enabled_methods.get("cv", True))
         
-        self.cb_method_normalized.toggled.connect(lambda: self.app.events.on_calc_method_changed())
-        self.cb_method_ratio.toggled.connect(lambda: self.app.events.on_calc_method_changed())
-        self.cb_method_roll.toggled.connect(lambda: self.app.events.on_calc_method_changed())
-        self.cb_method_effective.toggled.connect(lambda: self.app.events.on_calc_method_changed())
-        self.cb_method_cv.toggled.connect(lambda: self.app.events.on_calc_method_changed())
+        self.cb_method_normalized.toggled.connect(lambda: self.calcMethodsChanged.emit())
+        self.cb_method_ratio.toggled.connect(lambda: self.calcMethodsChanged.emit())
+        self.cb_method_roll.toggled.connect(lambda: self.calcMethodsChanged.emit())
+        self.cb_method_effective.toggled.connect(lambda: self.calcMethodsChanged.emit())
+        self.cb_method_cv.toggled.connect(lambda: self.calcMethodsChanged.emit())
         
         methods_layout.addWidget(self.cb_method_normalized)
         methods_layout.addWidget(self.cb_method_ratio)
