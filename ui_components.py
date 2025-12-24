@@ -2,8 +2,8 @@ from typing import Union, Tuple, Optional, TYPE_CHECKING
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QScrollArea, QTextEdit, QLabel, QPushButton, QComboBox, QCheckBox, QRadioButton, QButtonGroup, QGroupBox, QSplitter, QFrame, QSizePolicy, QLineEdit, QSlider, QMenu
 )
-from PyQt6.QtCore import Qt, QSize, QObject, pyqtSignal
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtCore import Qt, QObject, pyqtSignal
+from PyQt6.QtGui import QPixmap
 
 from ui_constants import (
     RIGHT_TOP_HEIGHT, LOG_MIN_HEIGHT, LOG_DEFAULT_HEIGHT,

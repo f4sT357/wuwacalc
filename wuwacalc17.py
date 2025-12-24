@@ -1,16 +1,14 @@
-import json
 import logging
 import os
-import shutil
 import sys
 import webbrowser
 import hashlib
 
 from typing import Any, Callable, Optional, List, Tuple, Dict, Union
 
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QMessageBox, QStyleFactory, QComboBox, QStatusBar)
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QMessageBox, QComboBox, QStatusBar)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QIcon, QFont, QShortcut, QKeySequence, QPixmap
+from PyQt6.QtGui import QShortcut, QKeySequence, QPixmap
 
 try:
     from PIL import Image, ImageQt
@@ -20,16 +18,12 @@ except ImportError:
 
 from config_manager import ConfigManager
 from constants import (
-    THEME_COLORS,
     LOG_FILENAME,
     CONFIG_FILENAME,
-    CHARACTER_STAT_WEIGHTS
 )
-from dialogs import CharSettingDialog, CropDialog, DisplaySettingsDialog, ImagePreprocessingSettingsDialog
-from echo_data import EchoData
+from dialogs import CharSettingDialog, DisplaySettingsDialog, ImagePreprocessingSettingsDialog
 from languages import TRANSLATIONS
-from utils import crop_image_by_percent, get_app_path, get_resource_path, get_substat_display, setup_tesseract, check_and_alert_environment
-from data_contracts import EchoEntry, SubStat
+from utils import get_app_path, get_resource_path, setup_tesseract, check_and_alert_environment
 from character_manager import CharacterManager
 
 

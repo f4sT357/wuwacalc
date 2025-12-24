@@ -62,22 +62,6 @@ SUBSTAT_TYPES = {
     "防御力%": "Percent",
 }
 
-# CHARACTER_STAT_WEIGHTS = {
-#     "Changli": {
-#         "クリティカル率": 2.3,
-#         "クリティカルダメージ": 2.3,
-#         "攻撃力%": 1.3,
-#         "攻撃力": 0.9,
-#         "HP%": 0.1,
-#         "HP": 0.1,
-#         "防御力%": 0.1,
-#         "防御力": 0.1,
-#         "共鳴効率": 1.0,
-#         "共鳴スキルダメージアップ": 1.1,
-#         "焦熱ダメージアップ": 1.2,
-#         "共鳴解放ダメージアップ": 0.8,
-#     }
-# }
 CHARACTER_STAT_WEIGHTS = {
     "General": {
     "クリティカル率": 1.0,
@@ -133,74 +117,25 @@ CHARACTER_MAIN_STATS = {
 }
 
 STAT_ALIASES = {
-    "クリティカル率": ["クリティカル率", "クリ率", "クリティカル"],
-    "クリティカルダメージ": ["クリティカルダメージ", "クリダメ", "クリダメージ"],
-    "攻撃力%": ["攻撃力%", "攻撃力％", "攻撃力(%)", "攻撃%"],
+    "クリティカル率": ["クリティカル率", "クリ率", "クリティカル", "Crit. Rate", "Crit Rate"],
+    "クリティカルダメージ": ["クリティカルダメージ", "クリダメ", "クリダメージ", "Crit. DMG", "Crit DMG"],
+    "攻撃力%": ["攻撃力%", "攻撃力％", "攻撃力(%)", "攻撃%", "ATK (%)", "ATK%"],
     "攻撃力": ["攻撃力", "ATK", "こうげき"],
-    "HP%": ["HP%", "HP％", "HP(%)", "体力%"],
+    "HP%": ["HP%", "HP％", "HP(%)", "体力%", "HP (%)", "HP%"],
     "HP": ["HP", "体力"],
-    "防御力%": ["防御力%", "防御力％", "防御%"],
+    "防御力%": ["防御力%", "防御力％", "防御%", "DEF (%)", "DEF%"],
     "防御力": ["防御力", "DEF"],
-    "共鳴効率": ["共鳴効率", "効率", "エネルギー効率"],
-    "通常攻撃ダメージアップ": ["通常攻撃ダメージアップ", "通常攻撃up", "通常攻撃ダメージ", "通常ダメージ"],
-    "重撃ダメージアップ": ["重撃ダメージアップ", "重撃up", "重撃ダメージ"],
-    "共鳴スキルダメージアップ": ["共鳴スキルダメージアップ", "共鳴スキルup", "スキルダメージ"],
-    "共鳴解放ダメージアップ": ["共鳴解放ダメージアップ", "共鳴解放up", "解放ダメージ"],
+    "共鳴効率": ["共鳴効率", "効率", "エネルギー効率", "Energy Regen", "Resonance Efficiency"],
+    "通常攻撃ダメージアップ": ["通常攻撃ダメージアップ", "通常攻撃up", "通常攻撃ダメージ", "通常ダメージ", "Basic Attack DMG Bonus"],
+    "重撃ダメージアップ": ["重撃ダメージアップ", "重撃up", "重撃ダメージ", "Heavy Attack DMG Bonus"],
+    "共鳴スキルダメージアップ": ["共鳴スキルダメージアップ", "共鳴スキルup", "スキルダメージ", "Resonance Skill DMG Bonus"],
+    "共鳴解放ダメージアップ": ["共鳴解放ダメージアップ", "共鳴解放up", "解放ダメージ", "Resonance Liberation DMG Bonus"],
 }
 
 TAB_CONFIGS = {
     "43311": ["cost4_echo", "cost3_echo_1", "cost3_echo_2", "cost1_echo_1", "cost1_echo_2"],
     "44111": ["cost4_echo_1","cost4_echo_2","cost1_echo_1","cost1_echo_2","cost1_echo_3", ],
 }
-
-# Character name mapping: Japanese -> English internal identifier
-_CHAR_NAME_MAP_JP_TO_EN = {
-    
-    # "長離": "Changli",
-    "汎用": "General",
-}
-
-_CHAR_NAME_MAP_EN_TO_JP = {v: k for k, v in _CHAR_NAME_MAP_JP_TO_EN.items()}
-
-def _sanitize_name_for_internal_use(name: str) -> str:
-    """Sanitize a name to create a consistent internal English identifier."""
-    # This is a very basic sanitization. For more robust solutions, consider transliteration libraries.
-    # For now, replace non-alphanumeric (and non-underscore) with underscore, and ensure it's ASCII-safe.
-    # Also, remove common Japanese suffixes like 'New' if they are just descriptive.
-    name = name.replace('New', '') # Remove specific suffixes if they are just descriptors
-    sanitized = ''.join(c if c.isalnum() else '_' for c in name).strip('_')
-    if not sanitized:
-        sanitized = "UnknownChar"
-    return sanitized
-
-def get_char_internal_name(japanese_name: str) -> str:
-    """
-    Gets the internal English identifier for a Japanese character name.
-    If the mapping doesn't exist, it creates a new one dynamically.
-    """
-    if japanese_name in _CHAR_NAME_MAP_JP_TO_EN:
-        return _CHAR_NAME_MAP_JP_TO_EN[japanese_name]
-    
-    # Generate a new internal name if not found
-    internal_name = _sanitize_name_for_internal_use(japanese_name)
-    
-    # Ensure uniqueness (e.g., if two Japanese names sanitize to the same string)
-    original_internal_name = internal_name
-    counter = 1
-    while internal_name in _CHAR_NAME_MAP_EN_TO_JP:
-        internal_name = f"{original_internal_name}{counter}"
-        counter += 1
-            
-    _CHAR_NAME_MAP_JP_TO_EN[japanese_name] = internal_name
-    _CHAR_NAME_MAP_EN_TO_JP[internal_name] = japanese_name
-    return internal_name
-
-def get_char_japanese_name(internal_name: str) -> str:
-    """
-    Gets the Japanese name from an internal English identifier.
-    Returns the internal_name if no mapping is found (fallback).
-    """
-    return _CHAR_NAME_MAP_EN_TO_JP.get(internal_name, internal_name)
 
 THEME_COLORS = {
     "dark": {
@@ -288,6 +223,3 @@ IMAGE_PREVIEW_MAX_HEIGHT = 260
 TIMER_SAVE_CONFIG_INTERVAL = 500
 TIMER_CROP_PREVIEW_INTERVAL = 100
 TIMER_RESIZE_PREVIEW_INTERVAL = 100
-
-# Default cost configuration
-DEFAULT_COST_CONFIG = "43311"

@@ -6,7 +6,6 @@ Provides core application logic including OCR, data loading/saving, and characte
 
 import os
 import logging
-import json
 import re
 import shutil
 import time
@@ -14,7 +13,6 @@ from typing import Optional, Any, Dict, List, Tuple, Callable, Union
 from data_contracts import SubStat, OCRResult
 from pytesseract import Output
 
-from PyQt6.QtWidgets import QMessageBox, QFileDialog, QLabel, QHBoxLayout
 from PyQt6.QtCore import Qt, QObject, pyqtSignal
 from constants import OCR_ENGINE_OPENCV
 
@@ -80,11 +78,12 @@ class AppLogic(QObject):
             custom_config = "--oem 3 --psm 6" # に戻す
             
             # Map app language code to Tesseract language code
+            # Always include both jpn and eng to support Japanese screenshots regardless of UI language
             tess_lang_map = {
-                "ja": "jpn",
-                "en": "eng"
+                "ja": "jpn+eng",
+                "en": "jpn+eng"
             }
-            tess_lang = tess_lang_map.get(language, "jpn")
+            tess_lang = tess_lang_map.get(language, "jpn+eng")
 
             # Tesseractの出力を生バイト列として取得
             output_bytes = pytesseract.image_to_string(processed, lang=tess_lang, config=custom_config, output_type=Output.BYTES)
@@ -273,9 +272,7 @@ class AppLogic(QObject):
                 substat, is_percent = result
                 found_substats.append(substat)
                 
-                stat_name_for_log = substat.stat
-                if language == "en":
-                    stat_name_for_log = self.data_manager.stat_translation_map.get(substat.stat, substat.stat)
+                stat_name_for_log = self.tr(substat.stat)
                 
                 log_messages.append(f"OCR auto-fill: Sub{i+1} -> {stat_name_for_log} {substat.value}{'%' if is_percent else ''}")
         

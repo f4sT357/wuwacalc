@@ -68,7 +68,7 @@ class TabManager:
         if data:
             self.app.loaded_image = data.cropped.copy()
             self.app.original_image = data.original.copy()
-            self.app.image_proc.display_image_preview(self.app.loaded_image)
+            self.app.update_image_preview(self.app.loaded_image)
         else:
             # If there's no saved image for this tab, do not clear the currently
             # displayed preview. Leaving the existing preview prevents the image
@@ -452,15 +452,15 @@ class TabManager:
             return None
         
         content = self.tabs_content[tab_name]
-        main_stat = content["main_widget"].currentText()
+        main_stat = content["main_widget"].currentData() # Use currentData for internal key
         cost = content.get("cost")
         
         substats = []
         for stat_widget, val_widget in content["sub_entries"]:
-            s_text = stat_widget.currentText()
+            s_key = stat_widget.currentData() # Use currentData for internal key
             v_text = val_widget.text()
-            if s_text and v_text:
-                substats.append(SubStat(stat=s_text, value=v_text))
+            if s_key and v_text:
+                substats.append(SubStat(stat=s_key, value=v_text))
                 
         return EchoEntry(
             tab_index=0, # Placeholder or lookup real index if needed
@@ -576,10 +576,10 @@ class TabManager:
         if result.main_stat:
             main_combo = content.get("main_widget")
             if main_combo:
-                translated_main = self.app.tr(result.main_stat)
-                idx = main_combo.findText(translated_main)
+                idx = main_combo.findData(result.main_stat) # Use findData for internal key
                 if idx >= 0:
                     main_combo.setCurrentIndex(idx)
+                    translated_main = self.app.tr(result.main_stat)
                     self.app.gui_log(f"Auto-selected main stat: {translated_main}")
 
         # 2. Update Substats
@@ -591,10 +591,14 @@ class TabManager:
 
         for i, substat_data in enumerate(result.substats):
             if i < len(sub_entries):
-                stat_found = getattr(substat_data, 'stat', "")
+                stat_key = getattr(substat_data, 'stat', "")
                 num_found = getattr(substat_data, 'value', "")
-                translated_stat = self.app.tr(stat_found)
-                sub_entries[i][0].setCurrentText(translated_stat)
+                
+                stat_widget = sub_entries[i][0]
+                idx = stat_widget.findData(stat_key) # Use findData for internal key
+                if idx >= 0:
+                    stat_widget.setCurrentIndex(idx)
+                
                 sub_entries[i][1].setText(str(num_found))
 
         self.app.gui_log(f"Successfully applied OCR results to tab '{tab_name}'.")

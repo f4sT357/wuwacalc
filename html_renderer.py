@@ -29,25 +29,25 @@ class HtmlRenderer:
 
     def render_single_score(self, character: str, tab_name: str, entry: EchoEntry, main_stat: str, echo: any, evaluation: EvaluationResult) -> str:
         """Generate HTML for single score result."""
-        html = f"<h3><u>{character} - {tab_name} Individual Score</u></h3>"
+        html = f"<h3><u>{character} - {tab_name} {self.tr('individual_score_title')}</u></h3>"
         html += f"<hr>"
         
-        html += f"<b>Echo Information</b><br>"
-        html += f"Cost: {entry.cost}<br>"
-        html += f"Main Stat: {main_stat}<br>"
-        html += f"Level: {echo.level}<br>"
-        html += f"Number of Effective Substats: {evaluation.effective_count}<br>"
+        html += f"<b>{self.tr('echo_info')}</b><br>"
+        html += f"{self.tr('cost')}: {entry.cost}<br>"
+        html += f"{self.tr('main_stat')}: {self.tr(main_stat)}<br>"
+        html += f"{self.tr('level')}: {echo.level}<br>"
+        html += f"{self.tr('effective_stats_num')}: {evaluation.effective_count}<br>"
         
-        html += f"<br><b>Substats</b><br>"
+        html += f"<br><b>{self.tr('substats')}</b><br>"
         substats = echo.substats
         if substats:
             for name, value in substats.items():
-                html += f"&nbsp;&nbsp;• {name}: {value}<br>"
+                html += f"&nbsp;&nbsp;• {self.tr(name)}: {value}<br>"
         else:
-            html += "None<br>"
+            html += f"{self.tr('none')}<br>"
         html += f"<br><hr>"
         
-        html += f"<b>Score by Evaluation Method</b><br>"
+        html += f"<b>{self.tr('score_by_method')}</b><br>"
         
         def format_score_block(label, score, rating_info, desc):
             block = f"[{label}]<br>"
@@ -102,22 +102,22 @@ class HtmlRenderer:
                 html += format_score_block(info["label"], score, rating, info["desc"])
 
         html += f"<hr>"
-        html += f"<b>Overall Evaluation</b><br>"
-        html += f"<b>Total Score: {evaluation.total_score:.2f}</b><br>"
+        html += f"<b>{self.tr('overall_eval')}</b><br>"
+        html += f"<b>{self.tr('total_score')}: {evaluation.total_score:.2f}</b><br>"
         
-        final_rating = TRANSLATIONS.get(self.language, TRANSLATIONS["en"])[evaluation.rating]
+        final_rating = self.tr(evaluation.rating)
         final_color = self._get_rating_color(final_rating)
         
-        html += f"<span style='color:{final_color}'>Overall Rating: {final_rating}</span><br>"
-        html += f"Recommendation: {TRANSLATIONS.get(self.language, TRANSLATIONS['en'])[evaluation.recommendation]}<br>"
+        html += f"<span style='color:{final_color}'>{self.tr('overall_rating')}: {final_rating}</span><br>"
+        html += f"{self.tr('recommendation')}: {self.tr(evaluation.recommendation)}<br>"
         
         return html
 
     def render_batch_score(self, character: str, calculated_count: int, total_count: int, all_evaluations: list, total_scores: dict, enabled_methods: dict) -> str:
         """Generate HTML for batch score result."""
-        html = f"<h3><u>{character} Echo Scores (Batch Calculation)</u></h3>"
+        html = f"<h3><u>{character} {self.tr('batch_score_title')}</u></h3>"
         html += f"<hr>"
-        html += f"Calculated: {calculated_count} / {total_count} echoes<br>"
+        html += f"{self.tr('calculated')}: {calculated_count} / {total_count} echoes<br>"
         html += f"<hr>"
         
         # Method display info
@@ -150,27 +150,27 @@ class HtmlRenderer:
             elif eval_data['total'] >= 50: score_color = "#1E90FF" 
             elif eval_data['total'] >= 30: score_color = "#32CD32" 
             
-            html += f"└ <b><span style='color:{score_color}'>Total Score: {eval_data['total']:.2f}</span></b><br>"
-            html += f"&nbsp;&nbsp;Recommendation: {eval_data['recommendation']}<br><br>"
+            html += f"└ <b><span style='color:{score_color}'>{self.tr('total_score')}: {eval_data['total']:.2f}</span></b><br>"
+            html += f"&nbsp;&nbsp;{self.tr('recommendation')}: {eval_data['recommendation']}<br><br>"
         
         html += f"<hr>"
-        html += f"<b>Average Scores ({calculated_count} echoes)</b><br>"
+        html += f"<b>{self.tr('avg_scores_title')} ({calculated_count} echoes)</b><br>"
         
         for method in ["normalized", "ratio", "roll", "effective", "cv"]:
             if enabled_methods.get(method, False) and method in total_scores:
                 avg = total_scores[method] / calculated_count
                 label = method_labels.get(method, method)
-                html += f"├ {label} Average: {avg:.2f}<br>"
+                html += f"├ {label} {self.tr('average')}: {avg:.2f}<br>"
         
         total_sum = total_scores["total"]
         avg_total = total_sum / calculated_count
         avg_rating_key = self._get_score_rating_key(avg_total)
-        avg_rating_text = TRANSLATIONS.get(self.language, TRANSLATIONS["en"])[avg_rating_key]
+        avg_rating_text = self.tr(avg_rating_key)
         avg_color = self._get_rating_color(avg_rating_text)
         
-        html += f"├ <b>Total Sum: {total_sum:.2f}</b><br>"
-        html += f"├ <b><span style='color:{avg_color}'>Total Average: {avg_total:.2f}</span></b><br>"
-        html += f"└ <span style='color:{avg_color}'>Overall Rating: {avg_rating_text}</span><br>"
+        html += f"├ <b>{self.tr('total_sum')}: {total_sum:.2f}</b><br>"
+        html += f"├ <b><span style='color:{avg_color}'>{self.tr('total_average')}: {avg_total:.2f}</span></b><br>"
+        html += f"└ <span style='color:{avg_color}'>{self.tr('overall_rating')}: {avg_rating_text}</span><br>"
         
         return html
 

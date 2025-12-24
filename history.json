@@ -1,5 +1,27 @@
 [
   {
+    "timestamp": "2025-12-25 00:22:56",
+    "character": "Changli",
+    "cost": "1",
+    "action": "Single Evaluation",
+    "result": "Score: 3.00 (C - Needs Improvement)",
+    "fingerprint": "c5ccdaf4f8db48a7358f7d30ea839821",
+    "details": {
+      "score": 3.0
+    }
+  },
+  {
+    "timestamp": "2025-12-25 00:19:10",
+    "character": "Changli",
+    "cost": "1",
+    "action": "Single Evaluation",
+    "result": "Score: 3.00 (C - Needs Improvement)",
+    "fingerprint": "534468d089d8ddd707628d5b18a270eb",
+    "details": {
+      "score": 3.0
+    }
+  },
+  {
     "timestamp": "2025-12-24 01:58:06",
     "character": "Changli",
     "cost": "3",
