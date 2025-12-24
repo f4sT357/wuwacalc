@@ -191,7 +191,6 @@ class AppLogic(QObject):
             return None
 
         # Determine which main stats are possible based on cost
-        # If cost is unknown, we check all possible main stats
         possible_stats = []
         if cost and cost in self.data_manager.main_stat_options:
             possible_stats = self.data_manager.main_stat_options[cost]
@@ -204,29 +203,44 @@ class AppLogic(QObject):
         # Prepare aliases for matching
         stat_aliases = self.data_manager.stat_aliases
         
+        # Pre-clean the text for matching
+        cleaned_lines = []
+        for line in ocr_text.splitlines():
+            line_clean = line.strip()
+            if not line_clean:
+                continue
+            # Remove symbols and normalize spaces
+            line_clean = re.sub(r'^\s*[\・\.\:\*]\s*', '', line_clean)
+            line_clean = re.sub(r'\s+', ' ', line_clean)
+            line_clean = re.sub(r'(\d)\s*%', r'\1%', line_clean)
+            cleaned_lines.append(line_clean)
+
         # Scan the first half of the OCR text (where the main stat usually resides)
-        lines = ocr_text.splitlines()
-        search_limit = min(len(lines), 10)
-        search_lines = lines[:search_limit]
+        search_limit = min(len(cleaned_lines), 10)
+        search_lines = cleaned_lines[:search_limit]
 
         self.log_message.emit(f"Searching for main stat in first {search_limit} lines using {len(possible_stats)} candidates.")
 
         for line in search_lines:
-            line_clean = line.strip()
-            if not line_clean:
-                continue
-
             for stat in possible_stats:
-                # Direct match
-                if stat in line_clean:
+                # 1. Direct match (Full name)
+                if stat in line:
                     self.log_message.emit(f"Main stat detected via direct match: {stat}")
                     return stat
                 
-                # Alias match
+                # 2. Alias match
                 aliases = stat_aliases.get(stat, [])
                 for alias in aliases:
-                    if alias in line_clean:
+                    if alias in line:
                         self.log_message.emit(f"Main stat detected via alias match: {stat} (alias: {alias})")
+                        return stat
+                
+                # 3. Flexible match (Stat name without trailing %)
+                # Useful for Cost 1 stats like "攻撃力%" appearing as "攻撃力 18.0%"
+                if stat.endswith('%'):
+                    base_name = stat.rstrip('%')
+                    if base_name in line:
+                        self.log_message.emit(f"Main stat detected via flexible match: {stat} (matched: {base_name})")
                         return stat
 
         return None

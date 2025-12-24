@@ -519,39 +519,45 @@ class TabManager:
     def update_main_stat_combobox(self, combo: 'QComboBox', content: Dict[str, Any], mainstats: Dict[str, Any], tab_name: str) -> None:
         """Helper to update a single main stat combobox."""
         try:
+            combo.blockSignals(True)
             combo.clear()
-            options = ["---"]
             
-            # 1. Try lookup by exact tab name (e.g. "cost4_echo") - Used in JSON profiles
+            # 1. Collect candidate keys (internal Japanese names)
+            keys = []
+            
+            # Try lookup by exact tab name (e.g. "cost4_echo") - Used in JSON profiles
             preferred = mainstats.get(tab_name)
             if preferred:
                 if isinstance(preferred, list):
-                    for s in preferred:
-                        options.append(self.app.tr(s))
+                    keys.extend(preferred)
                 else:
-                    options.append(self.app.tr(preferred))
+                    keys.append(preferred)
             else:
                 # 2. Fallback to cost-based lookup (Legacy/General support)
                 cost_str = str(content.get("cost", ""))
-                cost_main_stats = mainstats.get(cost_str, [])
-                for stat in cost_main_stats:
-                    options.append(self.app.tr(stat))
-                
-            combo.addItems(options)
+                keys.extend(mainstats.get(cost_str, []))
+            
+            # If no character-specific options, use default options for this cost
+            if not keys:
+                cost_num = str(content.get("cost", "1"))
+                keys = self.app.data_manager.main_stat_options.get(cost_num, ["HP", "ATK", "DEF"])
+
+            # 2. Populate ComboBox with translation and internal key
+            combo.addItem("---", userData="")
+            for k in keys:
+                combo.addItem(self.app.tr(k), userData=k)
             
             # Select preferred stat if we found one
             if preferred:
                 target_stat = preferred[0] if isinstance(preferred, list) else preferred
-                translated_target = self.app.tr(target_stat)
-                idx = combo.findText(translated_target)
+                idx = combo.findData(target_stat)
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
-            else:
-                # Select saved value if possible (only if no new preference found)
-                # (Logic here would depend on how we want to persist intermediate state during tab switch)
-                pass
+            
+            combo.blockSignals(False)
         except Exception as e:
             self.app.logger.exception(f"Error updating main stat combobox for '{tab_name}': {e}")
+            combo.blockSignals(False)
 
     def apply_ocr_result(self, result: 'OCRResult') -> None:
         """
