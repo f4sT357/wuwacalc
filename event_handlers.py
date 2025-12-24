@@ -209,7 +209,6 @@ class EventHandlers:
             elif sender == self.ui.entry_crop_w:
                 self.app.crop_width_percent_var = value
                 self.config_manager.update_app_setting('crop_width_percent', value)
-                self.ui.slider_crop_l.setValue(int(value)) # Wait, this should be slider_crop_w
                 self.ui.slider_crop_w.setValue(int(value))
             elif sender == self.ui.entry_crop_h:
                 self.app.crop_height_percent_var = value
@@ -309,7 +308,7 @@ class EventHandlers:
         else:
             self._image_preview_timer = QTimer()
             self._image_preview_timer.setSingleShot(True)
-            self._image_preview_timer.timeout.connect(self.image_processor.perform_image_preview_update_on_resize)
+            self._image_preview_timer.timeout.connect(self.image_proc.perform_image_preview_update_on_resize)
         
         self._image_preview_timer.start(TIMER_RESIZE_PREVIEW_INTERVAL)
 

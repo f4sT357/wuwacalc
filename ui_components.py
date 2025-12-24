@@ -14,6 +14,201 @@ if TYPE_CHECKING:
     from wuwacalc17 import ScoreCalculatorApp
 
 
+class SettingsPanel:
+    """Class responsible for the settings UI (Settings Frame)."""
+    def __init__(self, app: 'ScoreCalculatorApp', ui: 'UIComponents'):
+        self.app = app
+        self.ui = ui # Back reference if needed, though app should suffice
+        self.settings_group: Optional[QGroupBox] = None
+        
+        # Widgets
+        self.character_combo = QComboBox()
+        self.character_combo.setEditable(True)
+        self.character_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.character_combo.lineEdit().setPlaceholderText(self.app.tr("search_character_placeholder"))
+        self.character_combo.setObjectName("CharComboBox")
+        
+        self.mode_button_group = QButtonGroup(self.app)
+        self.calc_mode_button_group = QButtonGroup(self.app)
+        
+        # Other widgets will be created in setup_ui methods
+        self.lbl_cost_config: Optional[QLabel] = None
+        self.lbl_character: Optional[QLabel] = None
+        self.lbl_language: Optional[QLabel] = None
+        self.lang_combo: Optional[QComboBox] = None
+        
+        self.lbl_input_mode: Optional[QLabel] = None
+        self.rb_manual: Optional[QRadioButton] = None
+        self.rb_ocr: Optional[QRadioButton] = None
+        self.cb_auto_main: Optional[QCheckBox] = None
+        
+        self.lbl_calc_mode: Optional[QLabel] = None
+        self.rb_batch: Optional[QRadioButton] = None
+        self.rb_single: Optional[QRadioButton] = None
+        
+        self.lbl_calc_methods: Optional[QLabel] = None
+        self.cb_method_normalized: Optional[QCheckBox] = None
+        self.cb_method_ratio: Optional[QCheckBox] = None
+        self.cb_method_roll: Optional[QCheckBox] = None
+        self.cb_method_effective: Optional[QCheckBox] = None
+        self.cb_method_cv: Optional[QCheckBox] = None
+
+    def setup_ui(self, parent_layout: QVBoxLayout) -> None:
+        self.settings_group = QGroupBox(self.app.tr("basic_settings"))
+        settings_layout = QGridLayout(self.settings_group)
+        parent_layout.addWidget(self.settings_group)
+        
+        self._setup_basic_settings_row(settings_layout)
+        self._setup_input_mode_row(settings_layout)
+        self._setup_calc_mode_row(settings_layout)
+        self._setup_calc_methods_row(settings_layout)
+
+    def _setup_basic_settings_row(self, layout: QGridLayout) -> None:
+        self.lbl_cost_config = QLabel(self.app.tr("cost_config"))
+        layout.addWidget(self.lbl_cost_config, 0, 0)
+        
+        self.app.config_combo = QComboBox()
+        self.app.config_combo.addItems(list(self.app.data_manager.tab_configs.keys()))
+        self.app.config_combo.blockSignals(True)
+        self.app.config_combo.setCurrentText(self.app.current_config_key)
+        self.app.config_combo.blockSignals(False)
+        self.app.config_combo.currentTextChanged.connect(self.app.events.on_config_change)
+        layout.addWidget(self.app.config_combo, 0, 1)
+        
+        self.lbl_character = QLabel(self.app.tr("character"))
+        layout.addWidget(self.lbl_character, 0, 2)
+        self.character_combo.activated.connect(self.app.events.on_character_change)
+        layout.addWidget(self.character_combo, 0, 3)
+        
+        self.lbl_language = QLabel(self.app.tr("language"))
+        layout.addWidget(self.lbl_language, 0, 4)
+        self.lang_combo = QComboBox()
+        self.lang_combo.addItems(["ja", "en"])
+        self.lang_combo.setCurrentText(self.app.language)
+        self.lang_combo.currentTextChanged.connect(self.app.events.on_language_change)
+        layout.addWidget(self.lang_combo, 0, 5)
+
+    def _setup_input_mode_row(self, layout: QGridLayout) -> None:
+        self.lbl_input_mode = QLabel(self.app.tr("input_mode"))
+        layout.addWidget(self.lbl_input_mode, 1, 0)
+        mode_layout = QHBoxLayout()
+        
+        self.rb_manual = QRadioButton(self.app.tr("manual"))
+        self.rb_ocr = QRadioButton(self.app.tr("ocr"))
+        
+        mode_layout.addWidget(self.rb_manual)
+        mode_layout.addWidget(self.rb_ocr)
+        
+        self.mode_button_group.addButton(self.rb_manual)
+        self.mode_button_group.addButton(self.rb_ocr)
+        
+        if self.app.mode_var == "manual":
+            self.rb_manual.setChecked(True)
+        else:
+            self.rb_ocr.setChecked(True)
+            
+        self.rb_manual.toggled.connect(self.app.events.on_mode_manual_toggled)
+        self.rb_ocr.toggled.connect(self.app.events.on_mode_ocr_toggled)
+        
+        layout.addLayout(mode_layout, 1, 1, 1, 3)
+        
+        self.cb_auto_main = QCheckBox(self.app.tr("auto_main"))
+        self.cb_auto_main.setChecked(self.app.auto_apply_main_stats)
+        self.cb_auto_main.toggled.connect(self.app.events.on_auto_main_change)
+        layout.addWidget(self.cb_auto_main, 1, 4, 1, 2)
+
+    def _setup_calc_mode_row(self, layout: QGridLayout) -> None:
+        self.lbl_calc_mode = QLabel(self.app.tr("calc_mode"))
+        layout.addWidget(self.lbl_calc_mode, 2, 0)
+        calc_mode_layout = QHBoxLayout()
+        self.rb_batch = QRadioButton(self.app.tr("batch"))
+        self.rb_single = QRadioButton(self.app.tr("single_only"))
+        
+        if self.app.score_mode_var == "batch":
+            self.rb_batch.setChecked(True)
+        else:
+            self.rb_single.setChecked(True)
+            
+        self.rb_batch.toggled.connect(self.app.events.on_score_mode_batch_toggled)
+        self.rb_single.toggled.connect(self.app.events.on_score_mode_single_toggled)
+        
+        calc_mode_layout.addWidget(self.rb_batch)
+        calc_mode_layout.addWidget(self.rb_single)
+        
+        self.calc_mode_button_group.addButton(self.rb_batch)
+        self.calc_mode_button_group.addButton(self.rb_single)
+        layout.addLayout(calc_mode_layout, 2, 1, 1, 3)
+
+    def _setup_calc_methods_row(self, layout: QGridLayout) -> None:
+        self.lbl_calc_methods = QLabel(self.app.tr("calc_methods"))
+        layout.addWidget(self.lbl_calc_methods, 3, 0)
+        
+        methods_layout = QHBoxLayout()
+        
+        self.cb_method_normalized = QCheckBox(self.app.tr("method_normalized"))
+        self.cb_method_ratio = QCheckBox(self.app.tr("method_ratio"))
+        self.cb_method_roll = QCheckBox(self.app.tr("method_roll"))
+        self.cb_method_effective = QCheckBox(self.app.tr("method_effective"))
+        self.cb_method_cv = QCheckBox(self.app.tr("method_cv"))
+
+        self.cb_method_normalized.setToolTip(self.app.tr("normalized_score_desc"))
+        self.cb_method_ratio.setToolTip(self.app.tr("ratio_score_desc"))
+        self.cb_method_roll.setToolTip(self.app.tr("roll_quality_desc"))
+        self.cb_method_effective.setToolTip(self.app.tr("effective_stat_desc"))
+        self.cb_method_cv.setToolTip(self.app.tr("cv_score_desc"))
+        
+        enabled_methods = self.app.app_config.enabled_calc_methods
+        self.cb_method_normalized.setChecked(enabled_methods.get("normalized", True))
+        self.cb_method_ratio.setChecked(enabled_methods.get("ratio", True))
+        self.cb_method_roll.setChecked(enabled_methods.get("roll", True))
+        self.cb_method_effective.setChecked(enabled_methods.get("effective", True))
+        self.cb_method_cv.setChecked(enabled_methods.get("cv", True))
+        
+        self.cb_method_normalized.toggled.connect(lambda: self.app.events.on_calc_method_changed())
+        self.cb_method_ratio.toggled.connect(lambda: self.app.events.on_calc_method_changed())
+        self.cb_method_roll.toggled.connect(lambda: self.app.events.on_calc_method_changed())
+        self.cb_method_effective.toggled.connect(lambda: self.app.events.on_calc_method_changed())
+        self.cb_method_cv.toggled.connect(lambda: self.app.events.on_calc_method_changed())
+        
+        methods_layout.addWidget(self.cb_method_normalized)
+        methods_layout.addWidget(self.cb_method_ratio)
+        methods_layout.addWidget(self.cb_method_roll)
+        methods_layout.addWidget(self.cb_method_effective)
+        methods_layout.addWidget(self.cb_method_cv)
+        methods_layout.addStretch()
+        
+        layout.addLayout(methods_layout, 3, 1, 1, 5)
+
+    def retranslate_ui(self) -> None:
+        self.settings_group.setTitle(self.app.tr("basic_settings"))
+        self.lbl_cost_config.setText(self.app.tr("cost_config"))
+        self.lbl_character.setText(self.app.tr("character"))
+        self.lbl_language.setText(self.app.tr("language"))
+        self.character_combo.lineEdit().setPlaceholderText(self.app.tr("search_character_placeholder"))
+        
+        self.lbl_input_mode.setText(self.app.tr("input_mode"))
+        self.rb_manual.setText(self.app.tr("manual"))
+        self.rb_ocr.setText(self.app.tr("ocr"))
+        self.cb_auto_main.setText(self.app.tr("auto_main"))
+        
+        self.lbl_calc_mode.setText(self.app.tr("calc_mode"))
+        self.rb_batch.setText(self.app.tr("batch"))
+        self.rb_single.setText(self.app.tr("single_only"))
+        
+        self.lbl_calc_methods.setText(self.app.tr("calc_methods"))
+        self.cb_method_normalized.setText(self.app.tr("method_normalized"))
+        self.cb_method_ratio.setText(self.app.tr("method_ratio"))
+        self.cb_method_roll.setText(self.app.tr("method_roll"))
+        self.cb_method_effective.setText(self.app.tr("method_effective"))
+        self.cb_method_cv.setText(self.app.tr("method_cv"))
+        
+        self.cb_method_normalized.setToolTip(self.app.tr("normalized_score_desc"))
+        self.cb_method_ratio.setToolTip(self.app.tr("ratio_score_desc"))
+        self.cb_method_roll.setToolTip(self.app.tr("roll_quality_desc"))
+        self.cb_method_effective.setToolTip(self.app.tr("effective_stat_desc"))
+        self.cb_method_cv.setToolTip(self.app.tr("cv_score_desc"))
+
+
 class UIComponents:
     """Class responsible for UI construction."""
     
@@ -26,17 +221,59 @@ class UIComponents:
         """
         self.app = app
         self.main_widget: Optional[QWidget] = None
+        
+        self.settings_panel = SettingsPanel(app, self)
 
-        self.character_combo = QComboBox()
-        self.character_combo.setEditable(True)
-        self.character_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self.character_combo.lineEdit().setPlaceholderText(self.app.tr("search_character_placeholder"))
-        self._all_char_items: list[tuple[str, str]] = [] # Store (display, internal)
+        # self.character_combo etc are now in settings_panel
+        # We need to maintain _all_char_items for filtering logic which stays here (or moves to SettingsPanel?
+        # Let's move filtering logic to SettingsPanel later, but for now access via property
+        self._all_char_items: list[tuple[str, str]] = [] 
         self._is_filtering = False
 
-        self.mode_button_group = QButtonGroup(self.app)  # For Input Mode radio buttons
-        self.calc_mode_button_group = QButtonGroup(self.app) # For Calc Mode radio buttons
-        self.character_combo.setObjectName("CharComboBox")
+    # Properties to maintain backward compatibility
+    @property
+    def character_combo(self): return self.settings_panel.character_combo
+    @property
+    def mode_button_group(self): return self.settings_panel.mode_button_group
+    @property
+    def calc_mode_button_group(self): return self.settings_panel.calc_mode_button_group
+    @property
+    def settings_group(self): return self.settings_panel.settings_group
+    @property
+    def lbl_cost_config(self): return self.settings_panel.lbl_cost_config
+    @property
+    def lbl_character(self): return self.settings_panel.lbl_character
+    @property
+    def lbl_language(self): return self.settings_panel.lbl_language
+    @property
+    def lang_combo(self): return self.settings_panel.lang_combo
+    @property
+    def lbl_input_mode(self): return self.settings_panel.lbl_input_mode
+    @property
+    def rb_manual(self): return self.settings_panel.rb_manual
+    @property
+    def rb_ocr(self): return self.settings_panel.rb_ocr
+    @property
+    def cb_auto_main(self): return self.settings_panel.cb_auto_main
+    @property
+    def lbl_calc_mode(self): return self.settings_panel.lbl_calc_mode
+    @property
+    def rb_batch(self): return self.settings_panel.rb_batch
+    @property
+    def rb_single(self): return self.settings_panel.rb_single
+    @property
+    def lbl_calc_methods(self): return self.settings_panel.lbl_calc_methods
+    @property
+    def cb_method_normalized(self): return self.settings_panel.cb_method_normalized
+    @property
+    def cb_method_ratio(self): return self.settings_panel.cb_method_ratio
+    @property
+    def cb_method_roll(self): return self.settings_panel.cb_method_roll
+    @property
+    def cb_method_effective(self): return self.settings_panel.cb_method_effective
+    @property
+    def cb_method_cv(self): return self.settings_panel.cb_method_cv
+
     
     def _filter_character_combo(self, text: str) -> None:
         """Filter the character combobox items based on input text."""
@@ -110,7 +347,7 @@ class UIComponents:
 
     def create_left_pane(self, parent_layout: QVBoxLayout) -> None:
         """Create the UI for the left pane (settings/input)."""
-        self.create_settings_frame(parent_layout)
+        self.settings_panel.setup_ui(parent_layout)
         self.create_buttons_frame(parent_layout)
         
         # Tabs
@@ -122,138 +359,7 @@ class UIComponents:
         
         self.create_result_frame(parent_layout)
     
-    def create_settings_frame(self, parent_layout: QVBoxLayout) -> None:
-        """Create the UI for the basic settings area."""
-        self.settings_group = QGroupBox(self.app.tr("basic_settings"))
-        settings_layout = QGridLayout(self.settings_group)
-        parent_layout.addWidget(self.settings_group)
-        
-        # Decompose into individual row setups
-        self._setup_basic_settings_row(settings_layout)
-        self._setup_input_mode_row(settings_layout)
-        self._setup_calc_mode_row(settings_layout)
-        self._setup_calc_methods_row(settings_layout)
 
-    def _setup_basic_settings_row(self, layout: QGridLayout) -> None:
-        """Row 0: Cost Config, Character, and Language."""
-        self.lbl_cost_config = QLabel(self.app.tr("cost_config"))
-        layout.addWidget(self.lbl_cost_config, 0, 0)
-        self.app.config_combo = QComboBox()
-        self.app.config_combo.addItems(list(self.app.data_manager.tab_configs.keys()))
-        self.app.config_combo.blockSignals(True)
-        self.app.config_combo.setCurrentText(self.app.current_config_key)
-        self.app.config_combo.blockSignals(False)
-        self.app.config_combo.currentTextChanged.connect(self.app.events.on_config_change)
-        layout.addWidget(self.app.config_combo, 0, 1)
-        
-        self.lbl_character = QLabel(self.app.tr("character"))
-        layout.addWidget(self.lbl_character, 0, 2)
-        self.character_combo.activated.connect(self.app.events.on_character_change)
-        layout.addWidget(self.character_combo, 0, 3)
-        
-        self.lbl_language = QLabel(self.app.tr("language"))
-        layout.addWidget(self.lbl_language, 0, 4)
-        self.lang_combo = QComboBox()
-        self.lang_combo.addItems(["ja", "en"])
-        self.lang_combo.setCurrentText(self.app.language)
-        self.lang_combo.currentTextChanged.connect(self.app.events.on_language_change)
-        layout.addWidget(self.lang_combo, 0, 5)
-
-    def _setup_input_mode_row(self, layout: QGridLayout) -> None:
-        """Row 1: Input Mode (Manual/OCR) and Auto Main Stats."""
-        self.lbl_input_mode = QLabel(self.app.tr("input_mode"))
-        layout.addWidget(self.lbl_input_mode, 1, 0)
-        mode_layout = QHBoxLayout()
-        
-        self.rb_manual = QRadioButton(self.app.tr("manual"))
-        self.rb_ocr = QRadioButton(self.app.tr("ocr"))
-        
-        mode_layout.addWidget(self.rb_manual)
-        mode_layout.addWidget(self.rb_ocr)
-        
-        self.mode_button_group.addButton(self.rb_manual)
-        self.mode_button_group.addButton(self.rb_ocr)
-        
-        if self.app.mode_var == "manual":
-            self.rb_manual.setChecked(True)
-        else:
-            self.rb_ocr.setChecked(True)
-            
-        self.rb_manual.toggled.connect(self.app.events.on_mode_manual_toggled)
-        self.rb_ocr.toggled.connect(self.app.events.on_mode_ocr_toggled)
-        
-        layout.addLayout(mode_layout, 1, 1, 1, 3)
-        
-        # Auto Main
-        self.cb_auto_main = QCheckBox(self.app.tr("auto_main"))
-        self.cb_auto_main.setChecked(self.app.auto_apply_main_stats)
-        self.cb_auto_main.toggled.connect(self.app.events.on_auto_main_change)
-        layout.addWidget(self.cb_auto_main, 1, 4, 1, 2)
-
-    def _setup_calc_mode_row(self, layout: QGridLayout) -> None:
-        """Row 2: Calculation mode (Batch/Single)."""
-        self.lbl_calc_mode = QLabel(self.app.tr("calc_mode"))
-        layout.addWidget(self.lbl_calc_mode, 2, 0)
-        calc_mode_layout = QHBoxLayout()
-        self.rb_batch = QRadioButton(self.app.tr("batch"))
-        self.rb_single = QRadioButton(self.app.tr("single_only"))
-        
-        if self.app.score_mode_var == "batch":
-            self.rb_batch.setChecked(True)
-        else:
-            self.rb_single.setChecked(True)
-            
-        self.rb_batch.toggled.connect(self.app.events.on_score_mode_batch_toggled)
-        self.rb_single.toggled.connect(self.app.events.on_score_mode_single_toggled)
-        
-        calc_mode_layout.addWidget(self.rb_batch)
-        calc_mode_layout.addWidget(self.rb_single)
-        
-        self.calc_mode_button_group.addButton(self.rb_batch)
-        self.calc_mode_button_group.addButton(self.rb_single)
-        layout.addLayout(calc_mode_layout, 2, 1, 1, 3)
-
-    def _setup_calc_methods_row(self, layout: QGridLayout) -> None:
-        """Row 3: Calculation methods checkboxes."""
-        self.lbl_calc_methods = QLabel(self.app.tr("calc_methods"))
-        layout.addWidget(self.lbl_calc_methods, 3, 0)
-        
-        methods_layout = QHBoxLayout()
-        
-        self.app.cb_method_normalized = QCheckBox(self.app.tr("method_normalized"))
-        self.app.cb_method_ratio = QCheckBox(self.app.tr("method_ratio"))
-        self.app.cb_method_roll = QCheckBox(self.app.tr("method_roll"))
-        self.app.cb_method_effective = QCheckBox(self.app.tr("method_effective"))
-        self.app.cb_method_cv = QCheckBox(self.app.tr("method_cv"))
-
-        # Add tooltips for accessibility
-        self.app.cb_method_normalized.setToolTip(self.app.tr("normalized_score_desc"))
-        self.app.cb_method_ratio.setToolTip(self.app.tr("ratio_score_desc"))
-        self.app.cb_method_roll.setToolTip(self.app.tr("roll_quality_desc"))
-        self.app.cb_method_effective.setToolTip(self.app.tr("effective_stat_desc"))
-        self.app.cb_method_cv.setToolTip(self.app.tr("cv_score_desc"))
-        
-        enabled_methods = self.app.app_config.enabled_calc_methods
-        self.app.cb_method_normalized.setChecked(enabled_methods.get("normalized", True))
-        self.app.cb_method_ratio.setChecked(enabled_methods.get("ratio", True))
-        self.app.cb_method_roll.setChecked(enabled_methods.get("roll", True))
-        self.app.cb_method_effective.setChecked(enabled_methods.get("effective", True))
-        self.app.cb_method_cv.setChecked(enabled_methods.get("cv", True))
-        
-        self.app.cb_method_normalized.toggled.connect(lambda: self.app.events.on_calc_method_changed())
-        self.app.cb_method_ratio.toggled.connect(lambda: self.app.events.on_calc_method_changed())
-        self.app.cb_method_roll.toggled.connect(lambda: self.app.events.on_calc_method_changed())
-        self.app.cb_method_effective.toggled.connect(lambda: self.app.events.on_calc_method_changed())
-        self.app.cb_method_cv.toggled.connect(lambda: self.app.events.on_calc_method_changed())
-        
-        methods_layout.addWidget(self.app.cb_method_normalized)
-        methods_layout.addWidget(self.app.cb_method_ratio)
-        methods_layout.addWidget(self.app.cb_method_roll)
-        methods_layout.addWidget(self.app.cb_method_effective)
-        methods_layout.addWidget(self.app.cb_method_cv)
-        methods_layout.addStretch()
-        
-        layout.addLayout(methods_layout, 3, 1, 1, 5)
 
     def create_buttons_frame(self, parent_layout: QVBoxLayout) -> None:
         """Create the UI for the button area."""
@@ -471,37 +577,7 @@ class UIComponents:
 
     def retranslate_ui(self) -> None:
         """Update all UI text based on the current language."""
-        # Basic Settings
-        self.settings_group.setTitle(self.app.tr("basic_settings"))
-        self.lbl_cost_config.setText(self.app.tr("cost_config"))
-        self.lbl_character.setText(self.app.tr("character"))
-        self.lbl_language.setText(self.app.tr("language"))
-        self.character_combo.lineEdit().setPlaceholderText(self.app.tr("search_character_placeholder"))
-        
-        # Input Mode
-        self.lbl_input_mode.setText(self.app.tr("input_mode"))
-        self.rb_manual.setText(self.app.tr("manual"))
-        self.rb_ocr.setText(self.app.tr("ocr"))
-        self.cb_auto_main.setText(self.app.tr("auto_main"))
-        
-        # Calc Mode
-        self.lbl_calc_mode.setText(self.app.tr("calc_mode"))
-        self.rb_batch.setText(self.app.tr("batch"))
-        self.rb_single.setText(self.app.tr("single_only"))
-        
-        # Calc Methods
-        self.lbl_calc_methods.setText(self.app.tr("calc_methods"))
-        self.app.cb_method_normalized.setText(self.app.tr("method_normalized"))
-        self.app.cb_method_ratio.setText(self.app.tr("method_ratio"))
-        self.app.cb_method_roll.setText(self.app.tr("method_roll"))
-        self.app.cb_method_effective.setText(self.app.tr("method_effective"))
-        self.app.cb_method_cv.setText(self.app.tr("method_cv"))
-        
-        self.app.cb_method_normalized.setToolTip(self.app.tr("normalized_score_desc"))
-        self.app.cb_method_ratio.setToolTip(self.app.tr("ratio_score_desc"))
-        self.app.cb_method_roll.setToolTip(self.app.tr("roll_quality_desc"))
-        self.app.cb_method_effective.setToolTip(self.app.tr("effective_stat_desc"))
-        self.app.cb_method_cv.setToolTip(self.app.tr("cv_score_desc"))
+        self.settings_panel.retranslate_ui()
         
         # Action Buttons
         for key, (btn, shortcut) in self.action_buttons.items():

@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from PyQt6.QtWidgets import QMessageBox
 from echo_data import EchoData
 from languages import TRANSLATIONS
-from data_contracts import EchoEntry
+from data_contracts import EchoEntry, EvaluationResult
 from constants import ACTION_SINGLE, ACTION_BATCH
 
 class ScoreCalculator:
@@ -72,6 +72,49 @@ class ScoreCalculator:
             "cv_weights": dm.cv_weights
         }
 
+    def _process_echo_evaluation(self, entry: EchoEntry, weights: Dict[str, float], 
+                                 config_bundle: Dict[str, Any], enabled_methods: Dict[str, bool],
+                                 character: str, action_type: str, tab_name_for_log: str) -> Optional[EvaluationResult]:
+        """
+        Core logic for evaluating an echo entry.
+        Handles data conversion, duplicate detection, score calculation, and history recording.
+        """
+        if not entry.main_stat:
+            return None
+
+        substats = self.extract_substats_from_entry(entry)
+        echo = EchoData(entry.cost, entry.main_stat, substats)
+        
+        # Duplicate Detection Logic
+        fingerprint = echo.get_fingerprint()
+        duplicates = self.app.history_mgr.find_duplicates(fingerprint)
+        if duplicates:
+            self.app.gui_log(f"[{tab_name_for_log}] Duplicate Detected (Previous IDs: {duplicates})")
+        
+        evaluation = echo.evaluate_comprehensive(weights, config_bundle, enabled_methods)
+        
+        # Record to history
+        result_summary = f"Score: {evaluation.total_score:.2f}"
+        if action_type == ACTION_SINGLE:
+             result_summary += f" ({self.app.tr(evaluation.rating)})"
+        else:
+             result_summary += " (Batch)"
+
+        self.app.history_mgr.add_entry(
+            character=character,
+            cost=entry.cost or "Unknown",
+            action=action_type,
+            result=result_summary,
+            fingerprint=fingerprint,
+            details={"score": evaluation.total_score},
+            duplicate_mode=self.app.app_config.history_duplicate_mode
+        )
+        
+        # Attach echo object to evaluation result for rendering if needed (hacky but useful)
+        evaluation._echo_object = echo 
+        
+        return evaluation
+
     def calculate_single_score(self, weights: Dict[str, float], character: str) -> None:
         """Calculate a single score."""
         try:
@@ -91,46 +134,34 @@ class ScoreCalculator:
                                   self.app.tr("no_methods_selected"))
                 return
             
-            main_stat = entry.main_stat
             self.app.result_text.clear()
             
-            if not main_stat:
+            if not entry.main_stat:
                 self.app.result_text.append(f"The main stat for {tab_name} is not entered.")
                 return
             
-            substats = self.extract_substats_from_entry(entry)
-            echo = EchoData(entry.cost, main_stat, substats)
-            
-            # Duplicate Detection Logic
-            fingerprint = echo.get_fingerprint()
-            duplicates = self.app.history_mgr.find_duplicates(fingerprint)
-            if duplicates:
-                self.app.gui_log(f"[Duplicate Detected] Echo with exact same stats found in history (IDs: {duplicates})")
-            
             config_bundle = self._get_config_bundle()
-            evaluation = echo.evaluate_comprehensive(weights, config_bundle, enabled_methods)
             
-            # Use renderer for HTML
-            html = self.renderer.render_single_score(
-                character, tab_name, entry, main_stat, echo, evaluation
+            evaluation = self._process_echo_evaluation(
+                entry, weights, config_bundle, enabled_methods, character, ACTION_SINGLE, tab_name
             )
             
-            self.app.result_text.setHtml(html)
-            self.app.tab_mgr.save_tab_result(tab_name)
-            
-            # Record to history
-            result_summary = f"Score: {evaluation.total_score:.2f} ({self.app.tr(evaluation.rating)})"
-            self.app.history_mgr.add_entry(
-                character=character,
-                cost=entry.cost or "Unknown",
-                action=ACTION_SINGLE,
-                result=result_summary,
-                fingerprint=fingerprint,
-                details={"score": evaluation.total_score},
-                duplicate_mode=self.app.app_config.history_duplicate_mode
-            )
-            
-            self.app.gui_log(f"Individual evaluation for {tab_name} complete.")
+            if evaluation:
+                # Use renderer for HTML
+                # Note: evaluation._echo_object was attached in _process_echo_evaluation
+                echo = getattr(evaluation, '_echo_object', None)
+                if not echo:
+                     # Re-create if lost (shouldn't happen)
+                     substats = self.extract_substats_from_entry(entry)
+                     echo = EchoData(entry.cost, entry.main_stat, substats)
+
+                html = self.renderer.render_single_score(
+                    character, tab_name, entry, entry.main_stat, echo, evaluation
+                )
+                
+                self.app.result_text.setHtml(html)
+                self.app.tab_mgr.save_tab_result(tab_name)
+                self.app.gui_log(f"Individual evaluation for {tab_name} complete.")
             
         except Exception as e:
             self.app.logger.exception(f"Individual score calculation error: {e}")
@@ -187,23 +218,15 @@ class ScoreCalculator:
         """Evaluate a single tab for batch processing."""
         try:
             entry = self.app.tab_mgr.extract_tab_data(tab_name)
-            if not entry:
+            if not entry or not entry.main_stat:
                 return None
 
-            main_stat = entry.main_stat
-            if not main_stat:
+            evaluation = self._process_echo_evaluation(
+                entry, weights, config_bundle, enabled_methods, character, ACTION_BATCH, tab_name
+            )
+            
+            if not evaluation:
                 return None
-            
-            substats = self.extract_substats_from_entry(entry)
-            echo = EchoData(entry.cost, main_stat, substats)
-            
-            # Duplicate Detection
-            fingerprint = echo.get_fingerprint()
-            duplicates = self.app.history_mgr.find_duplicates(fingerprint)
-            if duplicates:
-                self.app.gui_log(f"[{tab_name}] Duplicate Detected (Previous IDs: {duplicates})")
-            
-            evaluation = echo.evaluate_comprehensive(weights, config_bundle, enabled_methods)
             
             eval_data = {
                 "tab_name": tab_name,
@@ -214,18 +237,6 @@ class ScoreCalculator:
             
             for method, score in evaluation.individual_scores.items():
                 eval_data[method] = score
-            
-            # Record to history
-            result_summary = f"Score: {evaluation.total_score:.2f} (Batch)"
-            self.app.history_mgr.add_entry(
-                character=character,
-                cost=entry.cost or "Unknown",
-                action=ACTION_BATCH,
-                result=result_summary,
-                fingerprint=fingerprint,
-                details={"score": evaluation.total_score},
-                duplicate_mode=self.app.app_config.history_duplicate_mode
-            )
             
             return eval_data
             

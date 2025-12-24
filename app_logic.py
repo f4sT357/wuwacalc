@@ -57,7 +57,7 @@ class AppLogic(QObject):
         self.data_manager = data_manager
         self.config_manager = config_manager
 
-    def _perform_ocr(self, image: 'Image.Image') -> Optional[str]:
+    def _perform_ocr(self, image: 'Image.Image', language: str = "ja") -> Optional[str]:
         start_time = time.time()
         if not is_pytesseract_installed:
             self.log_message.emit(self.tr("pytesseract_not_installed"))
@@ -79,13 +79,20 @@ class AppLogic(QObject):
             self.log_message.emit(f"Image for Tesseract OCR - size: {processed.size}, mode: {processed.mode}")
             custom_config = "--oem 3 --psm 6" # に戻す
             
+            # Map app language code to Tesseract language code
+            tess_lang_map = {
+                "ja": "jpn",
+                "en": "eng"
+            }
+            tess_lang = tess_lang_map.get(language, "jpn")
+
             # Tesseractの出力を生バイト列として取得
-            output_bytes = pytesseract.image_to_string(processed, lang="jpn", config=custom_config, output_type=Output.BYTES)
+            output_bytes = pytesseract.image_to_string(processed, lang=tess_lang, config=custom_config, output_type=Output.BYTES)
             
             # 生バイト列をUTF-8でデコード。デコードエラーは無視する。
             ocr_text = output_bytes.decode('utf-8', errors='ignore') 
             end_time = time.time()
-            self.log_message.emit(f"OCR process took {end_time - start_time:.2f} seconds.")
+            self.log_message.emit(f"OCR process took {end_time - start_time:.2f} seconds. Language: {tess_lang}")
             self.log_message.emit(f"OCR Raw Text:\n{ocr_text.strip()}") # ここで生テキストを出力
             return ocr_text
         except pytesseract.TesseractError as te:
@@ -164,7 +171,7 @@ class AppLogic(QObject):
         Performs the full OCR workflow: image processing, text recognition,
         and parsing of substats and cost.
         """
-        raw_text = self._perform_ocr(image)
+        raw_text = self._perform_ocr(image, language)
         if not raw_text:
             return OCRResult(substats=[], log_messages=[self.tr("ocr_failed_no_text")], cost=None, main_stat=None, raw_text="")
 
