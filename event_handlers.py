@@ -5,6 +5,7 @@ Provides event callbacks and debounce processing.
 """
 
 import logging
+import time
 from typing import Any, Optional
 
 from PyQt6.QtWidgets import QMessageBox, QApplication
@@ -75,15 +76,18 @@ class EventHandlers:
     
     def on_character_change(self, index: int) -> None:
         """Handle character change."""
+        self.logger.info(f"on_character_change start: index={index}")
         if index < 0:
+            self.logger.info("on_character_change: index < 0, returning")
             return
 
         # Retrieve the internal name directly from the UserData of the selected item
         internal_name = self.ui.character_combo.itemData(index)
         
         if internal_name: # Ensure internal_name is not empty
-            self.app.character_var = internal_name
             self.logger.info(f"Character selected: {internal_name}")
+            self.logger.info("on_character_change: setting app.character_var")
+            self.app.character_var = internal_name
             
             # Automatically switch tab configuration if the character has a specific one
             new_config = self.character_manager.get_character_config_key(internal_name)
@@ -92,8 +96,13 @@ class EventHandlers:
                 if self.ui.config_combo:
                     self.ui.config_combo.setCurrentText(new_config)
             else:
+                self.logger.info("on_character_change: applying character main stats")
+                t0 = time.monotonic()
                 self.tab_mgr.apply_character_main_stats()
+                t1 = time.monotonic()
+                self.logger.info(f"apply_character_main_stats duration: {t1 - t0:.4f}s")
             
+            self.logger.info("on_character_change: saving config")
             self.save_config()
 
             # Trigger calculation if waiting or auto calculate is enabled, 
@@ -101,16 +110,31 @@ class EventHandlers:
             should_calc = getattr(self.app, "_waiting_for_character", False) or self.app.app_config.auto_calculate
             if should_calc:
                 score_mode = self.app.score_mode_var # "single" or "batch"
-                if self.tab_mgr.has_calculatable_data(mode=score_mode):
+                self.logger.info(f"on_character_change: should_calc True, score_mode={score_mode}")
+                t0 = time.monotonic()
+                has_data = self.tab_mgr.has_calculatable_data(mode=score_mode)
+                t1 = time.monotonic()
+                self.logger.info(f"has_calculatable_data duration: {t1 - t0:.4f}s, result={has_data}")
+                if has_data:
+                    self.logger.info("on_character_change: has calculatable data, triggering calculation")
+                    t0 = time.monotonic()
                     self.app.trigger_calculation()
+                    t1 = time.monotonic()
+                    self.logger.info(f"trigger_calculation returned in {t1 - t0:.4f}s")
                 else:
                     self.logger.info("Character changed but no data to calculate. Skipping auto-calc.")
+            self.logger.info("on_character_change end: internal_name branch complete")
         else:
             # If the empty item is selected, clear character_var
+            self.logger.info("on_character_change: clearing character_var")
             self.app.character_var = ""
             self.logger.info("Character selection cleared.")
+            self.logger.info("on_character_change: applying character main stats for cleared selection")
             self.tab_mgr.apply_character_main_stats() # Apply to clear any existing stats
+            self.logger.info("on_character_change: saving config after clear")
             self.save_config()
+        
+        self.logger.info("on_character_change end")
     
     def on_language_change(self, text: str) -> None:
         """Handle language change."""
@@ -292,8 +316,11 @@ class EventHandlers:
             # Update theme from theme_manager (special case)
             self.config_manager.update_app_setting('theme', self.theme_manager.get_current_theme())
             
-            if self.config_manager.save():
-                self.logger.info("Config saved.")
+            t0 = time.monotonic()
+            saved = self.config_manager.save()
+            t1 = time.monotonic()
+            if saved:
+                self.logger.info(f"Config saved. duration: {t1 - t0:.4f}s")
             else:
                 self.app.gui_log("Failed to save config.json. Check logs for details.")
         except Exception as e:
@@ -340,10 +367,10 @@ class EventHandlers:
         new_config_key = self.character_manager.get_character_config_key(internal_char_name)
         if new_config_key:
             self.app.current_config_key = new_config_key
-            if self.app.config_combo:
-                idx = self.app.config_combo.findText(new_config_key)
+            if self.app.ui.config_combo:
+                idx = self.app.ui.config_combo.findText(new_config_key)
                 if idx >= 0:
-                    self.app.config_combo.setCurrentIndex(idx)
+                    self.app.ui.config_combo.setCurrentIndex(idx)
         
         self.ui.filter_characters_by_config() # Re-filter to match the new config
         self.tab_mgr.apply_character_main_stats()

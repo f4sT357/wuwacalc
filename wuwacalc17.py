@@ -6,7 +6,7 @@ import hashlib
 
 from typing import Any, Callable, Optional, List, Tuple, Dict, Union
 
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QMessageBox, QComboBox, QStatusBar, QFileDialog, QTabWidget)
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QMessageBox, QComboBox, QStatusBar, QFileDialog, QTabWidget, QInputDialog)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QShortcut, QKeySequence, QPixmap
 
@@ -21,6 +21,7 @@ from constants import (
     LOG_FILENAME,
     CONFIG_FILENAME,
 )
+from logger import logger
 from dialogs import CharSettingDialog, DisplaySettingsDialog, ImagePreprocessingSettingsDialog, CropDialog, HistoryDialog
 from languages import TRANSLATIONS
 from utils import get_app_path, get_resource_path, setup_tesseract, check_and_alert_environment
@@ -58,14 +59,9 @@ class ScoreCalculatorApp(QMainWindow):
         self._last_image_preview = None
         
         # 2. Logger setup
-        self.logger = logging.getLogger(__name__)
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(os.path.join(get_app_path(), LOG_FILENAME), encoding='utf-8'),
-                logging.StreamHandler()
-            ])
+        # 2. Logger setup
+        self.logger = logger
+        self.logger.info("Initializing ScoreCalculatorApp...")
 
         # 3. Data & Config
         try:
@@ -336,7 +332,28 @@ class ScoreCalculatorApp(QMainWindow):
     def on_crop_slider_change(self, v: int) -> None: self.events.on_crop_slider_change(v)
     def open_char_settings_new(self) -> None: CharSettingDialog(self, self.character_manager.register_character).exec()
     def open_char_settings_edit(self) -> None:
-        p = self.character_manager.get_character_profile(self.character_var)
+        target_char = self.character_var
+        
+        if not target_char:
+            # Determine display language for the list
+            all_chars = self.character_manager.get_all_characters(self.language)
+            if not all_chars:
+                QMessageBox.information(self, self.tr("info"), self.tr("no_characters_found"))
+                return
+
+            items = [name for name, internal in all_chars]
+            item, ok = QInputDialog.getItem(self, self.tr("select_character"), 
+                                           self.tr("select_character_to_edit"), items, 0, False)
+            if ok and item:
+                # Find internal name for selected item
+                for name, internal in all_chars:
+                    if name == item:
+                        target_char = internal
+                        break
+            else:
+                return
+
+        p = self.character_manager.get_character_profile(target_char)
         if p: CharSettingDialog(self, self.character_manager.register_character, profile=p).exec()
 
     def open_display_settings(self) -> None:

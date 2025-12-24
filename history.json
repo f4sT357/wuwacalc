@@ -1,5 +1,53 @@
 [
   {
+    "timestamp": "2025-12-25 05:29:16",
+    "character": "Changli",
+    "cost": "1",
+    "action": "Batch Evaluation",
+    "result": "Score: 0.00 (rating_c_single)",
+    "fingerprint": "9f6e2599b3ca2bfb84afd26bab955692",
+    "details": {
+      "score": 0.0,
+      "rating_key": "rating_c_single"
+    }
+  },
+  {
+    "timestamp": "2025-12-25 05:29:16",
+    "character": "Changli",
+    "cost": "3",
+    "action": "Batch Evaluation",
+    "result": "Score: 0.00 (rating_c_single)",
+    "fingerprint": "92af2c096495e101b711f97761a5fe63",
+    "details": {
+      "score": 0.0,
+      "rating_key": "rating_c_single"
+    }
+  },
+  {
+    "timestamp": "2025-12-25 05:29:16",
+    "character": "Changli",
+    "cost": "4",
+    "action": "Batch Evaluation",
+    "result": "Score: 47.85 (rating_a_single)",
+    "fingerprint": "fe24ae1d34934cf5e517c87b39c40ef2",
+    "details": {
+      "score": 47.845622119815665,
+      "rating_key": "rating_a_single"
+    }
+  },
+  {
+    "timestamp": "2025-12-25 05:24:41",
+    "character": "Changli",
+    "cost": "4",
+    "action": "Single Evaluation",
+    "result": "Score: 59.08 (rating_s_single)",
+    "fingerprint": "a547112ace733525e049b077f6777dbb",
+    "details": {
+      "score": 59.078162425995394,
+      "rating_key": "rating_s_single"
+    }
+  },
+  {
     "timestamp": "2025-12-25 04:23:14",
     "character": "Changli",
     "cost": "4",

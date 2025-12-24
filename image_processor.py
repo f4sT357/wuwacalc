@@ -139,7 +139,7 @@ class ImageProcessor(QObject):
             
         try:
             # Try PIL ImageGrab first
-            image = ImageGrab.grab()
+            image = ImageGrab.grabclipboard()
             if image:
                 self.log_requested.emit("Image pasted from clipboard (ImageGrab).")
                 self.process_loaded_image(image, "Clipboard")

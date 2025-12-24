@@ -312,6 +312,9 @@ TRANSLATIONS = {
         "history_dup_latest": "最新を保持 (古い履歴を削除)",
         "history_dup_oldest": "最古を保持 (新しい履歴を無視)",
         "history_duplicate_tooltip": "同じステータスの音骸を計算した際の挙動を設定します。\n・すべて保存: 重複を気にせず追加します。\n・最新を保持: 古い履歴を消して、今回計算した時刻で上書きします。\n・最古を保持: 既に履歴にある場合は追加せず、最初に手に入れた（計算した）時刻を維持します。",
+        "select_character": "キャラクター選択",
+        "select_character_to_edit": "編集するキャラクターを選択してください:",
+        "no_characters_found": "キャラクターが見つかりません。",
     },
     "en": {
         "app_title": "Wuthering Waves Echo Score Calculator",
@@ -625,5 +628,8 @@ TRANSLATIONS = {
         "history_dup_latest": "Keep Latest (Remove Old)",
         "history_dup_oldest": "Keep Oldest (Ignore New)",
         "history_duplicate_tooltip": "Sets behavior when an echo with the same stats is calculated.\n- Keep All: Add every time without checking.\n- Keep Latest: Delete old entry and replace with the current result.\n- Keep Oldest: Do nothing if already exists, preserving the original timestamp.",
+        "select_character": "Select Character",
+        "select_character_to_edit": "Select a character to edit:",
+        "no_characters_found": "No characters found.",
     }
 }
