@@ -497,7 +497,7 @@ class UIComponents:
         """Add image action buttons: Load, Paste, Crop."""
         btn_layout = QHBoxLayout()
         self.btn_load = QPushButton(self.app.tr("load_image"))
-        self.btn_load.clicked.connect(self.app.image_proc.import_image)
+        self.btn_load.clicked.connect(self.app.import_image)
         self.btn_paste = QPushButton(self.app.tr("paste_clipboard"))
         self.btn_paste.clicked.connect(self.app.image_proc.paste_from_clipboard)
         self.btn_paste.setToolTip(self.app.tr("paste_clipboard") + " (Ctrl+V)")

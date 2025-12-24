@@ -116,7 +116,7 @@ class EventHandlers:
             
             # Instant UI Update
             self.ui.retranslate_ui()
-            self.tab_mgr.retranslate_tabs()
+            self.tab_mgr.retranslate_tabs(text)
             
             # Update character list (names might be translated)
             self.ui.filter_characters_by_config()
@@ -239,13 +239,6 @@ class EventHandlers:
         # which will then update the config and schedule the preview.
 
 
-    def on_tab_changed(self, index: int) -> None:
-        """Handle tab switch."""
-        tab_name = self.tab_mgr.get_selected_tab_name()
-        if tab_name:
-            self.tab_mgr.show_tab_image(tab_name)
-            self.tab_mgr.show_tab_result(tab_name)
-    
     def cycle_theme(self) -> None:
         """Cycle between light, dark, and clear themes."""
         current = self.theme_manager.get_current_theme()

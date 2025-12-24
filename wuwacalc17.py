@@ -103,9 +103,14 @@ class ScoreCalculatorApp(QMainWindow):
             self.html_renderer,
             self.config_manager
         )
-        self.tab_mgr = TabManager(self)
+        self.tab_mgr = TabManager(
+            self.notebook,
+            self.data_manager,
+            self.config_manager,
+            self.tr
+        )
         self.logic = AppLogic(self.tr, self.data_manager, self.config_manager)
-        self.image_proc = ImageProcessor(self, self.logic)
+        self.image_proc = ImageProcessor(self.logic, self.config_manager)
         self.ui = UIComponents(self)
         self.events = EventHandlers(
             self,
@@ -128,6 +133,20 @@ class ScoreCalculatorApp(QMainWindow):
         self.score_calc.error_occurred.connect(self.show_error_message)
         self.score_calc.single_calculation_completed.connect(self.on_single_calc_completed)
         self.score_calc.batch_calculation_completed.connect(self.on_batch_calc_completed)
+
+        # Connect signals from TabManager
+        self.tab_mgr.log_requested.connect(self.gui_log)
+        self.tab_mgr.tabs_updated.connect(self.on_tabs_updated)
+
+        # Connect signals from ImageProcessor
+        self.image_proc.ocr_completed.connect(self.on_ocr_completed)
+        self.image_proc.log_requested.connect(self.gui_log)
+        self.image_proc.error_occurred.connect(self.show_error_message)
+        self.image_proc.image_updated.connect(self.update_image_preview)
+        self.image_proc.calculation_requested.connect(self.trigger_calculation)
+
+        # Connect tab change signal
+        self.notebook.currentChanged.connect(self.on_tab_changed)
         
         # Connect signals from CharacterManager
         self.character_manager.profiles_updated.connect(self.events.on_profiles_updated)
@@ -294,9 +313,71 @@ class ScoreCalculatorApp(QMainWindow):
         """Slot to show an informational message box."""
         QMessageBox.information(self, title, message)
         
-    def on_ocr_completed(self, result: 'OCRResult') -> None:
-        """Slot to handle the results of OCR processing."""
-        self.tab_mgr.apply_ocr_result(result)
+    def import_image(self) -> None:
+        """UI wrapper for importing one or multiple images."""
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            self.tr("select_image_file"),
+            "",
+            f"{self.tr('image_files')} (*.png *.jpg *.jpeg *.bmp *.gif);;{self.tr('all_files')} (*.*)"
+        )
+        if file_paths:
+            self.image_proc.process_images_from_paths(file_paths)
+        else:
+            self.gui_log(self.tr("image_select_cancelled"))
+
+    def on_ocr_completed(self, result: object) -> None:
+        """Handle completion of OCR process (single or batch item)."""
+        from data_contracts import OCRResult, BatchItemResult
+        
+        if isinstance(result, OCRResult):
+            # Log messages from parsing
+            for msg in result.log_messages:
+                self.gui_log(msg)
+                
+            # Single OCR result
+            tab_name = self.tab_mgr.get_selected_tab_name()
+            if tab_name:
+                self.tab_mgr.apply_ocr_result(result)
+                # Store images in tab for reference
+                self.tab_mgr.save_tab_image(tab_name, result.original_image, result.cropped_image)
+        
+        elif isinstance(result, BatchItemResult):
+            # Log messages from parsing
+            for msg in result.result.log_messages:
+                self.gui_log(f"[{os.path.basename(result.file_path)}] {msg}")
+
+            # Batch OCR result
+            filename = os.path.basename(result.file_path)
+            target_tab = None
+            if result.result.cost:
+                target_tab = self._find_free_tab_for_cost(result.result.cost)
+            if not target_tab:
+                target_tab = self._find_any_free_tab()
+            
+            if target_tab:
+                self.gui_log(f"[{filename}] Assigning to tab: {target_tab}")
+                self.tab_mgr.apply_ocr_result_to_tab(target_tab, result.result)
+                self.tab_mgr.save_tab_image(target_tab, result.original_image, result.cropped_image)
+            else:
+                self.gui_log(f"[{filename}] No free tab found for assignment.")
+
+    def _find_free_tab_for_cost(self, cost: str) -> Optional[str]:
+        """Helper to find an empty tab for a specific cost."""
+        for tab_name, content in self.tab_mgr.tabs_content.items():
+            if content.get("cost") == str(cost):
+                entry = self.tab_mgr.extract_tab_data(tab_name)
+                if not entry.main_stat and not any(s.stat for s in entry.substats):
+                    return tab_name
+        return None
+
+    def _find_any_free_tab(self) -> Optional[str]:
+        """Helper to find any empty tab."""
+        for tab_name in self.tab_mgr.tabs_content.keys():
+            entry = self.tab_mgr.extract_tab_data(tab_name)
+            if not entry.main_stat and not any(s.stat for s in entry.substats):
+                return tab_name
+        return None
 
     def update_image_preview(self, image: Optional['Image.Image']) -> None:
         """Update the image preview label."""
@@ -478,10 +559,54 @@ class ScoreCalculatorApp(QMainWindow):
             self.logger.exception(f"Calculation trigger error: {e}")
             self.gui_log(f"Calculation trigger error: {e}")
 
+    def on_tabs_updated(self) -> None:
+        """Handle completion of tab reconstruction."""
+        self.ui.update_ui_mode()
+        self.tab_mgr.apply_character_main_stats(force=True)
+
+    def on_tab_changed(self, index: int) -> None:
+        """Handle tab selection change."""
+        if index < 0 or self._updating_tabs:
+            return
+            
+        tab_name = self.tab_mgr.get_selected_tab_name()
+        if not tab_name:
+            return
+            
+        # Restore image and result for this tab
+        self.show_tab_image(tab_name)
+        self.show_tab_result(tab_name)
+
+    def show_tab_image(self, tab_name: str) -> None:
+        """Display the image saved in the tab."""
+        if self.image_label is None:
+            return
+            
+        data = self.tab_mgr.get_tab_image(tab_name)
+        if data:
+            self.loaded_image = data.cropped.copy()
+            self.original_image = data.original.copy()
+            self.update_image_preview(self.loaded_image)
+        else:
+            # Keep current preview if no new image, but reset references
+            self.loaded_image = None
+            self.original_image = None
+
+    def show_tab_result(self, tab_name: str) -> None:
+        """Restore the saved calculation result."""
+        if self.result_text is None:
+            return
+            
+        html = self.tab_mgr.get_tab_result(tab_name)
+        if html:
+            self.result_text.setHtml(html)
+        else:
+            self.result_text.clear()
+
     def on_single_calc_completed(self, html: str, tab_name: str, evaluation: object) -> None:
         """Handle completion of single score calculation."""
         self.result_text.setHtml(html)
-        self.tab_mgr.save_tab_result(tab_name)
+        self.tab_mgr.save_tab_result(tab_name, html)
     
     def on_batch_calc_completed(self, html: str, character: str) -> None:
         """Handle completion of batch score calculation."""
