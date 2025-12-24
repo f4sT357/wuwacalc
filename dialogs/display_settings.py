@@ -38,6 +38,42 @@ class DisplaySettingsDialog(QDialog):
         self.init_ui()
 
     def init_ui(self):
+        # Force fixed colors for this dialog to ensure usability
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #000000;
+                color: #ffffff;
+            }
+            QLabel, QCheckBox, QGroupBox {
+                background-color: #000000;
+                color: #ffffff;
+            }
+            QPushButton {
+                background-color: #333333;
+                color: #ffffff;
+                border: 1px solid #555555;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #444444;
+            }
+            QComboBox {
+                background-color: #222222;
+                color: #ffffff;
+                border: 1px solid #555555;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #222222;
+                color: #ffffff;
+                selection-background-color: #444444;
+            }
+            QLineEdit {
+                background-color: #222222;
+                color: #ffffff;
+                border: 1px solid #555555;
+            }
+        """)
+
         layout = QVBoxLayout(self)
 
         # Text Color setting
@@ -309,9 +345,12 @@ class DisplaySettingsDialog(QDialog):
 
     def _open_help(self):
         """Open the HTML help file in default browser."""
-        import webbrowser
         help_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "appearance_help.html")
         if os.path.exists(help_path):
-            webbrowser.open(f"file:///{help_path}")
+            try:
+                os.startfile(help_path)
+            except AttributeError:
+                import webbrowser
+                webbrowser.open(f"file:///{help_path}")
         else:
             QMessageBox.warning(self, "Help Error", f"Help file not found at:{help_path}")

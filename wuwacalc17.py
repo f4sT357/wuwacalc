@@ -311,7 +311,25 @@ class ScoreCalculatorApp(QMainWindow):
     def show_ocr_error_message(self, title: str, message: str) -> None: QMessageBox.critical(self, title, message)
     def show_error_message(self, title: str, message: str) -> None: QMessageBox.critical(self, title, message)
     def show_info_message(self, title: str, message: str) -> None: QMessageBox.information(self, title, message)
-    def _open_readme(self) -> None: webbrowser.open(get_resource_path("README.md"))
+    
+    def _open_readme(self) -> None:
+        """Open the help.html file in default browser."""
+        help_path = get_resource_path("help.html")
+        if os.path.exists(help_path):
+            try:
+                os.startfile(help_path)
+            except AttributeError:
+                import webbrowser
+                webbrowser.open(f"file:///{help_path}")
+        else:
+            # Fallback to README.md if help.html is missing
+            readme_path = get_resource_path("README.md")
+            try:
+                os.startfile(readme_path)
+            except AttributeError:
+                import webbrowser
+                webbrowser.open(f"file:///{readme_path}")
+
     def cycle_theme(self) -> None: self.events.cycle_theme()
     def on_auto_calculate_change(self, c: bool) -> None: self.events.on_auto_calculate_change(c)
     def on_crop_percent_change(self, t: str) -> None: self.events.on_crop_percent_change(t)
