@@ -6,7 +6,8 @@ from typing import Any, Optional, List, Tuple, Dict, Union
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, 
     QPushButton, QGroupBox, QTextEdit, QSplitter, 
-    QComboBox, QCheckBox, QRadioButton, QSlider, QMenu, QLineEdit, QTabWidget, QGridLayout, QCompleter
+    QComboBox, QCheckBox, QRadioButton, QSlider, QMenu, QLineEdit, QTabWidget, QGridLayout, QCompleter,
+    QButtonGroup
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
@@ -107,6 +108,12 @@ class UIComponents:
         mode_h = QHBoxLayout()
         self.rb_manual.setText(self.app.tr("manual"))
         self.rb_ocr.setText(self.app.tr("ocr"))
+        
+        # Group Input Mode Radio Buttons
+        self.grp_input_mode = QButtonGroup(self.main_widget)
+        self.grp_input_mode.addButton(self.rb_manual)
+        self.grp_input_mode.addButton(self.rb_ocr)
+        
         if self.app.mode_var == "ocr": self.rb_ocr.setChecked(True)
         else: self.rb_manual.setChecked(True)
         mode_h.addWidget(self.rb_manual); mode_h.addWidget(self.rb_ocr)
@@ -119,6 +126,12 @@ class UIComponents:
         grid.addWidget(QLabel(self.app.tr("calc_mode")), 2, 2)
         calc_h = QHBoxLayout()
         self.rb_batch.setText(self.app.tr("batch")); self.rb_single.setText(self.app.tr("single_only"))
+        
+        # Group Calc Mode Radio Buttons
+        self.grp_calc_mode = QButtonGroup(self.main_widget)
+        self.grp_calc_mode.addButton(self.rb_batch)
+        self.grp_calc_mode.addButton(self.rb_single)
+        
         if self.app.score_mode_var == "batch": self.rb_batch.setChecked(True)
         else: self.rb_single.setChecked(True)
         calc_h.addWidget(self.rb_batch); calc_h.addWidget(self.rb_single)
@@ -199,6 +212,12 @@ class UIComponents:
         self.lbl_crop_mode = QLabel(self.app.tr("crop_mode"))
         crop_h.addWidget(self.lbl_crop_mode)
         rb_d = QRadioButton(self.app.tr("drag")); rb_p = QRadioButton(self.app.tr("percent"))
+        
+        # Group Crop Mode Radio Buttons
+        self.grp_crop_mode = QButtonGroup(self.image_group)
+        self.grp_crop_mode.addButton(rb_d)
+        self.grp_crop_mode.addButton(rb_p)
+        
         if self.app.crop_mode_var == "drag": rb_d.setChecked(True)
         else: rb_p.setChecked(True)
         rb_d.toggled.connect(lambda c: self.app.events.on_crop_mode_change("drag") if c else None)
