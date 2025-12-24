@@ -227,9 +227,10 @@ class TabManager:
                 # Create and Add Page
                 self._create_and_add_tab_page(tab_name, cost_num, cost_key)
                 
-                # Restore data if available
-                if tab_name in old_data:
-                    self._restore_tab_data(tab_name, old_data[tab_name])
+                # Restore data using (cost, index) key if available
+                state_key = (cost_num, current_idx)
+                if state_key in old_data:
+                    self._restore_tab_data(tab_name, old_data[state_key])
 
         except Exception as e:
             self.app.gui_log(f"Tab update error: {e}")
@@ -309,14 +310,22 @@ class TabManager:
         return config_key
 
     def _save_current_tab_state(self) -> Dict[str, Any]:
-        """Saves the current state of all tabs."""
+        """Saves the current state of all tabs using (cost, index) as key."""
         state = {}
+        cost_indices = {}
         for tab_name, content in self.tabs_content.items():
+            cost_num = content.get("cost", "1")
+            idx = cost_indices.get(cost_num, 0) + 1
+            cost_indices[cost_num] = idx
+            
+            # Key is (cost, index), e.g., ("4", 1) for the first cost-4 tab
+            state_key = (cost_num, idx)
+            
             main_val = content["main_widget"].currentText()
             sub_vals = []
             for stat_widget, val_widget in content["sub_entries"]:
                 sub_vals.append((stat_widget.currentText(), val_widget.text()))
-            state[tab_name] = {
+            state[state_key] = {
                 "main_stat": main_val,
                 "substats": sub_vals
             }

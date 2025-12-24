@@ -106,7 +106,10 @@ class ScoreCalculator:
             action=action_type,
             result=result_summary,
             fingerprint=fingerprint,
-            details={"score": evaluation.total_score},
+            details={
+                "score": evaluation.total_score,
+                "rating_key": evaluation.rating # Store raw key for better filtering
+            },
             duplicate_mode=self.app.app_config.history_duplicate_mode
         )
         

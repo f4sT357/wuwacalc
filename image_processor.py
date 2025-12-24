@@ -248,10 +248,10 @@ class ImageProcessor(QObject):
         
         # Update Main Stat if detected
         if main_stat and main_combo:
-            translated_main = self.app.tr(main_stat)
-            idx = main_combo.findText(translated_main)
+            idx = main_combo.findData(main_stat) # Use findData for internal key
             if idx >= 0:
                 main_combo.setCurrentIndex(idx)
+                translated_main = self.app.tr(main_stat)
                 self.logMessage.emit(f"Auto-selected main stat for {tab_name}: {translated_main}")
         
         # Clear existing substats in the widget first
@@ -281,19 +281,25 @@ class ImageProcessor(QObject):
             mime_data = clipboard.mimeData()
             
             if mime_data.hasImage():
-                qimage = clipboard.image()
-                # Convert QImage to PIL Image
-                # This is a bit roundabout but keeps consistency with PIL usage elsewhere
-                # Alternatively, use ImageGrab.grabclipboard()
+                # 1. Try ImageGrab (standard Pillow way)
                 image = ImageGrab.grabclipboard()
+                
+                # 2. Fallback: Convert QImage to PIL if ImageGrab fails
+                if not isinstance(image, Image.Image):
+                    self.logMessage.emit("ImageGrab failed, attempting QImage conversion fallback...")
+                    qimage = clipboard.image()
+                    if not qimage.isNull():
+                        from PyQt6.QtCore import QBuffer, QIODevice
+                        import io
+                        buffer = QBuffer()
+                        buffer.open(QIODevice.OpenModeFlag.ReadWrite)
+                        qimage.save(buffer, "PNG")
+                        image = Image.open(io.BytesIO(buffer.data()))
+                
                 if isinstance(image, Image.Image):
                     self.process_loaded_image(image, "clipboard image")
                 else:
-                    # Fallback if ImageGrab fails but Qt has image
-                    # Convert QImage to PIL
-                    buffer = qimage.bits().asstring(qimage.sizeInBytes())
-                    # This conversion is complex, let's stick to ImageGrab for now as it was working
-                    self.logMessage.emit("No compatible image found on clipboard via PIL.")
+                    self.logMessage.emit("No compatible image found on clipboard.")
             else:
                 self.logMessage.emit("No image found on the clipboard.")
         except Exception as e:

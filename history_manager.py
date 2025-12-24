@@ -136,11 +136,24 @@ class HistoryManager:
             filtered = [h for h in filtered if h.cost == cost]
 
         if rating:
-            # Match rating precisely (e.g., "S" should not match "SS" or "SSS")
-            # We look for the rating followed by a space or end of string, 
-            # and preceded by a space or opening parenthesis.
+            # Match rating precisely. Use rating_key if available in details, 
+            # otherwise fallback to regex on the result string for backward compatibility.
+            target_key = f"rating_{rating.lower()}_single"
             pattern = rf"(^|[\s\(]){re.escape(rating)}(\s|$|-)"
-            filtered = [h for h in filtered if re.search(pattern, h.result)]
+            
+            new_filtered = []
+            for h in filtered:
+                # 1. Check details for rating_key (robust)
+                r_key = h.details.get("rating_key")
+                if r_key == target_key:
+                    new_filtered.append(h)
+                    continue
+                
+                # 2. Fallback to result string regex (backward compatibility)
+                if re.search(pattern, h.result):
+                    new_filtered.append(h)
+            
+            filtered = new_filtered
             
         if date_from:
             filtered = [h for h in filtered if h.timestamp >= date_from]

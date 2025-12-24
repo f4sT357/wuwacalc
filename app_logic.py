@@ -77,13 +77,8 @@ class AppLogic(QObject):
             self.log_message.emit(f"Image for Tesseract OCR - size: {processed.size}, mode: {processed.mode}")
             custom_config = "--oem 3 --psm 6" # に戻す
             
-            # Map app language code to Tesseract language code
-            # Always include both jpn and eng to support Japanese screenshots regardless of UI language
-            tess_lang_map = {
-                "ja": "jpn+eng",
-                "en": "jpn+eng"
-            }
-            tess_lang = tess_lang_map.get(language, "jpn+eng")
+            # Use both jpn and eng to support Japanese screenshots regardless of UI language
+            tess_lang = "jpn+eng"
 
             # Tesseractの出力を生バイト列として取得
             output_bytes = pytesseract.image_to_string(processed, lang=tess_lang, config=custom_config, output_type=Output.BYTES)

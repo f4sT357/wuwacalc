@@ -419,8 +419,6 @@ class ScoreCalculatorApp(QMainWindow):
         dup_ids = self.tab_mgr.find_duplicate_entries(entries)
         if dup_ids:
             self.gui_log(f"重複個体検出: {dup_ids}")
-        else:
-            self.gui_log("重複個体はありません。")
 
 
 if __name__ == "__main__":
