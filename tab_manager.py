@@ -103,6 +103,13 @@ class TabManager:
         else:
             self.app.result_text.clear()
     
+    def _reset_tab_content(self, content: Dict[str, Any]) -> None:
+        """Resets the widgets of a single tab content."""
+        content["main_widget"].setCurrentIndex(-1)
+        for stat_widget, val_widget in content["sub_entries"]:
+            stat_widget.setCurrentIndex(-1)
+            val_widget.clear()
+
     def clear_current_tab(self) -> None:
         """Clear the contents of the current tab only."""
         try:
@@ -111,11 +118,7 @@ class TabManager:
                 return
             
             content = self.tabs_content[tab_name]
-            # Reset widgets
-            content["main_widget"].setCurrentIndex(-1)
-            for stat_widget, val_widget in content["sub_entries"]:
-                stat_widget.setCurrentIndex(-1)
-                val_widget.clear()
+            self._reset_tab_content(content)
             
             # Also clear the image
             if tab_name in self._tab_images:
@@ -140,10 +143,7 @@ class TabManager:
         try:
             # Reset all tab contents
             for content in self.tabs_content.values():
-                content["main_widget"].setCurrentIndex(-1)
-                for stat_widget, val_widget in content["sub_entries"]:
-                    stat_widget.setCurrentIndex(-1)
-                    val_widget.clear()
+                self._reset_tab_content(content)
             
             if self.app.result_text:
                 self.app.result_text.clear()

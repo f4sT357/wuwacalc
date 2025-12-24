@@ -59,6 +59,9 @@
     - **UIテストの追加**: 新規作成した `SettingsPanel` を含むUIコンポーネントの初期化と連携を検証する `test_ui_components.py` を追加し、カバレッジを拡大。
     - **計算ロジックの共通化**: `score_calculator.py` 内で重複していた計算・履歴保存ロジック（Single/Batch）を共通メソッド `_process_echo_evaluation` に統合し、保守性を向上。
     - **計算ロジックのテスト**: `test_score_calculator.py` を新規作成し、共通化されたロジックの動作検証を追加。
+    - **その他コンポーネントの共通化**:
+        - `image_processor.py`: 空きタブ検索ロジックを `_find_free_tab` に統合。
+        - `tab_manager.py`: タブ内容のクリア処理を `_reset_tab_content` に統合。
 - **高度な履歴管理**:
     - 重複データの3つのモード（Keep All / Latest / Oldest）の実装。
     - 評価ランクによる正確な検索機能（単語境界を考慮した正規表現マッチング）。

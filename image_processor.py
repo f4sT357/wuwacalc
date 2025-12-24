@@ -195,51 +195,45 @@ class ImageProcessor(QObject):
         
         return True
 
-    def _find_free_tab_for_cost(self, cost: str, exclude_tabs: Set[str]) -> Optional[str]:
-        """Finds the first tab matching the cost that isn't excluded and is empty."""
-        if self.app.notebook is None:
-            return None
-            
+    def _find_free_tab(self, exclude_tabs: Set[str], target_cost: Optional[str] = None) -> Optional[str]:
+        """
+        Unified logic to find a free tab.
+        If target_cost is provided, filters by cost.
+        """
         config_key = self.app.current_config_key
-        # from constants import TAB_CONFIGS # Removed
         tab_configs = self.app.data_manager.tab_configs
         if config_key not in tab_configs:
              return None
-             
+        
         tab_keys = tab_configs[config_key]
         
         for key in tab_keys:
             if key in exclude_tabs:
                 continue
             
-            # Extract cost from key (e.g., "cost4_echo" -> "4")
-            key_cost_match = re.search(r'cost(\d+)_echo', key)
-            if not key_cost_match:
-                continue # Malformed key, skip
-            
-            extracted_key_cost = key_cost_match.group(1)
-            
-            if extracted_key_cost != cost:
-                continue # Cost doesn't match
+            if target_cost:
+                # Extract cost from key (e.g., "cost4_echo" -> "4")
+                key_cost_match = re.search(r'cost(\d+)_echo', key)
+                if not key_cost_match:
+                    continue # Malformed key, skip
+                
+                extracted_key_cost = key_cost_match.group(1)
+                
+                if extracted_key_cost != target_cost:
+                    continue
             
             if self._is_tab_empty(key):
-                return key # Found an empty tab for this cost
-            
+                return key
+                
         return None
+
+    def _find_free_tab_for_cost(self, cost: str, exclude_tabs: Set[str]) -> Optional[str]:
+        """Finds the first tab matching the cost that isn't excluded and is empty."""
+        return self._find_free_tab(exclude_tabs, target_cost=cost)
 
     def _find_any_free_tab(self, exclude_tabs: Set[str]) -> Optional[str]:
         """Fallback: find any tab not yet assigned that is empty."""
-        config_key = self.app.current_config_key
-        # from constants import TAB_CONFIGS # Removed
-        tab_configs = self.app.data_manager.tab_configs
-        if config_key not in tab_configs:
-             return None
-        
-        for key in tab_configs[config_key]:
-            if key not in exclude_tabs:
-                if self._is_tab_empty(key):
-                    return key
-        return None
+        return self._find_free_tab(exclude_tabs)
 
     def _populate_tab_data(self, tab_name: str, substats: List[SubStat], main_stat: Optional[str] = None) -> None:
         """Directly updates the widgets for the given tab."""
