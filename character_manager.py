@@ -31,6 +31,10 @@ class CharacterManager(QObject):
         self._main_stats = copy.deepcopy(data_manager.character_main_stats)
         self._name_map_jp_to_en = copy.deepcopy(data_manager.char_name_map_jp_to_en)
         self._name_map_en_to_jp = {v: k for k, v in self._name_map_jp_to_en.items()}
+        self._stat_offsets = {} # Stores dictionary of offsets for each character
+        self._base_stats = {}   # Stores base stats (Char + Weapon)
+        self._ideal_stats = {}  # Stores target/ideal stats
+        self._scaling_stats = {} # Stores primary scaling stat name
         
         self.tab_configs = data_manager.tab_configs
         
@@ -83,6 +87,16 @@ class CharacterManager(QObject):
                         mainstats = data.get("character_mainstats")
                         costkey = data.get("costkey")
                         config = data.get("config")
+                        
+                        # Load offsets and new stat fields
+                        stat_offsets = data.get("stat_offsets", {})
+                        if not stat_offsets and "crit_offset" in data:
+                            from constants import STAT_CRIT_RATE
+                            stat_offsets[STAT_CRIT_RATE] = data["crit_offset"]
+                        
+                        base_stats = data.get("base_stats", {})
+                        ideal_stats = data.get("ideal_stats", {})
+                        scaling_stat = data.get("scaling_stat", "攻撃力")
 
                         if not all([weights, mainstats, (costkey or config)]):
                             self.logger.warning(f"Skipping incomplete character profile: {filename}")
@@ -97,6 +111,10 @@ class CharacterManager(QObject):
                         self._name_map_en_to_jp[internal_name] = jp_name
                         self._name_map_jp_to_en[jp_name] = internal_name
                         self._character_config_map[internal_name] = config or self._normalize_cost_key(costkey, DEFAULT_COST_CONFIG)
+                        self._stat_offsets[internal_name] = stat_offsets
+                        self._base_stats[internal_name] = base_stats
+                        self._ideal_stats[internal_name] = ideal_stats
+                        self._scaling_stats[internal_name] = scaling_stat
                         
                         self.logger.info(f"Loaded character profile: {internal_name}")
                         loaded_files.add(filename)
@@ -109,9 +127,13 @@ class CharacterManager(QObject):
         self.logger.info("Finished loading character profiles.")
         self.profiles_updated.emit()
 
-    def register_character(self, name_jp: str, name_en: str, costkey: str, mainstats: dict, weights: dict) -> None:
+    def register_character(self, name_jp: str, name_en: str, costkey: str, mainstats: dict, weights: dict, 
+                           stat_offsets: dict = None, base_stats: dict = None, ideal_stats: dict = None, scaling_stat: str = "攻撃力") -> None:
         """Registers a new character and saves its profile to a JSON file."""
         internal_char_name = name_en
+        if stat_offsets is None: stat_offsets = {}
+        if base_stats is None: base_stats = {}
+        if ideal_stats is None: ideal_stats = {}
         
         try:
             # --- Save to JSON file ---
@@ -131,7 +153,11 @@ class CharacterManager(QObject):
                 "costkey": costkey,
                 "config": normalized_key,
                 "character_mainstats": mainstats,
-                "character_weights": weights
+                "character_weights": weights,
+                "stat_offsets": stat_offsets,
+                "base_stats": base_stats,
+                "ideal_stats": ideal_stats,
+                "scaling_stat": scaling_stat
             }
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -144,6 +170,10 @@ class CharacterManager(QObject):
             self._name_map_en_to_jp[internal_char_name] = name_jp
             self._name_map_jp_to_en[name_jp] = internal_char_name
             self._character_config_map[internal_char_name] = normalized_key
+            self._stat_offsets[internal_char_name] = stat_offsets
+            self._base_stats[internal_char_name] = base_stats
+            self._ideal_stats[internal_char_name] = ideal_stats
+            self._scaling_stats[internal_char_name] = scaling_stat
 
             # --- Emit signal ---
             self.character_registered.emit(internal_char_name)
@@ -259,11 +289,21 @@ class CharacterManager(QObject):
         
         # Get weights
         weights = self.get_stat_weights(internal_name) or {}
+
+        # Get stat offsets
+        stat_offsets = self._stat_offsets.get(internal_name, {})
+        base_stats = self._base_stats.get(internal_name, {})
+        ideal_stats = self._ideal_stats.get(internal_name, {})
+        scaling_stat = self._scaling_stats.get(internal_name, "攻撃力")
         
         return CharacterProfile(
             internal_name=internal_name,
             jp_name=jp_name,
             cost_config=cost_config,
             main_stats=main_stats,
-            weights=weights
+            weights=weights,
+            stat_offsets=stat_offsets,
+            base_stats=base_stats,
+            ideal_stats=ideal_stats,
+            scaling_stat=scaling_stat
         )

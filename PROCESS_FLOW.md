@@ -1,96 +1,51 @@
-# アプリケーション処理フローと改善点分析
+# 処理フロー (Process Flow)
 
-## 1. 処理フロー図 (Architecture & Data Flow)
+## 1. アプリケーション起動
+- `wuwacalc17.py`: メインエントリーポイント。
+- `DataManager`: `data/game_data.json`, `data/calculation_config.json` を読み込み。
+- `CharacterManager`: `character_settings_jsons/*.json` からキャラクター毎の重み、メインステータス、クリティカル補正を読み込み。
+- `ConfigManager`: アプリケーションの設定（言語、テーマ、OCR設定など）を管理。
 
-```mermaid
-graph TD
-    subgraph UI_Layer [UI Layer]
-        MainWin[ScoreCalculatorApp / Mediator]
-        UI[UIComponents / View]
-        Events[EventHandlers / Controller]
-    end
+## 2. 画像読み込みと前処理
+- クリップボード(Ctrl+V)またはファイルから画像を読み込み。
+- `ImageProcessor`: 設定された切り取り範囲（Crop）に基づいて画像をトリミング。
+- `image_preprocessing.py`: 二値化、グレースケール化、リサイズなどの前処理を行い、OCR精度を向上。
 
-    subgraph Logic_Layer [Logic Layer / Services]
-        TabM[TabManager / Data Storage]
-        Calc[ScoreCalculator / Domain Logic]
-        ImgProc[ImageProcessor / Image Logic]
-        AppLogic[AppLogic / OCR Engine]
-    end
+## 3. OCRによるデータ抽出
+- Tesseract OCRを使用。
+- `detect_metadata.py`: 抽出されたテキストから、コスト、メインステータス、サブステータスを正規表現とエイリアスマップを用いて特定。
+- 認識されたデータは UI（`TabManager`）に自動入力される。
 
-    subgraph Data_Layer [Data & State Management]
-        DM[DataManager / Game Data]
-        CM[ConfigManager / Settings]
-        CharM[CharacterManager / Profiles]
-        HistM[HistoryManager / History]
-    end
+## 4. スコア計算ロジック (コア部分)
+- `ScoreCalculator` が UI からデータを受け取り、`EchoData` に渡す。
+- **期待値ベースの評価 (厳選達成率)**:
+  1. キャラクターの重み設定から上位5つの項目を抽出。
+  2. それらすべてが最大値（Max Roll）だった場合を理論値（100%）として算出。
+  3. 現在のサブステータスの合計を理論値で割り、達成率を算出。
+- **最終ステータス・目標達成度の算出**:
+  - キャラクターの基礎ステータス（本体+武器）と理想ステータスを考慮。
+  - `(基礎値 * (1 + %補正合計/100)) + 固定値補正合計` により最終ステータスを推定。
+  - 理想ステータスに対して、この音骸を装備した状態で何%に到達するかを表示。
+- **CV計算 (Crit Value)**:
+  - `(会心率 * 2) + 会心ダメージ` に加え、攻撃力%やチャージ効率などを加味。
+  - キャラクター設定の「クリ補正」を考慮した評価判定。
+- **コスト別Rating調整**:
+  - コスト3など厳選が困難な部位については、SSS/SS判定の閾値を緩和し、ユーザーのモチベーションを維持。
 
-    %% Flow: Startup
-    MainWin -->|Initializes| DM
-    MainWin -->|Initializes| CM
-    MainWin -->|Initializes| UI
-    MainWin -->|Initializes & Injects| TabM
-    MainWin -->|Initializes & Injects| Calc
-    MainWin -->|Initializes & Injects| ImgProc
-    
-    %% Flow: Interaction
-    UI -->|Signal| MainWin
-    MainWin -->|Route to| Events
-    Events -->|Invoke| Logic_Layer
-    
-    %% Flow: Logic to UI (Decoupled)
-    Logic_Layer -->|pyqtSignal| MainWin
-    MainWin -->|Update| UI
-```
+## 5. 結果表示と保存
+- `HtmlRenderer`: 計算結果を HTML 形式で整形し、UIの右側に表示。
+- `HistoryManager`: 計算結果を `history.json` に保存。重複検知機能により、同じ音骸の再計算を整理。
 
-## 2. 詳細プロセスフロー
+---
 
-1.  **起動フェーズ**:
-    *   `wuwacalc17.py` がエントリーポイント（Mediator）として機能。
-    *   依存関係の順序（Data -> UI実体化 -> Logic Manager -> Signals）を厳守して初期化。
-    *   `UIComponents` が全ウィジェットを即座に実体化し、`None` 参照を防止。
-2.  **画像処理・OCRフェーズ**:
-    *   `ScoreCalculatorApp` がファイル選択 UI を担当。
-    *   `ImageProcessor` がクロップと OCR 命令を管理（UI 非依存）。
-    *   `AppLogic` が Tesseract テキスト解析と正規化（エイリアス対応）を実行。
-3.  **スコア計算フェーズ**:
-    *   `ScoreCalculator` が注入されたマネージャーを使用して純粋な計算ロジックを実行。
-    *   キャラ未選択時は `waiting_for_character` 状態となり、ユーザー入力を待機。
+# 既知の課題と改善案
 
-## 3. 現状分析
+## 改善済み (2025-12-25)
+- [x] スコア計算を単純加算から「理想個体に対する達成率（%）」に変更。
+- [x] コストごとの厳選難易度を Rating 閾値に反映。
+- [x] 武器や基礎ステータスを考慮できる「クリティカル補正」フィールドをキャラ設定に追加。
 
-*   **アーキテクチャ**: 疎結合なメディエーターパターンへの移行が完了。
-*   **コンポーネント独立性**: `ScoreCalculator`, `TabManager`, `ImageProcessor` が GUI なしでテスト可能な状態になった。
-*   **堅牢性**: 初期化順序の整理と属性の事前宣言により、起動時の `AttributeError` や `NameError` が解消。
-
-## 4. 完了済みの主要タスク (2025/12/25)
-
-*   **UI とロジックの完全分離**:
-    *   ロジック層クラス（`Calc`, `TabM`, `ImgProc`）から `self.app` への直接参照を全廃。
-    *   UI 操作を `ScoreCalculatorApp` 側のシグナルハンドラーに集約。
-    *   UI コンポーネントからのロジック参照をラッパーメソッド経由に一本化。
-*   **UI 構造の刷新**:
-    *   `SettingsPanel` の委譲を廃止し `UIComponents` に統合。属性アクセスの不整合を解消。
-    *   「基本設定」枠のレイアウト修正（ボタンや計算方式を枠内に収容）。
-    *   キャラクター選択ボックスの検索機能（部分一致）を有効化。
-*   **OCR・計算精度の向上**:
-    *   有効ステータスカウント時の浮動小数点誤差（`eps`）対応。
-    *   ダメージアップ系・共鳴効率のエイリアス拡充。
-    *   OCR テキストからのノイズ記号除去。
-*   **表示設定ボタンの復元**:
-    - `ui_components.py` に欠落していた「表示設定」ボタンを再実装。
-    - `wuwacalc17.py` に `DisplaySettingsDialog` が要求する委譲メソッド群（`update_text_color`, `apply_theme`等）を実装し、テーマ変更機能の完全な復旧。
-*   **各種ダイアログボタンの追加**:
-    - 「履歴 (History)」「前処理設定 (Preprocessing)」ボタンを `ui_components.py` に追加。
-    - `wuwacalc17.py` にそれぞれのダイアログを開くメソッドを追加。
-*   **OCR判別精度の向上**:
-    - 実数値(Flat)とパーセント(%)の誤認を防ぐバリデーションロジックを `app_logic.py` に追加。攻撃力等が20未満で小数点を含む場合は自動的に「%」として扱う。
-*   **出力フォーマットの修正**:
-    - `html_renderer.py` にて `self.tr` への引数渡しが漏れていた箇所を修正し、`{}` プレースホルダが残る問題を解消。
-*   **起動待機ロジック**:
-    *   キャラ未選択時の計算保留と、選択後の自動実行フローを実装。
-
-## 5. 現在の課題とネクストアクション
-
-*   **コードの重複整理**: `ScoreCalculatorApp` に追加した多くのラッパーメソッドを、より洗練されたイベントバスやコントローラー構造に整理する余地がある。
-*   **バッチ処理のUIフィードバック**: バッチ処理中の進捗表示をよりグラフィカルにする（現在はログ出力のみ）。
-*   **エラーガイダンスの強化**: Tesseract がインストールされていない場合などのエラーメッセージをよりユーザーフレンドリーにする。
+## 今後の課題
+- [ ] OCRの誤認（「0」と「O」など）に対する、音骸のステータス範囲（Max/Min）を用いたバリデーションの強化。
+- [ ] 履歴画面での音骸同士の直接比較機能。
+- [ ] ダークモード時の HTML 表示（結果画面）の色の視認性向上。

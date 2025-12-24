@@ -73,6 +73,11 @@ class HtmlRenderer:
         
         # Method information
         method_info = {
+            "achievement": {
+                "label": self.tr("achievement_rate_label"), # Need to add this to translations later
+                "desc": self.tr("achievement_rate_desc"), # Need to add this to translations later
+                "rating_func": lambda s: evaluation.rating # Already calculated in logic
+            },
             "normalized": {
                 "label": self.tr("method_normalized"),
                 "desc": self.tr("normalized_score_desc"),
@@ -100,16 +105,50 @@ class HtmlRenderer:
             }
         }
         
-        # Display only enabled methods
-        for method, score in evaluation.individual_scores.items():
+        # Display only enabled methods, but always show achievement if available
+        methods_to_show = list(evaluation.individual_scores.keys())
+        # Ensure achievement is first if present
+        if "achievement" in methods_to_show:
+            methods_to_show.remove("achievement")
+            methods_to_show.insert(0, "achievement")
+
+        for method in methods_to_show:
             if method in method_info:
+                score = evaluation.individual_scores[method]
                 info = method_info[method]
                 rating = info["rating_func"](score)
                 html += self.format_score_block(info["label"], score, rating, info["desc"])
 
         html += f"<hr>"
+        
+        # New: Display estimated total stats
+        if evaluation.estimated_stats:
+            html += f"<b>{self.tr('estimated_total_stats').replace('\n', '')}</b><br>"
+            # Sort stats: Crit Rate, Crit DMG, Atk%, ER first, then others
+            from constants import STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ER
+            priority = [STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ER]
+            
+            for sname in priority:
+                if sname in evaluation.estimated_stats:
+                    val = evaluation.estimated_stats[sname]
+                    html += f"&nbsp;&nbsp;• {self.tr(sname)}: {val:.1f}<br>"
+            
+            # Others
+            for sname, val in sorted(evaluation.estimated_stats.items()):
+                if sname not in priority and val > 0 and not sname.startswith(("Total ", "Goal ")):
+                    html += f"&nbsp;&nbsp;• {self.tr(sname)}: {val:.1f}<br>"
+            
+            # Display Total scaling stat and Goal achievement
+            for sname, val in evaluation.estimated_stats.items():
+                if sname.startswith("Total "):
+                    html += f"<br><b>&nbsp;&nbsp;{sname}: {val:.1f}</b><br>"
+                if sname.startswith("Goal "):
+                    html += f"<b>&nbsp;&nbsp;{sname}: {val:.1f}%</b><br>"
+            
+            html += f"<br><hr>"
+
         html += f"<b>{self.tr('overall_eval').replace('\n', '')}</b><br>"
-        html += f"<b>{self.tr('total_score')}: {evaluation.total_score:.2f}</b><br>"
+        html += f"<b>{self.tr('achievement_rate_label')}: {evaluation.total_score:.2f}%</b><br>"
         
         final_rating = self.tr(evaluation.rating)
         final_color = self._get_rating_color(final_rating)

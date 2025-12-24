@@ -44,6 +44,7 @@ class EvaluationResult:
     recommendation: str
     rating: str
     individual_scores: Dict[str, float]
+    estimated_stats: Dict[str, float] = field(default_factory=dict) # New: Resulting stats (Echo + Offsets)
 
 @dataclass
 class TabImageData:
@@ -83,6 +84,10 @@ class CharacterProfile:
     cost_config: str
     main_stats: Dict[str, Any]
     weights: Dict[str, float]
+    stat_offsets: Dict[str, float] = field(default_factory=dict)
+    base_stats: Dict[str, float] = field(default_factory=dict)  # New: Base values (Char + Weapon)
+    ideal_stats: Dict[str, float] = field(default_factory=dict) # New: Target values to achieve
+    scaling_stat: str = "攻撃力"                               # New: Primary stat (ATK, DEF, or HP)
 
 class DataLoadError(Exception):
     """Raised when data loading fails."""

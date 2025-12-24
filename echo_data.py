@@ -139,18 +139,24 @@ class EchoData:
         self.effective_stats_count = effective_count
         return score
 
-    def calculate_score_cv_based(self, stat_weights, cv_weights):
+    def calculate_score_cv_based(self, stat_weights, cv_weights, stat_offsets=None):
         """Method 5: CV (Crit Value) Based Method - Community Standard"""
+        if stat_offsets is None: stat_offsets = {}
         cv_score = 0.0
         
         # Basic CV calculation (most important)
         crit_rate = self.substats.get(STAT_CRIT_RATE, 0)
         crit_dmg = self.substats.get(STAT_CRIT_DMG, 0)
         
+        # Apply offset (e.g. from weapon or base stats)
+        total_crit_rate = crit_rate + stat_offsets.get(STAT_CRIT_RATE, 0.0)
+        
         cv_score += (crit_rate * cv_weights.get(CV_KEY_CRIT_RATE, 2.0)) + \
                     (crit_dmg * cv_weights.get(CV_KEY_CRIT_DMG, 1.0))
         
         # Extended scoring with other valuable stats
+        # We use the raw substat values for the "Echo Score", 
+        # but the offsets could be used to weight their importance if we wanted to.
         atk_pct = self.substats.get(STAT_ATK_PERCENT, 0)
         flat_atk = self.substats.get(STAT_ATK_FLAT, 0)
         er = self.substats.get(STAT_ER, 0)
@@ -173,14 +179,48 @@ class EchoData:
         final_score = cv_score * (self.level / 25)
         return final_score
 
-    def evaluate_comprehensive(self, character_weights, config_bundle, enabled_methods=None):
+    def calculate_theoretical_max_sub_score(self, stat_weights, substat_max_values):
+        """
+        Calculates the theoretical maximum score for 5 substat slots
+        based on the highest weighted stats for this character.
+        """
+        if not stat_weights:
+            return 100.0 # Fallback
+            
+        # Get all stats that have a weight, sorted by weight descending
+        weighted_stats = sorted(
+            [(name, weight) for name, weight in stat_weights.items() if weight > 0],
+            key=lambda x: x[1], reverse=True
+        )
+        
+        # Take the top 5 weighted stats
+        top_5 = weighted_stats[:5]
+        
+        max_sub_score = 0.0
+        for name, weight in top_5:
+            max_val = substat_max_values.get(name, 1.0)
+            # 1 slot maximum normalized score: (max_val / max_val / 5) * weight * 100 = 20 * weight
+            max_sub_score += 20.0 * weight
+            
+        return max_sub_score if max_sub_score > 0 else 100.0
+
+    def evaluate_comprehensive(self, character_weights, config_bundle, enabled_methods=None, 
+                               stat_offsets=None, base_stats=None, ideal_stats=None, scaling_stat="攻撃力"):
         """Comprehensive evaluation using provided configuration.
         
         Args:
             character_weights: Dictionary of stat weights for the character
             config_bundle: Dictionary containing all configuration data (max_values, multipliers, etc.)
             enabled_methods: Dictionary of {method_name: bool} indicating which methods to use.
+            stat_offsets: Dictionary of offsets for base/weapon stats.
+            base_stats: Dictionary of base values (Char + Weapon).
+            ideal_stats: Dictionary of target values.
+            scaling_stat: Name of the primary stat for calculation (ATK, DEF, HP).
         """
+        if stat_offsets is None: stat_offsets = {}
+        if base_stats is None: base_stats = {}
+        if ideal_stats is None: ideal_stats = {}
+        
         # Default to all methods enabled if not specified
         if enabled_methods is None:
             enabled_methods = {
@@ -213,23 +253,117 @@ class EchoData:
                 character_weights, substat_max_values, config_bundle.get("effective_stats", {})
             )
         if enabled_methods.get("cv", False):
+            # Pass CRIT offset specifically if present in stat_offsets
             results["cv"] = self.calculate_score_cv_based(
-                character_weights, config_bundle.get("cv_weights", {})
+                character_weights, config_bundle.get("cv_weights", {}), stat_offsets=stat_offsets
             )
         
-        # Calculate average score from enabled methods
+        # New Achievement Rate calculation
+        theoretical_max = self.calculate_theoretical_max_sub_score(character_weights, substat_max_values)
+        
+        current_sub_score = 0.0
+        for stat_name, stat_value in self.substats.items():
+            max_val = substat_max_values.get(stat_name, 1)
+            weight = character_weights.get(stat_name, 0)
+            current_sub_score += (stat_value / max_val / 5) * weight * 100
+            
+        achievement_rate = (current_sub_score / theoretical_max) * 100 if theoretical_max > 0 else 0
+        results["achievement"] = achievement_rate
+
         if results:
-            avg_score = sum(results.values()) / len(results)
+            avg_score = sum(v for k, v in results.items() if k != "achievement") / (len(results) - 1 if len(results) > 1 else 1)
         else:
             avg_score = 0.0
         
+        rating_key = self.get_rating_by_achievement(achievement_rate, self.cost)
+
+        # Calculate estimated total stats and achievement towards IDEAL
+        estimated_stats = {}
+        all_stat_names = set(self.substats.keys()) | set(stat_offsets.keys())
+        for sname in all_stat_names:
+            estimated_stats[sname] = self.substats.get(sname, 0.0) + stat_offsets.get(sname, 0.0)
+
+        # Special logic for Final Stat Calculation (e.g. Total ATK)
+        # Final = (Base * (1 + PercentSum/100)) + FlatSum
+        from constants import STAT_ATK_PERCENT, STAT_ATK_FLAT, STAT_DEF_PERCENT, STAT_DEF_FLAT, STAT_HP_PERCENT, STAT_HP_FLAT
+        
+        # Map scaling stat to its percent counterpart
+        percent_map = {
+            STAT_ATK_FLAT: STAT_ATK_PERCENT,
+            STAT_DEF_FLAT: STAT_DEF_PERCENT,
+            STAT_HP_FLAT: STAT_HP_PERCENT
+        }
+        
+        final_stat_val = 0.0
+        target_stat_val = ideal_stats.get(scaling_stat, 0.0)
+        
+        if scaling_stat in base_stats:
+            base_val = base_stats[scaling_stat]
+            p_stat = percent_map.get(scaling_stat)
+            
+            # Sum up percentages (Echo substat + Offset)
+            p_sum = estimated_stats.get(p_stat, 0.0)
+            
+            # Add Main Stat if it matches the primary stat
+            if self.main_stat == p_stat:
+                # Main stat value is not directly in substats, need to get it.
+                # Usually Main Stat for Cost 4/3/1 is fixed at max level.
+                # For now, we use a heuristic or let user include it in offsets.
+                pass 
+            
+            f_sum = estimated_stats.get(scaling_stat, 0.0)
+            
+            final_stat_val = (base_val * (1 + p_sum / 100)) + f_sum
+            estimated_stats[f"Total {scaling_stat}"] = final_stat_val
+            
+            if target_stat_val > 0:
+                estimated_stats[f"Goal {scaling_stat} %"] = (final_stat_val / target_stat_val) * 100
+
         return EvaluationResult(
-            total_score=avg_score,
+            total_score=achievement_rate, 
             effective_count=self.effective_stats_count,
-            recommendation="rec_continue" if avg_score < 30 else "rec_use",
-            rating=self.get_rating(avg_score),
-            individual_scores=results
+            recommendation="rec_continue" if achievement_rate < 30 else "rec_use",
+            rating=rating_key,
+            individual_scores=results,
+            estimated_stats=estimated_stats
         )
+
+    def get_rating_by_achievement(self, rate, cost):
+        """
+        New rating logic based on achievement rate (relative to theoretical max).
+        Adjusts thresholds based on cost difficulty.
+        """
+        # Determine cost difficulty factor
+        # Cost 3 is hardest (9 main stats), Cost 4 is medium (5 main stats), Cost 1 is easiest (3 main stats)
+        # Note: self.cost might be string like "3" or "4", normalize it.
+        c = str(cost)
+        
+        # Thresholds (Achievement Rate %)
+        # Higher achievement is harder for high cost echoes due to farming difficulty.
+        # But wait, substats are independent of cost difficulty. 
+        # The difficulty is in getting the item. 
+        # Once you have the item, a 80% substat roll is just as good on Cost 1 or Cost 3.
+        # However, to avoid "げんなり", we can lower the bar for SSS for Cost 3.
+        
+        if c == "3":
+            # Cost 3 is notoriously hard to farm. Give them a break.
+            if rate >= 80: return "rating_sss_single"
+            if rate >= 65: return "rating_ss_single"
+            if rate >= 45: return "rating_s_single"
+            if rate >= 25: return "rating_a_single"
+        elif c == "4":
+            if rate >= 85: return "rating_sss_single"
+            if rate >= 70: return "rating_ss_single"
+            if rate >= 50: return "rating_s_single"
+            if rate >= 30: return "rating_a_single"
+        else: # Cost 1 or unknown
+            if rate >= 90: return "rating_sss_single"
+            if rate >= 75: return "rating_ss_single"
+            if rate >= 55: return "rating_s_single"
+            if rate >= 35: return "rating_a_single"
+            
+        if rate >= 15: return "rating_b_single"
+        return "rating_c_single"
 
     def get_rating(self, score):
         """Score evaluation (Community standard)."""

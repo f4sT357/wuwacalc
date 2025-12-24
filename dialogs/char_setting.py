@@ -55,6 +55,55 @@ class CharSettingDialog(QDialog):
         row1.addWidget(self.entry_name_en)
         layout.addLayout(row1)
 
+        # Stat Offsets Group
+        offset_group = QGroupBox(self.app.tr("base_stat_offsets"))
+        offset_layout = QHBoxLayout(offset_group)
+        layout.addWidget(offset_group)
+
+        from constants import STAT_ATK_PERCENT, STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ER
+        self.offset_fields = {}
+        for stat in [STAT_ATK_PERCENT, STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ER]:
+            v_box = QVBoxLayout()
+            v_box.addWidget(QLabel(self.app.tr(stat)))
+            entry = QLineEdit("0.0")
+            entry.setFixedWidth(60)
+            self.offset_fields[stat] = entry
+            v_box.addWidget(entry)
+            offset_layout.addLayout(v_box)
+
+        # Base and Ideal Stats Group
+        calc_param_group = QGroupBox(self.app.tr("basic_settings"))
+        calc_param_layout = QVBoxLayout(calc_param_group)
+        layout.addWidget(calc_param_group)
+
+        from constants import STAT_ATK_FLAT, STAT_DEF_FLAT, STAT_HP_FLAT
+        row_scaling = QHBoxLayout()
+        row_scaling.addWidget(QLabel(self.app.tr("scaling_stat_label")))
+        self.combo_scaling = QComboBox()
+        self.combo_scaling.addItems([STAT_ATK_FLAT, STAT_DEF_FLAT, STAT_HP_FLAT])
+        row_scaling.addWidget(self.combo_scaling)
+        calc_param_layout.addLayout(row_scaling)
+
+        self.base_stat_fields = {}
+        self.ideal_stat_fields = {}
+        for stat in [STAT_ATK_FLAT, STAT_DEF_FLAT, STAT_HP_FLAT]:
+            row = QHBoxLayout()
+            row.addWidget(QLabel(self.app.tr(stat)))
+            
+            row.addWidget(QLabel(self.app.tr("base_stat_label")))
+            b_entry = QLineEdit("0")
+            b_entry.setFixedWidth(80)
+            self.base_stat_fields[stat] = b_entry
+            row.addWidget(b_entry)
+
+            row.addWidget(QLabel(self.app.tr("ideal_stat_label")))
+            i_entry = QLineEdit("0")
+            i_entry.setFixedWidth(80)
+            self.ideal_stat_fields[stat] = i_entry
+            row.addWidget(i_entry)
+
+            calc_param_layout.addLayout(row)
+
         # Row 2: Preset
         row2 = QHBoxLayout()
         row2.addWidget(QLabel(self.app.tr("cost_config")))
@@ -149,6 +198,18 @@ class CharSettingDialog(QDialog):
 
         self.entry_name.setText(self.profile.jp_name)
         self.entry_name_en.setText(self.profile.internal_name)
+        
+        # Load offsets
+        for stat, entry in self.offset_fields.items():
+            val = self.profile.stat_offsets.get(stat, 0.0)
+            entry.setText(str(val))
+
+        # Load base/ideal/scaling
+        self.combo_scaling.setCurrentText(self.profile.scaling_stat)
+        for stat, entry in self.base_stat_fields.items():
+            entry.setText(str(self.profile.base_stats.get(stat, 0)))
+        for stat, entry in self.ideal_stat_fields.items():
+            entry.setText(str(self.profile.ideal_stats.get(stat, 0)))
         # Assuming internal name shouldn't be changed in edit mode, or make it readonly?
         # For now, let's leave it editable but maybe warn? Or just readonly.
         # self.entry_name_en.setReadOnly(True) # Safer
@@ -285,8 +346,33 @@ class CharSettingDialog(QDialog):
                 except ValueError:
                     effweights[ename] = 1.0
 
+        stat_offsets = {}
+        for stat, entry in self.offset_fields.items():
+            try:
+                stat_offsets[stat] = float(entry.text())
+            except ValueError:
+                stat_offsets[stat] = 0.0
+
+        base_stats = {}
+        for stat, entry in self.base_stat_fields.items():
+            try:
+                base_stats[stat] = float(entry.text())
+            except ValueError:
+                base_stats[stat] = 0.0
+
+        ideal_stats = {}
+        for stat, entry in self.ideal_stat_fields.items():
+            try:
+                ideal_stats[stat] = float(entry.text())
+            except ValueError:
+                ideal_stats[stat] = 0.0
+        
+        scaling_stat = self.combo_scaling.currentText()
+
         if self.on_register_char:
-            success = self.on_register_char(name, name_en, preset_key, mainstats, effweights)
+            success = self.on_register_char(name, name_en, preset_key, mainstats, effweights, 
+                                            stat_offsets=stat_offsets, base_stats=base_stats, 
+                                            ideal_stats=ideal_stats, scaling_stat=scaling_stat)
             if not success:
                 QMessageBox.critical(self, self.app.tr("error"), f"Failed to save character profile for '{name}'.\nCheck log for details.")
                 return

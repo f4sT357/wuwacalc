@@ -159,13 +159,26 @@ class ScoreCalculator(QObject):
         self.log_requested.emit(f"Evaluating Echo - Cost: {entry.cost}, Main: {entry.main_stat}, Substats: {substats}")
         echo = EchoData(entry.cost, entry.main_stat, substats)
         
+        # Get stat offsets and calculation params
+        profile = self.character_manager.get_character_profile(character)
+        stat_offsets = profile.stat_offsets if profile else {}
+        base_stats = profile.base_stats if profile else {}
+        ideal_stats = profile.ideal_stats if profile else {}
+        scaling_stat = profile.scaling_stat if profile else "攻撃力"
+        
         # Duplicate Detection Logic
         fingerprint = echo.get_fingerprint()
         duplicates = self.history_mgr.find_duplicates(fingerprint)
         if duplicates:
             self.log_requested.emit(f"[{tab_name_for_log}] Duplicate Detected (Previous IDs: {duplicates})")
         
-        evaluation = echo.evaluate_comprehensive(weights, config_bundle, enabled_methods)
+        evaluation = echo.evaluate_comprehensive(
+            weights, config_bundle, enabled_methods, 
+            stat_offsets=stat_offsets, 
+            base_stats=base_stats, 
+            ideal_stats=ideal_stats, 
+            scaling_stat=scaling_stat
+        )
         
         # Record to history
         result_summary = f"Score: {evaluation.total_score:.2f} ({evaluation.rating})"
