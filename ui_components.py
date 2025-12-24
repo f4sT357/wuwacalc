@@ -389,7 +389,7 @@ class UIComponents:
         """Add main action buttons: Calculate, Export, Clear."""
         self.action_buttons = {}
         buttons = [
-            ("calculate", self.app.score_calc.calculate_all_scores, " (Ctrl+Enter / F5)"),
+            ("calculate", self.app.trigger_calculation, " (Ctrl+Enter / F5)"),
             ("export_txt", self.app.tab_mgr.export_result_to_txt, " (Ctrl+S)"),
             ("clear_all", self.app.tab_mgr.clear_all, " (Ctrl+R)"),
             ("clear_tab", self.app.tab_mgr.clear_current_tab, "")

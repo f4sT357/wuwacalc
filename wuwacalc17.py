@@ -96,7 +96,13 @@ class ScoreCalculatorApp(QMainWindow):
 
         # Instantiate component modules
         self.html_renderer = HtmlRenderer(self.tr, self.language)
-        self.score_calc = ScoreCalculator(self, self.html_renderer)
+        self.score_calc = ScoreCalculator(
+            self.data_manager,
+            self.character_manager,
+            self.history_mgr,
+            self.html_renderer,
+            self.config_manager
+        )
         self.tab_mgr = TabManager(self)
         self.logic = AppLogic(self.tr, self.data_manager, self.config_manager)
         self.image_proc = ImageProcessor(self, self.logic)
@@ -116,6 +122,12 @@ class ScoreCalculatorApp(QMainWindow):
         self.logic.log_message.connect(self.gui_log)
         self.logic.ocr_error.connect(self.show_ocr_error_message)
         self.logic.info_message.connect(self.show_info_message)
+
+        # Connect signals from ScoreCalculator
+        self.score_calc.log_requested.connect(self.gui_log)
+        self.score_calc.error_occurred.connect(self.show_error_message)
+        self.score_calc.single_calculation_completed.connect(self.on_single_calc_completed)
+        self.score_calc.batch_calculation_completed.connect(self.on_batch_calc_completed)
         
         # Connect signals from CharacterManager
         self.character_manager.profiles_updated.connect(self.events.on_profiles_updated)
@@ -159,9 +171,9 @@ class ScoreCalculatorApp(QMainWindow):
             QShortcut(QKeySequence("Ctrl+V"), self).activated.connect(self.image_proc.paste_from_clipboard)
             
             # Ctrl + Enter or F5: Calculate
-            QShortcut(QKeySequence("Ctrl+Return"), self).activated.connect(self.score_calc.calculate_all_scores)
-            QShortcut(QKeySequence("Ctrl+Enter"), self).activated.connect(self.score_calc.calculate_all_scores)
-            QShortcut(QKeySequence("F5"), self).activated.connect(self.score_calc.calculate_all_scores)
+            QShortcut(QKeySequence("Ctrl+Return"), self).activated.connect(self.trigger_calculation)
+            QShortcut(QKeySequence("Ctrl+Enter"), self).activated.connect(self.trigger_calculation)
+            QShortcut(QKeySequence("F5"), self).activated.connect(self.trigger_calculation)
             
             # Ctrl + S: Export to TXT
             QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self.tab_mgr.export_result_to_txt)
@@ -220,6 +232,7 @@ class ScoreCalculatorApp(QMainWindow):
         self.auto_apply_main_stats = app_config.auto_apply_main_stats
         self.score_mode_var = app_config.score_mode_var
         self._updating_tabs = False
+        self._waiting_for_character = False
         self.crop_mode_var = app_config.crop_mode
         self.crop_left_percent_var = app_config.crop_left_percent
         self.crop_top_percent_var = app_config.crop_top_percent
@@ -419,6 +432,64 @@ class ScoreCalculatorApp(QMainWindow):
         dup_ids = self.tab_mgr.find_duplicate_entries(entries)
         if dup_ids:
             self.gui_log(f"重複個体検出: {dup_ids}")
+
+    def trigger_calculation(self) -> None:
+        """Triggers the calculation based on current state."""
+        try:
+            # Check if character is selected
+            if not self.character_var:
+                self._waiting_for_character = True
+                self.result_text.setHtml(f"<h3 style='color: orange;'>{self.tr('waiting_for_character')}</h3>")
+                self.gui_log(self.tr("log_waiting_for_character"))
+                return
+            
+            self._waiting_for_character = False
+            
+            # Detect duplicates across all tabs first
+            self.show_duplicate_entries()
+            
+            character = self.character_var
+            score_mode = self.score_mode_var
+            enabled_methods = self.app_config.enabled_calc_methods
+            
+            if score_mode == "single":
+                tab_name = self.tab_mgr.get_selected_tab_name()
+                if not tab_name:
+                    QMessageBox.warning(self, "Warning", "No tab selected.")
+                    return
+                
+                entry = self.tab_mgr.extract_tab_data(tab_name)
+                if not entry:
+                    QMessageBox.critical(self, "Error", f"Failed to extract data for tab '{tab_name}'")
+                    return
+                
+                self.score_calc.calculate_single(character, tab_name, entry, enabled_methods)
+            else:
+                # Batch calculation
+                tabs_data = {}
+                for tab_name in self.tab_mgr.tabs_content.keys():
+                    entry = self.tab_mgr.extract_tab_data(tab_name)
+                    if entry and entry.main_stat:
+                        tabs_data[tab_name] = entry
+                
+                self.score_calc.calculate_batch(character, tabs_data, enabled_methods, self.language)
+                
+        except Exception as e:
+            self.logger.exception(f"Calculation trigger error: {e}")
+            self.gui_log(f"Calculation trigger error: {e}")
+
+    def on_single_calc_completed(self, html: str, tab_name: str, evaluation: object) -> None:
+        """Handle completion of single score calculation."""
+        self.result_text.setHtml(html)
+        self.tab_mgr.save_tab_result(tab_name)
+    
+    def on_batch_calc_completed(self, html: str, character: str) -> None:
+        """Handle completion of batch score calculation."""
+        self.result_text.setHtml(html)
+
+    def show_error_message(self, title: str, message: str) -> None:
+        """Show error message dialog."""
+        QMessageBox.critical(self, title, message)
 
 
 if __name__ == "__main__":

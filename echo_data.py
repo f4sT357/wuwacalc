@@ -109,17 +109,29 @@ class EchoData:
         total_contribution = 0
         
         threshold = effective_stats_config.get("threshold", 0.5)
+        eps = 1e-9
+        
+        # Substats only (Main stat is excluded as per user confirmation)
         base_multiplier = effective_stats_config.get("base_multiplier", 20)
         bonus_multipliers = effective_stats_config.get("bonus_multiplier", {})
         
+        effective_details = []
         for stat_name, stat_value in self.substats.items():
             weight = stat_weights.get(stat_name, 0)
             
-            if weight >= threshold:
+            is_effective = weight >= (threshold - eps)
+            if is_effective:
                 effective_count += 1
                 max_val = substat_max_values.get(stat_name, 1)
                 contribution = (stat_value / max_val) * weight * base_multiplier
                 total_contribution += contribution
+                effective_details.append(f"{stat_name}({weight})")
+            else:
+                effective_details.append(f"[{stat_name}({weight})]")
+        
+        # Log the breakdown of effective stats (names in [] are non-effective)
+        # This will help identify if a stat was misidentified or has 0 weight
+        # print(f"Effective stats detail: {', '.join(effective_details)}")
         
         bonus = bonus_multipliers.get(str(effective_count), bonus_multipliers.get("default", 0.5))
         

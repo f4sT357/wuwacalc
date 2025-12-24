@@ -85,6 +85,10 @@ class AppLogic(QObject):
             
             # 生バイト列をUTF-8でデコード。デコードエラーは無視する。
             ocr_text = output_bytes.decode('utf-8', errors='ignore') 
+            
+            # クリーンアップ: 記号や不要な空白を除去してマッピング精度を上げる
+            ocr_text = re.sub(r'[|｜・°º«»〝〟"\'‘] ', '', ocr_text)
+            
             end_time = time.time()
             self.log_message.emit(f"OCR process took {end_time - start_time:.2f} seconds. Language: {tess_lang}")
             self.log_message.emit(f"OCR Raw Text:\n{ocr_text.strip()}") # ここで生テキストを出力

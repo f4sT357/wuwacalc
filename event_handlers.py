@@ -96,9 +96,9 @@ class EventHandlers:
             
             self.save_config()
 
-            # Trigger auto calculation if enabled
-            if self.app.app_config.auto_calculate:
-                self.app.score_calc.calculate_all_scores()
+            # Trigger calculation if waiting or auto calculate is enabled
+            if getattr(self.app, "_waiting_for_character", False) or self.app.app_config.auto_calculate:
+                self.app.trigger_calculation()
         else:
             # If the empty item is selected, clear character_var
             self.app.character_var = ""

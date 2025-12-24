@@ -170,9 +170,9 @@ class ImageProcessor(QObject):
         """Handle worker completion."""
         self.logMessage.emit(f"Batch processing completed. {self._batch_successful_count} images processed successfully.")
         
-        # Trigger auto calculation if enabled and character is selected
-        if self.app.app_config.auto_calculate and self.app.character_var:
-            self.app.score_calc.calculate_all_scores()
+        # Trigger calculation if enabled
+        if self.app.app_config.auto_calculate:
+            self.app.trigger_calculation()
             
         # self.app.set_ui_enabled(True) # Re-enable UI
 
@@ -467,9 +467,10 @@ class ImageProcessor(QObject):
             self.logMessage.emit("OCR failed: No text detected.")
             # If OCR fails, still save the image to the current tab for reference
             self.app.tab_mgr.save_tab_image(current_selected_tab_name, stored_original, stored_cropped)
-            # Trigger auto calculation if enabled and character is selected
-        if self.app.app_config.auto_calculate and self.app.character_var:
-            self.app.score_calc.calculate_all_scores()
+            
+        # Trigger calculation if enabled
+        if self.app.app_config.auto_calculate:
+            self.app.trigger_calculation()
     
 
     

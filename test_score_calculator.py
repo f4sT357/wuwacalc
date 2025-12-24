@@ -1,23 +1,40 @@
 import unittest
+import sys
 from unittest.mock import MagicMock, patch, ANY
 from score_calculator import ScoreCalculator
 from data_contracts import EchoEntry, SubStat, EvaluationResult
 from constants import ACTION_SINGLE, ACTION_BATCH
+from PyQt6.QtWidgets import QApplication
+
+# Initialize QApplication for signals
+app = QApplication(sys.argv)
 
 class TestScoreCalculator(unittest.TestCase):
     def setUp(self):
-        self.mock_app = MagicMock()
+        self.mock_dm = MagicMock()
+        self.mock_cm = MagicMock()
+        self.mock_hm = MagicMock()
         self.mock_renderer = MagicMock()
-        self.calculator = ScoreCalculator(self.mock_app, self.mock_renderer)
+        self.mock_config = MagicMock()
+        
+        self.calculator = ScoreCalculator(
+            self.mock_dm,
+            self.mock_cm,
+            self.mock_hm,
+            self.mock_renderer,
+            self.mock_config
+        )
         
         # Setup mocks for dependencies
-        self.mock_app.data_manager.substat_max_values = {}
-        self.mock_app.data_manager.main_stat_multiplier = {}
-        self.mock_app.data_manager.roll_quality_config = {}
-        self.mock_app.data_manager.effective_stats_config = {}
-        self.mock_app.data_manager.cv_weights = {}
-        self.mock_app.tr.side_effect = lambda x: f"tr_{x}"
-        self.mock_app.app_config.history_duplicate_mode = "latest"
+        self.mock_dm.substat_max_values = {}
+        self.mock_dm.main_stat_multiplier = {}
+        self.mock_dm.roll_quality_config = {}
+        self.mock_dm.effective_stats_config = {}
+        self.mock_dm.cv_weights = {}
+        
+        self.app_config = MagicMock()
+        self.app_config.history_duplicate_mode = "latest"
+        self.mock_config.get_app_config.return_value = self.app_config
 
     @patch('score_calculator.EchoData')
     def test_process_echo_evaluation(self, MockEchoData):
@@ -43,44 +60,46 @@ class TestScoreCalculator(unittest.TestCase):
         self.assertEqual(result.total_score, 100.0)
         
         # Verify History Add
-        self.mock_app.history_mgr.add_entry.assert_called_once_with(
+        self.mock_hm.add_entry.assert_called_once_with(
             character="Char1",
             cost="4",
             action=ACTION_SINGLE,
             result=ANY,
             fingerprint="hash123",
-            details={"score": 100.0},
+            details={
+                "score": 100.0,
+                "rating_key": "S"
+            },
             duplicate_mode="latest"
         )
 
-    def test_calculate_single_score_calls_process(self):
-        # Test that calculate_single_score correctly calls _process_echo_evaluation
-        self.mock_app.tab_mgr.get_selected_tab_name.return_value = "Tab1"
-        self.mock_app.tab_mgr.extract_tab_data.return_value = EchoEntry(0, "4", "Main", [])
-        self.mock_app.app_config.enabled_calc_methods = {"method": True}
+    def test_calculate_single_calls_process(self):
+        # Test that calculate_single correctly calls _process_echo_evaluation
+        entry = EchoEntry(0, "4", "Main", [])
+        methods = {"method": True}
         
         with patch.object(self.calculator, '_process_echo_evaluation') as mock_process:
             mock_process.return_value = EvaluationResult(100.0, 1, "S", "S", {})
             
-            self.calculator.calculate_single_score({}, "Char1")
+            # Connect signal to verify
+            self.calculator.single_calculation_completed.connect(lambda html, tab, eval: None)
+            
+            self.calculator.calculate_single("Char1", "Tab1", entry, methods)
             
             mock_process.assert_called_once()
             self.mock_renderer.render_single_score.assert_called_once()
 
-    def test_evaluate_tab_for_batch_calls_process(self):
-        # Test that _evaluate_tab_for_batch correctly calls _process_echo_evaluation
-        self.mock_app.language = "en"
-        self.mock_app.tab_mgr.extract_tab_data.return_value = EchoEntry(0, "4", "Main", [])
+    def test_format_eval_data_for_batch(self):
+        # Test formatting logic
+        eval_result = EvaluationResult(100.0, 1, "S", "S", {"normalized": 100.0})
         
-        with patch('score_calculator.TRANSLATIONS', {"en": {"S": "S_Rank"}}):
-            with patch.object(self.calculator, '_process_echo_evaluation') as mock_process:
-                mock_process.return_value = EvaluationResult(100.0, 1, "S", "S", {})
-                
-                result = self.calculator._evaluate_tab_for_batch("Tab1", {}, {}, {}, "Char1")
-                
-                mock_process.assert_called_once()
-                self.assertIsNotNone(result)
-                self.assertEqual(result["total"], 100.0)
+        with patch('languages.TRANSLATIONS', {"en": {"S": "S_Rank"}}):
+            result = self.calculator._format_eval_data_for_batch("Tab1", eval_result, "en")
+            
+            self.assertEqual(result["tab_name"], "Tab1")
+            self.assertEqual(result["total"], 100.0)
+            self.assertEqual(result["recommendation"], "S_Rank")
+            self.assertEqual(result["normalized"], 100.0)
 
 if __name__ == '__main__':
     unittest.main()
