@@ -6,11 +6,12 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from core.data_contracts import HistoryEntry
 from utils.utils import get_app_path
+from utils.constants import HISTORY_FILENAME
 
 class HistoryManager:
     """Manages application history, including saving, loading, and filtering."""
     
-    def __init__(self, filename: str = "history.json", max_entries: int = 1000):
+    def __init__(self, filename: str = HISTORY_FILENAME, max_entries: int = 1000):
         self.history_path = os.path.join(get_app_path(), filename)
         self.max_entries = max_entries
         self.logger = logging.getLogger(__name__)

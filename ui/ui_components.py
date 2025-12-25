@@ -180,7 +180,7 @@ class UIComponents:
     def _setup_action_buttons(self, layout: QHBoxLayout) -> None:
         self.action_buttons = {}
         # key, slot, tooltip_key
-        buttons = [("calculate", self.app.trigger_calculation, "tooltip_calculate"),
+        buttons = [("calculate", self.app.events.trigger_calculation, "tooltip_calculate"),
                    ("set_equipped", self.app.set_current_as_equipped, "tooltip_set_equipped"),
                    ("export_txt", self.app.export_result_to_txt, "tooltip_export_txt"),
                    ("clear_all", self.app.clear_all, "tooltip_clear_all"),
@@ -195,24 +195,24 @@ class UIComponents:
         self.btn_char_setting = QPushButton(self.app.tr("char_setting"))
         self.btn_char_setting.setToolTip(self.app.tr("tooltip_char_setting"))
         menu = QMenu(self.btn_char_setting)
-        menu.addAction(self.app.tr("new")).triggered.connect(self.app.open_char_settings_new)
-        menu.addAction(self.app.tr("edit")).triggered.connect(self.app.open_char_settings_edit)
+        menu.addAction(self.app.tr("new")).triggered.connect(self.app.events.open_char_settings_new)
+        menu.addAction(self.app.tr("edit")).triggered.connect(self.app.events.open_char_settings_edit)
         self.btn_char_setting.setMenu(menu)
         layout.addWidget(self.btn_char_setting)
         
         self.btn_display_settings = QPushButton(self.app.tr("display_settings"))
         self.btn_display_settings.setToolTip(self.app.tr("tooltip_display_settings"))
-        self.btn_display_settings.clicked.connect(self.app.open_display_settings)
+        self.btn_display_settings.clicked.connect(self.app.events.open_display_settings)
         layout.addWidget(self.btn_display_settings)
         
         self.btn_history = QPushButton(self.app.tr("history"))
         self.btn_history.setToolTip(self.app.tr("tooltip_history"))
-        self.btn_history.clicked.connect(self.app.open_history)
+        self.btn_history.clicked.connect(self.app.events.open_history)
         layout.addWidget(self.btn_history)
 
         self.btn_preprocess_settings = QPushButton(self.app.tr("preprocess_settings"))
         self.btn_preprocess_settings.setToolTip(self.app.tr("tooltip_preprocess"))
-        self.btn_preprocess_settings.clicked.connect(self.app.open_image_preprocessing_settings)
+        self.btn_preprocess_settings.clicked.connect(self.app.events.open_image_preprocessing_settings)
         layout.addWidget(self.btn_preprocess_settings)
         
         self.btn_help = QPushButton(self.app.tr("help"))
@@ -230,11 +230,11 @@ class UIComponents:
         btn_h = QHBoxLayout()
         self.btn_load.setText(self.app.tr("load_image"))
         self.btn_load.setToolTip(self.app.tr("tooltip_load_image"))
-        self.btn_load.clicked.connect(self.app.import_image)
+        self.btn_load.clicked.connect(self.app.events.import_image)
         
         self.btn_paste.setText(self.app.tr("paste_clipboard"))
         self.btn_paste.setToolTip(self.app.tr("tooltip_paste"))
-        self.btn_paste.clicked.connect(self.app.paste_from_clipboard)
+        self.btn_paste.clicked.connect(self.app.events.paste_from_clipboard)
         
         self.btn_crop.setText(self.app.tr("perform_crop"))
         self.btn_crop.setToolTip(self.app.tr("tooltip_crop"))
@@ -243,7 +243,7 @@ class UIComponents:
         self.cb_auto_calculate.setText(self.app.tr("auto_calculate"))
         self.cb_auto_calculate.setToolTip(self.app.tr("tooltip_auto_calculate"))
         self.cb_auto_calculate.setChecked(self.app.app_config.auto_calculate)
-        self.cb_auto_calculate.toggled.connect(self.app.on_auto_calculate_change)
+        self.cb_auto_calculate.toggled.connect(self.app.events.on_auto_calculate_change)
         
         btn_h.addWidget(self.btn_load); btn_h.addWidget(self.btn_paste); btn_h.addWidget(self.btn_crop); btn_h.addWidget(self.cb_auto_calculate)
         vbox.addLayout(btn_h)
@@ -282,9 +282,9 @@ class UIComponents:
         vbox = QVBoxLayout()
         lbl = QLabel(label_text)
         vbox.addWidget(lbl)
-        e = QLineEdit(str(val)); e.setFixedWidth(40); e.textChanged.connect(self.app.on_crop_percent_change)
+        e = QLineEdit(str(val)); e.setFixedWidth(40); e.textChanged.connect(self.app.events.on_crop_percent_change)
         vbox.addWidget(e)
-        s = QSlider(Qt.Orientation.Horizontal); s.setRange(0, 100); s.setValue(int(val)); s.setObjectName(name); s.valueChanged.connect(self.app.on_crop_slider_change)
+        s = QSlider(Qt.Orientation.Horizontal); s.setRange(0, 100); s.setValue(int(val)); s.setObjectName(name); s.valueChanged.connect(self.app.events.on_crop_slider_change)
         vbox.addWidget(s)
         layout.addLayout(vbox)
         return e, s, lbl

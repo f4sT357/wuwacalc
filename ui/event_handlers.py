@@ -19,28 +19,24 @@ from utils.constants import (
 class EventHandlers:
     """Class responsible for event handling."""
     
-    def __init__(self, app: Any, ui_components: Any, config_manager: Any, data_manager: Any, tab_manager: Any, theme_manager: Any, character_manager: Any, image_processor: Any) -> None:
+    def __init__(self, app: Any, ctx: Any) -> None:
         """
         Initialization
         
         Args:
-            app: The main application instance.
-            ui_components: UIComponents instance.
-            config_manager: ConfigManager instance.
-            data_manager: DataManager instance.
-            tab_manager: TabManager instance.
-            theme_manager: ThemeManager instance.
-            character_manager: CharacterManager instance.
-            image_processor: ImageProcessor instance.
+            app: The main application window instance.
+            ctx: The AppContext instance containing all managers.
         """
-        self.app = app # This will be removed in a later step
-        self.ui = ui_components
-        self.config_manager = config_manager
-        self.data_manager = data_manager
-        self.tab_mgr = tab_manager
-        self.theme_manager = theme_manager
-        self.character_manager = character_manager
-        self.image_proc = image_processor
+        self.app = app
+        self.ui = ctx.ui
+        self.config_manager = ctx.config_manager
+        self.data_manager = ctx.data_manager
+        self.tab_mgr = ctx.tab_mgr
+        self.theme_manager = ctx.theme_manager
+        self.character_manager = ctx.character_manager
+        self.image_proc = ctx.image_proc
+        self.score_calc = ctx.score_calc
+        self.logic = ctx.logic
         
         self.logger = logging.getLogger(__name__)
         
@@ -58,12 +54,164 @@ class EventHandlers:
         self._resize_preview_timer.timeout.connect(self.image_proc.perform_image_preview_update_on_resize)
 
     def setup_connections(self) -> None:
-        """
-        Set up any additional connections not handled in UI creation.
-        Most connections are now done in UIComponents.
-        """
-        pass
-    
+        """Set up all signal connections."""
+        # Logic signals
+        self.logic.log_message.connect(self.app.gui_log)
+        self.logic.ocr_error.connect(self.app.show_ocr_error_message)
+        self.logic.info_message.connect(self.app.show_info_message)
+
+        # ScoreCalc signals
+        self.score_calc.log_requested.connect(self.app.gui_log)
+        self.score_calc.error_occurred.connect(self.app.show_error_message)
+        self.score_calc.single_calculation_completed.connect(self.app.on_single_calc_completed)
+        self.score_calc.batch_calculation_completed.connect(self.app.on_batch_calc_completed)
+
+        # TabMgr signals
+        self.tab_mgr.log_requested.connect(self.app.gui_log)
+        self.tab_mgr.tabs_updated.connect(self.app.on_tabs_updated)
+
+        # ImageProc signals
+        self.image_proc.ocr_completed.connect(self.on_ocr_completed)
+        self.image_proc.log_requested.connect(self.app.gui_log)
+        self.image_proc.error_occurred.connect(self.app.show_error_message)
+        self.image_proc.image_updated.connect(self.app.update_image_preview)
+        self.image_proc.calculation_requested.connect(self.trigger_calculation)
+
+        # UI signals
+        self.app.notebook.currentChanged.connect(self.on_tab_changed)
+        self.character_manager.profiles_updated.connect(self.on_profiles_updated)
+        self.character_manager.character_registered.connect(self.on_character_registered)
+
+        self.ui.config_combo.currentTextChanged.connect(self.on_config_change)
+        self.ui.character_combo.currentIndexChanged.connect(self.on_character_change)
+        self.ui.lang_combo.currentTextChanged.connect(self.on_language_change)
+        self.ui.rb_manual.toggled.connect(lambda c: self.on_mode_change("manual") if c else None)
+        self.ui.rb_ocr.toggled.connect(lambda c: self.on_mode_change("ocr") if c else None)
+        self.ui.cb_auto_main.toggled.connect(self.on_auto_main_change)
+        self.ui.rb_batch.toggled.connect(lambda c: self.on_score_mode_change("batch") if c else None)
+        self.ui.rb_single.toggled.connect(lambda c: self.on_score_mode_change("single") if c else None)
+        
+        for method, cb in self.ui.method_checkboxes.items():
+            cb.toggled.connect(self.on_calc_method_changed)
+
+    def trigger_calculation(self) -> None:
+        """Triggers the calculation logic."""
+        try:
+            if not self.app.character_var:
+                self.app._waiting_for_character = True
+                self.ui.result_text.setHtml(f"<h3 style='color: orange;'>{self.app.tr('waiting_for_character')}</h3>")
+                return
+            
+            self.app._waiting_for_character = False
+            self.app.show_duplicate_entries()
+            
+            enabled_methods = self.app.app_config.enabled_calc_methods
+            if self.app.score_mode_var == "single":
+                tab_name = self.tab_mgr.get_selected_tab_name()
+                entry = self.tab_mgr.extract_tab_data(tab_name)
+                if entry:
+                    self.score_calc.calculate_single(self.app.character_var, tab_name, entry, enabled_methods)
+            else:
+                tabs_data = {n: self.tab_mgr.extract_tab_data(n) for n in self.tab_mgr.tabs_content.keys()}
+                self.score_calc.calculate_batch(self.app.character_var, tabs_data, enabled_methods, self.app.language)
+        except Exception as e:
+            self.logger.exception(f"Calc error: {e}")
+
+    def on_ocr_completed(self, result: Any) -> None:
+        """Handles OCR completion, routing the result to the best tab."""
+        from core.data_contracts import OCRResult, BatchItemResult
+        
+        # Check for character selection waiting state
+        self.app.check_character_selected(quiet=True)
+        
+        if isinstance(result, OCRResult):
+            for msg in result.log_messages:
+                self.app.gui_log(msg)
+            
+            target_tab = self.tab_mgr.find_best_tab_match(result.cost, result.main_stat, self.app.character_var)
+            if not target_tab:
+                target_tab = self.tab_mgr.get_selected_tab_name()
+            
+            if target_tab:
+                self._switch_to_tab(target_tab)
+                self.app.gui_log(f"Applying OCR result to tab: {target_tab}")
+                self.tab_mgr.apply_ocr_result_to_tab(target_tab, result)
+                self.tab_mgr.save_tab_image(target_tab, result.original_image, result.cropped_image)
+                
+        elif isinstance(result, BatchItemResult):
+            target_tab = self.tab_mgr.find_best_tab_match(result.result.cost, result.result.main_stat, self.app.character_var)
+            if not target_tab:
+                target_tab = self.tab_mgr.get_selected_tab_name()
+            
+            if target_tab:
+                self.app.gui_log(f"Applying batch result to tab: {target_tab}")
+                self.tab_mgr.apply_ocr_result_to_tab(target_tab, result.result)
+                self.tab_mgr.save_tab_image(target_tab, result.original_image, result.cropped_image)
+
+    def _switch_to_tab(self, tab_name: str) -> None:
+        config_key = self.app.app_config.current_config_key
+        tab_names = self.data_manager.tab_configs.get(config_key, [])
+        if tab_name in tab_names:
+            idx = tab_names.index(tab_name)
+            self.app.notebook.setCurrentIndex(idx)
+
+    def on_tab_changed(self, index: int) -> None:
+        if index < 0 or getattr(self.app, "_updating_tabs", False):
+            return
+        tab_name = self.tab_mgr.get_selected_tab_name()
+        if tab_name:
+            self.app.show_tab_image(tab_name)
+            self.app.show_tab_result(tab_name)
+
+    def open_char_settings_new(self) -> None:
+        from ui.dialogs import CharSettingDialog
+        CharSettingDialog(self.app, self.character_manager.register_character).exec()
+
+    def open_char_settings_edit(self) -> None:
+        from ui.dialogs import CharSettingDialog
+        from PySide6.QtWidgets import QInputDialog
+        
+        target_char = self.app.character_var
+        if not target_char:
+            all_chars = self.character_manager.get_all_characters(self.app.language)
+            if not all_chars: return
+            items = [name for name, internal in all_chars]
+            item, ok = QInputDialog.getItem(self.app, self.app.tr("select_character"), 
+                                           self.app.tr("select_character_to_edit"), items, 0, False)
+            if ok and item:
+                target_char = next((internal for name, internal in all_chars if name == item), None)
+            else: return
+
+        p = self.character_manager.get_character_profile(target_char)
+        if p: CharSettingDialog(self.app, self.character_manager.register_character, profile=p).exec()
+
+    def open_display_settings(self) -> None:
+        from ui.dialogs import DisplaySettingsDialog
+        DisplaySettingsDialog(self.app).exec()
+
+    def open_history(self) -> None:
+        from ui.dialogs import HistoryDialog
+        from managers.history_manager import HistoryManager # Double check if needed
+        HistoryDialog(self.app, self.app.history_mgr).exec()
+
+    def open_image_preprocessing_settings(self) -> None:
+        from ui.dialogs import ImagePreprocessingSettingsDialog
+        ImagePreprocessingSettingsDialog(self.app).exec()
+
+    def import_image(self) -> None:
+        from PySide6.QtWidgets import QFileDialog
+        self.app.check_character_selected(quiet=True)
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self.app, self.app.tr("select_image_file"), "", 
+            f"{self.app.tr('image_files')} (*.png *.jpg *.jpeg *.bmp *.gif);;{self.app.tr('all_files')} (*.*)"
+        )
+        if file_paths:
+            self.image_proc.process_images_from_paths(file_paths)
+
+    def paste_from_clipboard(self) -> None:
+        self.app.check_character_selected(quiet=True)
+        self.image_proc.paste_from_clipboard()
+
     def on_config_change(self, text: str) -> None:
         """Rebuild the tab configuration in response to a cost configuration change."""
         self.app.current_config_key = text # Update app state

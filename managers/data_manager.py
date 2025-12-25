@@ -4,7 +4,8 @@ import logging
 from typing import Dict, Any, List
 
 from utils.constants import (
-    KEY_SUBSTATS, KEY_STAT, KEY_VALUE, KEY_CHARACTER, KEY_CHARACTER_JP
+    KEY_SUBSTATS, KEY_STAT, KEY_VALUE, KEY_CHARACTER, KEY_CHARACTER_JP,
+    RES_GAME_DATA, RES_CALC_CONFIG
 )
 from core.data_contracts import DataLoadError
 
@@ -14,8 +15,8 @@ class DataManager:
     """
     def __init__(self, data_dir: str):
         self.data_dir = data_dir
-        self.game_data_path = os.path.join(data_dir, "game_data.json")
-        self.calc_config_path = os.path.join(data_dir, "calculation_config.json")
+        self.game_data_path = os.path.join(data_dir, RES_GAME_DATA)
+        self.calc_config_path = os.path.join(data_dir, RES_CALC_CONFIG)
         
         self.game_data: Dict[str, Any] = {}
         self.calc_config: Dict[str, Any] = {}

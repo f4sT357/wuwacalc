@@ -8,7 +8,12 @@ from PySide6.QtCore import QObject, Signal
 from typing import Optional
 
 from utils.utils import get_app_path, get_resource_path
-from utils.constants import DEFAULT_COST_CONFIG
+from utils.constants import (
+    DEFAULT_COST_CONFIG,
+    DIR_CHARACTER_SETTINGS,
+    EQUIPPED_ECHOES_FILENAME,
+    STAT_CRIT_RATE
+)
 from core.data_contracts import CharacterProfile
 
 def _sanitize_filename(name: str) -> str:
@@ -47,7 +52,7 @@ class CharacterManager(QObject):
 
     def _load_equipped_echoes(self):
         """Loads equipped echoes from a JSON file."""
-        file_path = os.path.join(get_app_path(), "equipped_echoes.json")
+        file_path = os.path.join(get_app_path(), EQUIPPED_ECHOES_FILENAME)
         if os.path.exists(file_path):
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -78,7 +83,7 @@ class CharacterManager(QObject):
         self._equipped_echoes[character][slot] = entry
         
         # Persist to file
-        file_path = os.path.join(get_app_path(), "equipped_echoes.json")
+        file_path = os.path.join(get_app_path(), EQUIPPED_ECHOES_FILENAME)
         try:
             # Convert to serializable format
             output = {}
@@ -105,8 +110,8 @@ class CharacterManager(QObject):
         
         # Paths to check: bundled resources first, then user directory (user dir can override)
         search_dirs = [
-            get_resource_path("character_settings_jsons"),
-            os.path.join(get_app_path(), "character_settings_jsons")
+            get_resource_path(DIR_CHARACTER_SETTINGS),
+            os.path.join(get_app_path(), DIR_CHARACTER_SETTINGS)
         ]
         
         # Use a set to avoid loading the same file twice if paths happen to be the same
@@ -147,7 +152,6 @@ class CharacterManager(QObject):
                         # Load offsets and new stat fields
                         stat_offsets = data.get("stat_offsets", {})
                         if not stat_offsets and "crit_offset" in data:
-                            from utils.constants import STAT_CRIT_RATE
                             stat_offsets[STAT_CRIT_RATE] = data["crit_offset"]
                         
                         base_stats = data.get("base_stats", {})
@@ -214,7 +218,7 @@ class CharacterManager(QObject):
         try:
             # --- Save to JSON file ---
             base_dir = get_app_path()
-            target_dir = os.path.join(base_dir, "character_settings_jsons")
+            target_dir = os.path.join(base_dir, DIR_CHARACTER_SETTINGS)
             os.makedirs(target_dir, exist_ok=True)
             
             # Use English name for filename for consistency

@@ -196,8 +196,23 @@ THEME_COLORS = {
     }
 }
 
+# --- File and Directory Constants ---
 LOG_FILENAME = 'wuwacalc.log'
 CONFIG_FILENAME = 'config.json'
+HISTORY_FILENAME = 'history.json'
+EQUIPPED_ECHOES_FILENAME = 'equipped_echoes.json'
+CROP_PRESETS_FILENAME = 'crop_presets.json'
+
+DIR_CHARACTER_SETTINGS = "character_settings_jsons"
+DIR_DATA = "data"
+DIR_IMAGES = "images"
+DIR_LICENSES = "licenses"
+DIR_LOGS = "logs"
+DIR_TESSERACT = "tesseract"
+
+# --- Resource Path Keys (for get_resource_path) ---
+RES_GAME_DATA = "game_data.json"
+RES_CALC_CONFIG = "calculation_config.json"
 
 # Default cost configuration
 DEFAULT_COST_CONFIG = "43311"
