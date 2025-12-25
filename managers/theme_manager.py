@@ -1,6 +1,6 @@
 import os
 import shutil
-from PyQt6.QtWidgets import QApplication, QStyleFactory, QMessageBox
+from PySide6.QtWidgets import QApplication, QStyleFactory, QMessageBox
 from utils.constants import THEME_COLORS
 from utils.utils import get_app_path
 
@@ -208,22 +208,32 @@ class ThemeManager:
         self.apply_theme(self.app._current_app_theme)
 
     def refresh_global_shadows(self) -> None:
-        from PyQt6.QtWidgets import QGraphicsDropShadowEffect, QLabel, QCheckBox, QRadioButton, QPushButton
-        from PyQt6.QtGui import QColor
+        from PySide6.QtWidgets import QGraphicsDropShadowEffect, QLabel, QCheckBox, QRadioButton, QPushButton, QGroupBox, QTabBar, QApplication
+        from PySide6.QtGui import QColor
         config = self.app.app_config
         show = config.show_text_shadow
         color = QColor(config.text_shadow_color)
-        widgets = self.app.findChildren((QLabel, QCheckBox, QRadioButton, QPushButton))
-        for w in widgets:
-            try:
-                w.setGraphicsEffect(None)
-                if show:
-                    effect = QGraphicsDropShadowEffect(w)
-                    effect.setBlurRadius(config.shadow_blur)
-                    effect.setOffset(config.shadow_offset_x, config.shadow_offset_y)
-                    effect.setColor(color)
-                    w.setGraphicsEffect(effect)
-            except Exception: continue
+        
+        # Target more widget types and scan all widgets in the application
+        target_types = (QLabel, QCheckBox, QRadioButton, QPushButton, QGroupBox, QTabBar)
+        
+        # Use QApplication.allWidgets() to reach widgets in modal dialogs as well
+        for w in QApplication.allWidgets():
+            if isinstance(w, target_types):
+                try:
+                    # Clear existing effect
+                    w.setGraphicsEffect(None)
+                    
+                    if show:
+                        # QGroupBox shadow might blur the border too much, 
+                        # but users often want the title to have shadow.
+                        effect = QGraphicsDropShadowEffect(w)
+                        effect.setBlurRadius(config.shadow_blur)
+                        effect.setOffset(config.shadow_offset_x, config.shadow_offset_y)
+                        effect.setColor(color)
+                        w.setGraphicsEffect(effect)
+                except Exception:
+                    continue
 
     def _copy_image_safely(self, source_path: str, dest_dir: str) -> str:
         os.makedirs(dest_dir, exist_ok=True)

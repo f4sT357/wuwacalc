@@ -81,7 +81,7 @@ See `PROCESS_FLOW.md` for a complete description.
 ## Setup (Detailed) / セットアップ（詳細）
 Prerequisites / 前提条件:
 - Python 3.8+ (3.8+ recommended)
-- On Windows, Visual C++ Redistributable may be required for some binary deps (PyQt6, numpy, opencv).
+- On Windows, Visual C++ Redistributable may be required for some binary deps (PySide6, numpy, opencv).
 
 Steps:
 1. Create and activate a virtual environment (PowerShell example):

@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QComboBox, QGroupBox)
 from utils.constants import OCR_ENGINE_PILLOW, OCR_ENGINE_OPENCV
 from utils.utils import is_opencv_installed
@@ -43,7 +43,7 @@ class ImagePreprocessingSettingsDialog(QDialog):
 
         # Logic to handle missing OpenCV
         if not is_opencv_installed:
-            from PyQt6.QtGui import QStandardItemModel
+            from PySide6.QtGui import QStandardItemModel
             model = self.combo_ocr_engine.model()
             if isinstance(model, QStandardItemModel):
                 item = model.item(1)

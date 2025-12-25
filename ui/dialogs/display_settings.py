@@ -1,9 +1,9 @@
 import os
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QComboBox, QCheckBox, QMessageBox, 
                              QColorDialog, QFileDialog, QSlider)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor, QFontDatabase
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QFontDatabase
 from utils.utils import get_app_path
 
 class DisplaySettingsDialog(QDialog):
@@ -274,6 +274,9 @@ class DisplaySettingsDialog(QDialog):
         btn_layout.addWidget(btn_full_reset)
 
         layout.addLayout(btn_layout)
+
+        # Apply initial shadows to widgets in this dialog
+        self.app.theme_manager.refresh_global_shadows()
 
     def _auto_switch_to_custom(self):
         """Automatically switch theme combo to 'Custom' if an individual setting is changed."""

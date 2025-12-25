@@ -1,7 +1,7 @@
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
-from PyQt6.QtWidgets import QApplication, QVBoxLayout, QWidget, QMainWindow
+from PySide6.QtWidgets import QApplication, QVBoxLayout, QWidget, QMainWindow
 
 # Ensure QApplication exists only once
 app_instance = QApplication.instance()

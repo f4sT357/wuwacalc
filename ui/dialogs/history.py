@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, 
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QLineEdit, QLabel, 
                              QPushButton, QDateEdit, QFrame, QComboBox, QCheckBox)
-from PyQt6.QtCore import Qt, QDate
+from PySide6.QtCore import Qt, QDate
 from typing import List
 from core.data_contracts import HistoryEntry
 

@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QRubberBand, QMessageBox)
-from PyQt6.QtCore import Qt, QRect, QSize, QPoint
-from PyQt6.QtGui import QPixmap, QImage
+from PySide6.QtCore import Qt, QRect, QSize, QPoint
+from PySide6.QtGui import QPixmap, QImage
 from utils.constants import DIALOG_CROP_WIDTH, DIALOG_CROP_HEIGHT
 
 try:
@@ -57,7 +57,7 @@ class CropDialog(QDialog):
     def init_ui(self):
         import json
         import os
-        from PyQt6.QtWidgets import QCheckBox, QComboBox, QLineEdit
+        from PySide6.QtWidgets import QCheckBox, QComboBox, QLineEdit
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(self.app.tr("crop_instruction")))

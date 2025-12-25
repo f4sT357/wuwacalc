@@ -4,7 +4,7 @@ import logging
 import os
 import copy
 import re
-from PyQt6.QtCore import QObject, pyqtSignal
+from PySide6.QtCore import QObject, Signal
 from typing import Optional
 
 from utils.utils import get_app_path, get_resource_path
@@ -18,8 +18,8 @@ def _sanitize_filename(name: str) -> str:
 class CharacterManager(QObject):
     """Manages character data, including loading, saving, and registration."""
     
-    profiles_updated = pyqtSignal()
-    character_registered = pyqtSignal(str) # Emits the internal name of the new character
+    profiles_updated = Signal()
+    character_registered = Signal(str) # Emits the internal name of the new character
 
     def __init__(self, logger: logging.Logger, data_manager, parent=None):
         super().__init__(parent)

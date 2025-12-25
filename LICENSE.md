@@ -32,11 +32,11 @@
 
 このアプリケーションは以下のオープンソースライブラリを使用しています：
 
-### 1. PyQt6
-- **ライセンス**: GPL v3
-- **著作権**: Riverbank Computing Limited
+### 1. PySide6
+- **ライセンス**: LGPL v3
+- **著作権**: The Qt Company Ltd.
 - **用途**: グラフィカルユーザーインターフェース
-- **ライセンス詳細**: https://www.riverbankcomputing.com/software/pyqt/license
+- **ライセンス詳細**: https://www.qt.io/qt-for-python
 
 ### 2. Tesseract OCR
 - **ライセンス**: Apache License 2.0
@@ -69,7 +69,7 @@
 Copyright © 2025 WuwaCalc
 
 このアプリケーションは、上記のオープンソースライブラリのライセンス条項に従って配布されます。
-特にPyQt6のGPL v3ライセンスにより、このアプリケーション全体もGPL v3の条項の下で提供されます。
+PySide6ライブラリをLGPL v3の条件下で使用しています。
 
 ---
 
@@ -118,11 +118,11 @@ This application is an unofficial fan-made tool and is not officially endorsed o
 
 This application uses the following open-source libraries:
 
-### 1. PyQt6
-- **License**: GPL v3
-- **Copyright**: Riverbank Computing Limited
+### 1. PySide6
+- **License**: LGPL v3
+- **Copyright**: The Qt Company Ltd.
 - **Purpose**: Graphical User Interface
-- **License Details**: https://www.riverbankcomputing.com/software/pyqt/license
+- **License Details**: https://www.qt.io/qt-for-python
 
 ### 2. Tesseract OCR
 - **License**: Apache License 2.0
@@ -155,7 +155,7 @@ For the complete license text of each library, please refer to `THIRD_PARTY_LICE
 Copyright © 2025 WuwaCalc
 
 This application is distributed in accordance with the license terms of the open-source libraries mentioned above.
-In particular, due to PyQt6's GPL v3 license, this entire application is provided under the terms of GPL v3.
+The PySide6 library is used under the terms of LGPL v3.
 
 ---
 

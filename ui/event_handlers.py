@@ -1,5 +1,5 @@
 """
-Event Handling Module (PyQt6)
+Event Handling Module (PySide6)
 
 Provides event callbacks and debounce processing.
 """
@@ -8,8 +8,8 @@ import logging
 import time
 from typing import Any, Optional
 
-from PyQt6.QtWidgets import QMessageBox, QApplication
-from PyQt6.QtCore import QTimer
+from PySide6.QtWidgets import QMessageBox, QApplication
+from PySide6.QtCore import QTimer
 from utils.constants import (
     TIMER_SAVE_CONFIG_INTERVAL,
     TIMER_CROP_PREVIEW_INTERVAL,

@@ -92,33 +92,33 @@ tesseract バイナリに含まれる DLL やライブラリは多数あり、�
 ---
 
 ## 目次
-1. [PyQt6](#1-pyqt6)
+1. [PySide6](#1-pyside6)
 2. [Tesseract OCR](#2-tesseract-ocr)
 3. [Pillow](#3-pillow)
 4. [pytesseract](#4-pytesseract)
 
 ---
 
-## 1. PyQt6
+## 1. PySide6
 
 ### 概要
-- **プロジェクト**: PyQt6
+- **プロジェクト**: PySide6 (Qt for Python)
 - **バージョン**: 6.x
-- **ライセンス**: GNU General Public License v3 (GPL v3)
-- **著作権**: Copyright © Riverbank Computing Limited
-- **ウェブサイト**: https://www.riverbankcomputing.com/software/pyqt/
+- **ライセンス**: GNU Lesser General Public License v3 (LGPL v3)
+- **著作権**: Copyright © 2024 The Qt Company Ltd.
+- **ウェブサイト**: https://www.qt.io/qt-for-python
 - **用途**: グラフィカルユーザーインターフェース（GUI）フレームワーク
 
 ### ライセンス情報
-PyQt6はGPL v3ライセンスの下で提供されています。このライセンスはコピーレフトライセンスであり、PyQt6を使用したアプリケーションもGPL v3の条項に従う必要があります。
+PySide6はLGPL v3ライセンスの下で提供されています。このライセンスは、動的リンクを使用する場合、アプリケーション自体のソースコードを開示することなく商用・非商用を問わず利用できる柔軟性を持っています。
 
-**GPL v3ライセンスの主な条項**:
-- ソースコードの開示義務
-- 派生物も同じライセンスで提供する必要がある
-- 非商用・商用問わず自由に使用可能
-- 改変・再配布が可能
+**LGPL v3ライセンスの主な条項**:
+- ライブラリ自体の改変を行った場合はソースコードの開示が必要
+- 動的リンクによる利用であれば、アプリケーションのソースコード開示は不要
+- 非商用・商用問わず使用可能
+- 改変・再配布が可能（LGPLの条件下で）
 
-**完全なライセンステキスト**: https://www.gnu.org/licenses/gpl-3.0.html
+**完全なライセンステキスト**: https://www.gnu.org/licenses/lgpl-3.0.html
 
 ---
 
@@ -393,7 +393,7 @@ pytesseractはApache License 2.0の下で提供されています。
 
 1. **著作権表示の保持**: すべてのライブラリの著作権表示を含めています
 2. **ライセンス通知**: 各ライブラリのライセンス情報を明記しています
-3. **GPL v3の遵守**: PyQt6のGPL v3ライセンスに従い、このアプリケーション全体もGPL v3の下で提供されます
+3. **ライセンスの遵守**: 使用している各ライブラリのライセンス条項を遵守してください。
 4. **Apache 2.0の遵守**: Tesseract OCRとpytesseractのApache License 2.0の条項を遵守しています
 5. **HPNDの遵守**: Pillowのライセンス条項を遵守しています
 

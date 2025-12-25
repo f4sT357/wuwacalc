@@ -1,10 +1,10 @@
 """
-Worker Thread Module (PyQt6)
+Worker Thread Module (PySide6)
 
 Provides background threads for long-running tasks like OCR to prevent UI freezing.
 """
 
-from PyQt6.QtCore import QThread, pyqtSignal, QObject
+from PySide6.QtCore import QThread, Signal, QObject
 from typing import List, Optional, Tuple
 from PIL import Image
 import os
@@ -28,11 +28,11 @@ class WorkerSignals(QObject):
     log
         `str` log message
     """
-    finished = pyqtSignal()
-    error = pyqtSignal(tuple)
-    result = pyqtSignal(object) # BatchItemResult
-    progress = pyqtSignal(int, int) # current, total
-    log = pyqtSignal(str)
+    finished = Signal()
+    error = Signal(tuple)
+    result = Signal(object) # BatchItemResult
+    progress = Signal(int, int) # current, total
+    log = Signal(str)
 
 class OCRWorker(QThread):
     """

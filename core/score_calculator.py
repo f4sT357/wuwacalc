@@ -1,11 +1,11 @@
 """
-Score Calculation Module (PyQt6)
+Score Calculation Module (PySide6)
 
 Provides the logic for calculating Echo scores.
 """
 
 from typing import Dict, Any, List, Optional, Tuple
-from PyQt6.QtCore import QObject, pyqtSignal
+from PySide6.QtCore import QObject, Signal
 from core.echo_data import EchoData
 from core.data_contracts import EchoEntry, EvaluationResult
 from utils.constants import ACTION_SINGLE, ACTION_BATCH
@@ -17,10 +17,10 @@ class ScoreCalculator(QObject):
     """
     
     # Signals for communication with UI
-    log_requested = pyqtSignal(str)
-    error_occurred = pyqtSignal(str, str)
-    single_calculation_completed = pyqtSignal(str, str, object) # html, tab_name, evaluation
-    batch_calculation_completed = pyqtSignal(str, str) # html, character_name
+    log_requested = Signal(str)
+    error_occurred = Signal(str, str)
+    single_calculation_completed = Signal(str, str, object) # html, tab_name, evaluation
+    batch_calculation_completed = Signal(str, str) # html, character_name
 
     def __init__(self, 
                  data_manager: Any,

@@ -6,9 +6,9 @@ import hashlib
 
 from typing import Any, Callable, Optional, List, Tuple, Dict, Union
 
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QMessageBox, QComboBox, QStatusBar, QFileDialog, QTabWidget, QInputDialog)
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QShortcut, QKeySequence, QPixmap
+from PySide6.QtWidgets import (QApplication, QMainWindow, QMessageBox, QComboBox, QStatusBar, QFileDialog, QTabWidget, QInputDialog)
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QShortcut, QKeySequence, QPixmap
 
 try:
     from PIL import Image, ImageQt
@@ -234,6 +234,7 @@ class ScoreCalculatorApp(QMainWindow):
     def on_tabs_updated(self) -> None:
         self.ui.update_ui_mode()
         self.tab_mgr.apply_character_main_stats(force=True)
+        self.theme_manager.refresh_global_shadows()
 
     def on_tab_changed(self, index: int) -> None:
         if index < 0 or self._updating_tabs: return

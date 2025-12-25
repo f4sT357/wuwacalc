@@ -1,5 +1,5 @@
 """
-Image Processing and OCR Module (PyQt6)
+Image Processing and OCR Module (PySide6)
 
 Provides image loading, cropping, OCR processing, and automatic input.
 """
@@ -9,8 +9,8 @@ import os
 import hashlib
 from typing import Optional, Any, List, Set, Tuple, Dict
 
-from PyQt6.QtGui import QPixmap, QImage
-from PyQt6.QtCore import Qt, QObject, pyqtSignal
+from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtCore import Qt, QObject, Signal
 
 try:
     from PIL import Image, ImageQt, ImageGrab
@@ -26,11 +26,11 @@ from core.worker_thread import OCRWorker
 class ImageProcessor(QObject):
     """Class responsible for image processing and OCR."""
     
-    ocr_completed = pyqtSignal(object) # OCRResult
-    log_requested = pyqtSignal(str)
-    error_occurred = pyqtSignal(str, str)
-    image_updated = pyqtSignal(object) # Image.Image
-    calculation_requested = pyqtSignal()
+    ocr_completed = Signal(object) # OCRResult
+    log_requested = Signal(str)
+    error_occurred = Signal(str, str)
+    image_updated = Signal(object) # Image.Image
+    calculation_requested = Signal()
     
     def __init__(self, logic: 'AppLogic', config_manager: Any) -> None:
         """
@@ -148,15 +148,18 @@ class ImageProcessor(QObject):
             self.log_requested.emit(f"Clipboard (ImageGrab) failed: {e}")
 
         # Fallback to Qt clipboard
-        from PyQt6.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
         clipboard = QApplication.clipboard()
         mime_data = clipboard.mimeData()
         if mime_data.hasImage():
             qimage = clipboard.image()
             if not qimage.isNull():
                 # Convert QImage to PIL
-                buffer = qimage.bits().asstring(qimage.sizeInBytes())
-                image = Image.frombuffer('RGBA', (qimage.width(), qimage.height()), buffer, 'raw', 'RGBA', 0, 1)
+                # In PySide6, QImage.bits() returns a memoryview or similar
+                # For PySide6, we can use ImageQt or other methods, 
+                # but to keep it simple and consistent:
+                from PIL import ImageQt
+                image = ImageQt.fromqimage(qimage)
                 self.log_requested.emit("Image pasted from clipboard (QImage).")
                 self.process_loaded_image(image, "Clipboard (Qt)")
                 return

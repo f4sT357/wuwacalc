@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch, ANY
 from core.score_calculator import ScoreCalculator
 from core.data_contracts import EchoEntry, SubStat, EvaluationResult
 from utils.constants import ACTION_SINGLE, ACTION_BATCH
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 
 # Initialize QApplication for signals
 app = QApplication(sys.argv)

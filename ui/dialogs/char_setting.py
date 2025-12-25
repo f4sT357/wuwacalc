@@ -1,9 +1,9 @@
 import os
 from typing import Callable, Optional, Any
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QComboBox, QPushButton, QGroupBox, 
                              QMessageBox)
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 from core.data_contracts import CharacterProfile
 from utils.constants import DIALOG_CHAR_SETTING_WIDTH, DIALOG_CHAR_SETTING_HEIGHT
 

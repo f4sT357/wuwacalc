@@ -1,5 +1,5 @@
 """
-Application Logic Module (PyQt6)
+Application Logic Module (PySide6)
 
 Provides core application logic including OCR, data loading/saving, and character profile management.
 """
@@ -13,7 +13,7 @@ from typing import Optional, Any, Dict, List, Tuple, Callable, Union
 from core.data_contracts import SubStat, OCRResult
 from pytesseract import Output
 
-from PyQt6.QtCore import Qt, QObject, pyqtSignal
+from PySide6.QtCore import Qt, QObject, Signal
 from utils.constants import OCR_ENGINE_OPENCV
 
 try:
@@ -43,9 +43,9 @@ from utils.constants import (
 from utils.utils import get_app_path
 
 class AppLogic(QObject):
-    log_message = pyqtSignal(str)
-    ocr_error = pyqtSignal(str, str)
-    info_message = pyqtSignal(str, str)
+    log_message = Signal(str)
+    ocr_error = Signal(str, str)
+    info_message = Signal(str, str)
     
 
 

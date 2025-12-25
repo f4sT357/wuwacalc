@@ -1,16 +1,16 @@
 """
-Tab Management Module (PyQt6)
+Tab Management Module (PySide6)
 
 Provides functions for managing, saving, restoring, clearing, and exporting tab data.
 """
 
 from typing import Dict, Any, List, Optional, Tuple, Callable
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, 
     QComboBox, QLineEdit, QGridLayout, QTabWidget, QMessageBox, QFileDialog
 )
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtCore import QObject, pyqtSignal, Qt
+from PySide6.QtGui import QPixmap
+from PySide6.QtCore import QObject, Signal, Qt
 from core.data_contracts import EchoEntry, SubStat, OCRResult
 from utils.constants import DEFAULT_COST_CONFIG
 import logging
@@ -33,10 +33,10 @@ class TabManager(QObject):
     """
     
     # Signals for UI notifications
-    log_requested = pyqtSignal(str)
-    tabs_updated = pyqtSignal()
-    image_preview_requested = pyqtSignal(object) # Image.Image
-    calculation_requested = pyqtSignal()
+    log_requested = Signal(str)
+    tabs_updated = Signal()
+    image_preview_requested = Signal(object) # Image.Image
+    calculation_requested = Signal()
 
     def __init__(self, 
                  notebook: QTabWidget, 

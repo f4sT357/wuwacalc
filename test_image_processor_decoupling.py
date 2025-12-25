@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 import sys
 
 # Ensure QApplication exists
@@ -25,7 +25,7 @@ class TestImageProcessorDecoupling(unittest.TestCase):
         # Old was (self, app, logic)
 
     @patch('core.image_processor.is_pil_installed', True)
-    @patch('PyQt6.QtWidgets.QFileDialog.getOpenFileNames')
+    @patch('PySide6.QtWidgets.QFileDialog.getOpenFileNames')
     def test_import_image_cancel_emits_log(self, mock_get_open):
         # Setup mock to return empty list (cancelled)
         mock_get_open.return_value = ([], "filter")

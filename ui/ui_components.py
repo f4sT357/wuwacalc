@@ -1,16 +1,16 @@
 """
-UI Components Module (PyQt6)
+UI Components Module (PySide6)
 """
 
 from typing import Any, Optional, List, Tuple, Dict, Union
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, 
     QPushButton, QGroupBox, QTextEdit, QSplitter, 
     QComboBox, QCheckBox, QRadioButton, QSlider, QMenu, QLineEdit, QTabWidget, QGridLayout, QCompleter,
     QButtonGroup
 )
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
 
 from ui.ui_constants import (
     WINDOW_WIDTH, WINDOW_HEIGHT, RIGHT_TOP_HEIGHT,
