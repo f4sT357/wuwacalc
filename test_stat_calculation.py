@@ -1,7 +1,6 @@
-
 import unittest
-from echo_data import EchoData
-from constants import STAT_ATK_PERCENT, STAT_ATK_FLAT, STAT_CRIT_RATE
+from core.echo_data import EchoData
+from utils.constants import STAT_ATK_PERCENT, STAT_ATK_FLAT, STAT_CRIT_RATE
 
 class TestStatCalculation(unittest.TestCase):
     def setUp(self):
@@ -57,7 +56,7 @@ class TestStatCalculation(unittest.TestCase):
 
     def test_scaling_stat_switch(self):
         """Test switching scaling stat to HP."""
-        from constants import STAT_HP_FLAT, STAT_HP_PERCENT
+        from utils.constants import STAT_HP_FLAT, STAT_HP_PERCENT
         base_stats = {STAT_HP_FLAT: 10000.0}
         stat_offsets = {STAT_HP_PERCENT: 50.0, STAT_HP_FLAT: 2000.0}
         ideal_stats = {STAT_HP_FLAT: 20000.0}

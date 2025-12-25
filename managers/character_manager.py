@@ -7,9 +7,9 @@ import re
 from PyQt6.QtCore import QObject, pyqtSignal
 from typing import Optional
 
-from utils import get_app_path, get_resource_path
-from constants import DEFAULT_COST_CONFIG
-from data_contracts import CharacterProfile
+from utils.utils import get_app_path, get_resource_path
+from utils.constants import DEFAULT_COST_CONFIG
+from core.data_contracts import CharacterProfile
 
 def _sanitize_filename(name: str) -> str:
     """Sanitizes a string to be a valid filename."""
@@ -53,7 +53,7 @@ class CharacterManager(QObject):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     # Convert dicts back to EchoEntry objects (simplified for now)
-                    from data_contracts import EchoEntry, SubStat
+                    from core.data_contracts import EchoEntry, SubStat
                     for char, slots in data.items():
                         self._equipped_echoes[char] = {}
                         for slot, entry_dict in slots.items():
@@ -147,7 +147,7 @@ class CharacterManager(QObject):
                         # Load offsets and new stat fields
                         stat_offsets = data.get("stat_offsets", {})
                         if not stat_offsets and "crit_offset" in data:
-                            from constants import STAT_CRIT_RATE
+                            from utils.constants import STAT_CRIT_RATE
                             stat_offsets[STAT_CRIT_RATE] = data["crit_offset"]
                         
                         base_stats = data.get("base_stats", {})

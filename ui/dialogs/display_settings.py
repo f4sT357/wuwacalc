@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QColorDialog, QFileDialog, QSlider)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFontDatabase
+from utils.utils import get_app_path
 
 class DisplaySettingsDialog(QDialog):
     """Dialog for display settings, including text color."""
@@ -345,7 +346,7 @@ class DisplaySettingsDialog(QDialog):
             self.selected_theme = theme_id
             
             # Auto-apply preset colors if switching TO a preset (not Custom)
-            from constants import THEME_COLORS
+            from utils.constants import THEME_COLORS
             if theme_id in THEME_COLORS and theme_id != "custom":
                 colors = THEME_COLORS[theme_id]
                 self.selected_text_color = colors.get("text", self.selected_text_color)

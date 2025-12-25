@@ -4,8 +4,8 @@ import logging
 import re
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from data_contracts import HistoryEntry
-from utils import get_app_path
+from core.data_contracts import HistoryEntry
+from utils.utils import get_app_path
 
 class HistoryManager:
     """Manages application history, including saving, loading, and filtering."""

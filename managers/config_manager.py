@@ -10,7 +10,7 @@ import os
 import logging
 from dataclasses import dataclass, asdict, field, fields
 from typing import Optional, Dict, Any
-from constants import (
+from utils.constants import (
     DEFAULT_COST_CONFIG,
     DEFAULT_WINDOW_WIDTH,
     DEFAULT_WINDOW_HEIGHT,

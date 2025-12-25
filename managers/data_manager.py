@@ -3,10 +3,10 @@ import os
 import logging
 from typing import Dict, Any, List
 
-from constants import (
+from utils.constants import (
     KEY_SUBSTATS, KEY_STAT, KEY_VALUE, KEY_CHARACTER, KEY_CHARACTER_JP
 )
-from data_contracts import DataLoadError
+from core.data_contracts import DataLoadError
 
 class DataManager:
     """

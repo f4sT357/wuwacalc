@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QComboBox, QGroupBox)
-from constants import OCR_ENGINE_PILLOW, OCR_ENGINE_OPENCV
-from utils import is_opencv_installed
+from utils.constants import OCR_ENGINE_PILLOW, OCR_ENGINE_OPENCV
+from utils.utils import is_opencv_installed
 
 class ImagePreprocessingSettingsDialog(QDialog):
     """Dialog for OCR (Image Preprocessing) settings."""

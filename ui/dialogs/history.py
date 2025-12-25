@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                              QPushButton, QDateEdit, QFrame, QComboBox, QCheckBox)
 from PyQt6.QtCore import Qt, QDate
 from typing import List
-from data_contracts import HistoryEntry
+from core.data_contracts import HistoryEntry
 
 class HistoryDialog(QDialog):
     """Dialog for viewing application history with character and cost filters."""

@@ -18,10 +18,10 @@ try:
 except ImportError:
     is_pil_installed = False
 
-from utils import crop_image_by_percent
-from data_contracts import SubStat, BatchItemResult, CropConfig, OCRResult
-from ui_constants import IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT
-from worker_thread import OCRWorker
+from utils.utils import crop_image_by_percent
+from core.data_contracts import SubStat, BatchItemResult, CropConfig, OCRResult
+from ui.ui_constants import IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT
+from core.worker_thread import OCRWorker
 
 class ImageProcessor(QObject):
     """Class responsible for image processing and OCR."""

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
-from app_logic import AppLogic
-from data_contracts import SubStat
+from core.app_logic import AppLogic
+from core.data_contracts import SubStat
 
 class TestAppLogicParsing(unittest.TestCase):
     def setUp(self):

@@ -11,8 +11,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import QObject, pyqtSignal, Qt
-from data_contracts import EchoEntry, SubStat, OCRResult
-from constants import DEFAULT_COST_CONFIG
+from core.data_contracts import EchoEntry, SubStat, OCRResult
+from utils.constants import DEFAULT_COST_CONFIG
 import logging
 import os
 
@@ -446,16 +446,16 @@ class TabManager(QObject):
                     return name
         return None
 
-    def find_best_tab_match(self, cost: str, main_stat: str, character: str) -> Optional[str]:
+    def find_best_tab_match(self, cost: str, main_stat: str, character: str = None) -> Optional[str]:
         """
         Finds the most suitable tab for an OCR result using unified short keys.
         """
-        if not character or not cost:
+        if not cost:
             return None
             
         config_key = self._validate_config_key()
         tab_names = self.data_manager.tab_configs.get(config_key, [])
-        mainstats_pref = self.character_manager.get_main_stats(character)
+        mainstats_pref = self.character_manager.get_main_stats(character) if character else {}
         
         # 1. Identify all tabs that match the cost
         cost_matches = []
@@ -467,26 +467,28 @@ class TabManager(QObject):
         if not cost_matches:
             return None
             
-        # 2. Try to find an empty tab that matches the main stat preference
+        # 2. Try to find an empty tab that matches the main stat preference (if char exists)
         empty_tabs = [n for n in cost_matches if self.tabs_content[n]["main_widget"].currentIndex() <= 0]
         
         if empty_tabs:
-            for name in empty_tabs:
+            if character:
+                for name in empty_tabs:
+                    pref = mainstats_pref.get(name) or mainstats_pref.get(str(cost))
+                    if pref:
+                        prefs_list = pref if isinstance(pref, list) else [pref]
+                        if main_stat in prefs_list:
+                            return name
+            # If no character or no preference match, return the first empty tab of that cost
+            return empty_tabs[0]
+        
+        # 3. All tabs filled: check for preference match to allow smart overwrite (if char exists)
+        if character:
+            for name in cost_matches:
                 pref = mainstats_pref.get(name) or mainstats_pref.get(str(cost))
                 if pref:
                     prefs_list = pref if isinstance(pref, list) else [pref]
                     if main_stat in prefs_list:
                         return name
-            # If no preference match, return the first empty tab of that cost
-            return empty_tabs[0]
-        
-        # 3. All tabs filled: check for preference match to allow smart overwrite
-        for name in cost_matches:
-            pref = mainstats_pref.get(name) or mainstats_pref.get(str(cost))
-            if pref:
-                prefs_list = pref if isinstance(pref, list) else [pref]
-                if main_stat in prefs_list:
-                    return name
                     
         return cost_matches[0]
 

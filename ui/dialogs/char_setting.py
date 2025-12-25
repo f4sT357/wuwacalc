@@ -4,8 +4,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QComboBox, QPushButton, QGroupBox, 
                              QMessageBox)
 from PyQt6.QtCore import Qt
-from data_contracts import CharacterProfile
-from constants import DIALOG_CHAR_SETTING_WIDTH, DIALOG_CHAR_SETTING_HEIGHT
+from core.data_contracts import CharacterProfile
+from utils.constants import DIALOG_CHAR_SETTING_WIDTH, DIALOG_CHAR_SETTING_HEIGHT
 
 class CharSettingDialog(QDialog):
     """Character settings dialog."""
@@ -60,7 +60,7 @@ class CharSettingDialog(QDialog):
         offset_layout = QHBoxLayout(offset_group)
         layout.addWidget(offset_group)
 
-        from constants import STAT_ATK_PERCENT, STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ER
+        from utils.constants import STAT_ATK_PERCENT, STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ER
         self.offset_fields = {}
         for stat in [STAT_ATK_PERCENT, STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ER]:
             v_box = QVBoxLayout()
@@ -76,7 +76,7 @@ class CharSettingDialog(QDialog):
         calc_param_layout = QVBoxLayout(calc_param_group)
         layout.addWidget(calc_param_group)
 
-        from constants import STAT_ATK_FLAT, STAT_DEF_FLAT, STAT_HP_FLAT
+        from utils.constants import STAT_ATK_FLAT, STAT_DEF_FLAT, STAT_HP_FLAT
         row_scaling = QHBoxLayout()
         row_scaling.addWidget(QLabel(self.app.tr("scaling_stat_label")))
         self.combo_scaling = QComboBox()

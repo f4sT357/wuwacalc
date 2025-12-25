@@ -1,9 +1,9 @@
 import unittest
 import sys
 from unittest.mock import MagicMock, patch, ANY
-from score_calculator import ScoreCalculator
-from data_contracts import EchoEntry, SubStat, EvaluationResult
-from constants import ACTION_SINGLE, ACTION_BATCH
+from core.score_calculator import ScoreCalculator
+from core.data_contracts import EchoEntry, SubStat, EvaluationResult
+from utils.constants import ACTION_SINGLE, ACTION_BATCH
 from PyQt6.QtWidgets import QApplication
 
 # Initialize QApplication for signals
@@ -36,7 +36,7 @@ class TestScoreCalculator(unittest.TestCase):
         self.app_config.history_duplicate_mode = "latest"
         self.mock_config.get_app_config.return_value = self.app_config
 
-    @patch('score_calculator.EchoData')
+    @patch('core.score_calculator.EchoData')
     def test_process_echo_evaluation(self, MockEchoData):
         # Setup input
         entry = EchoEntry(0, "4", "ATK%", [SubStat("Crit Rate", "10.0")])
@@ -93,7 +93,7 @@ class TestScoreCalculator(unittest.TestCase):
         # Test formatting logic
         eval_result = EvaluationResult(100.0, 1, "S", "S", {"normalized": 100.0})
         
-        with patch('languages.TRANSLATIONS', {"en": {"S": "S_Rank"}}):
+        with patch('utils.languages.TRANSLATIONS', {"en": {"S": "S_Rank"}}):
             result = self.calculator._format_eval_data_for_batch("Tab1", eval_result, "en")
             
             self.assertEqual(result["tab_name"], "Tab1")

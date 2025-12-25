@@ -10,11 +10,11 @@ import re
 import shutil
 import time
 from typing import Optional, Any, Dict, List, Tuple, Callable, Union
-from data_contracts import SubStat, OCRResult
+from core.data_contracts import SubStat, OCRResult
 from pytesseract import Output
 
 from PyQt6.QtCore import Qt, QObject, pyqtSignal
-from constants import OCR_ENGINE_OPENCV
+from utils.constants import OCR_ENGINE_OPENCV
 
 try:
     from PIL import Image, ImageOps, ImageEnhance, ImageQt
@@ -34,13 +34,13 @@ try:
 except ImportError:
     is_opencv_installed = False
 
-from constants import (
+from utils.constants import (
     DEFAULT_COST_CONFIG,
     KEY_CHARACTER, KEY_CHARACTER_JP, KEY_CONFIG, KEY_AUTO_APPLY, 
     KEY_SCORE_MODE, KEY_ECHOES, KEY_MAIN_STAT, KEY_SUBSTATS, 
     KEY_STAT, KEY_VALUE, KEY_CHARACTER_WEIGHTS, KEY_CHARACTER_MAINSTATS,
 )
-from utils import get_app_path
+from utils.utils import get_app_path
 
 class AppLogic(QObject):
     log_message = pyqtSignal(str)

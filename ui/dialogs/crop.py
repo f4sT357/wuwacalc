@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QRubberBand, QMessageBox)
 from PyQt6.QtCore import Qt, QRect, QSize, QPoint
 from PyQt6.QtGui import QPixmap, QImage
-from constants import DIALOG_CROP_WIDTH, DIALOG_CROP_HEIGHT
+from utils.constants import DIALOG_CROP_WIDTH, DIALOG_CROP_HEIGHT
 
 try:
     from PIL import Image, ImageQt

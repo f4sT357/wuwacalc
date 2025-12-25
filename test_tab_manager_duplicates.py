@@ -1,6 +1,6 @@
 import unittest
-from data_contracts import EchoEntry, SubStat
-from tab_manager import TabManager
+from core.data_contracts import EchoEntry, SubStat
+from managers.tab_manager import TabManager
 
 class DummyApp:
     def __init__(self):

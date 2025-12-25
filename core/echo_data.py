@@ -1,10 +1,10 @@
-from constants import (
+from utils.constants import (
     STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ATK_FLAT, STAT_ER,
     CV_KEY_CRIT_RATE, CV_KEY_CRIT_DMG, CV_KEY_ATK_PERCENT, 
     CV_KEY_ATK_FLAT_DIVISOR, CV_KEY_ATK_FLAT_MULTIPLIER, CV_KEY_ER, CV_KEY_DMG_BONUS,
     DAMAGE_BONUS_STATS
 )
-from data_contracts import EvaluationResult
+from core.data_contracts import EvaluationResult
 
 class EchoData:
     """Echo data class (extended version)."""
@@ -285,7 +285,7 @@ class EchoData:
 
         # Special logic for Final Stat Calculation (e.g. Total ATK)
         # Final = (Base * (1 + PercentSum/100)) + FlatSum
-        from constants import STAT_ATK_PERCENT, STAT_ATK_FLAT, STAT_DEF_PERCENT, STAT_DEF_FLAT, STAT_HP_PERCENT, STAT_HP_FLAT
+        from utils.constants import STAT_ATK_PERCENT, STAT_ATK_FLAT, STAT_DEF_PERCENT, STAT_DEF_FLAT, STAT_HP_PERCENT, STAT_HP_FLAT
         
         # Map scaling stat to its percent counterpart
         percent_map = {

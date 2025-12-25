@@ -6,9 +6,9 @@ Provides the logic for calculating Echo scores.
 
 from typing import Dict, Any, List, Optional, Tuple
 from PyQt6.QtCore import QObject, pyqtSignal
-from echo_data import EchoData
-from data_contracts import EchoEntry, EvaluationResult
-from constants import ACTION_SINGLE, ACTION_BATCH
+from core.echo_data import EchoData
+from core.data_contracts import EchoEntry, EvaluationResult
+from utils.constants import ACTION_SINGLE, ACTION_BATCH
 
 class ScoreCalculator(QObject):
     """
@@ -215,7 +215,7 @@ class ScoreCalculator(QObject):
 
     def _format_eval_data_for_batch(self, tab_name: str, evaluation: EvaluationResult, language: str) -> Dict[str, Any]:
         """Format evaluation result for batch rendering."""
-        from languages import TRANSLATIONS
+        from utils.languages import TRANSLATIONS
         lang_dict = TRANSLATIONS.get(language, TRANSLATIONS["en"])
         
         eval_data = {

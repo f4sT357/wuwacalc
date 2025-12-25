@@ -16,28 +16,28 @@ try:
 except ImportError:
     is_pil_installed = False
 
-from config_manager import ConfigManager
-from constants import (
+from managers.config_manager import ConfigManager
+from utils.constants import (
     LOG_FILENAME,
     CONFIG_FILENAME,
 )
-from logger import logger
-from dialogs import CharSettingDialog, DisplaySettingsDialog, ImagePreprocessingSettingsDialog, CropDialog, HistoryDialog
-from languages import TRANSLATIONS
-from utils import get_app_path, get_resource_path, setup_tesseract, check_and_alert_environment
-from character_manager import CharacterManager
+from utils.logger import logger
+from ui.dialogs import CharSettingDialog, DisplaySettingsDialog, ImagePreprocessingSettingsDialog, CropDialog, HistoryDialog
+from utils.languages import TRANSLATIONS
+from utils.utils import get_app_path, get_resource_path, setup_tesseract, check_and_alert_environment
+from managers.character_manager import CharacterManager
 
-from theme_manager import ThemeManager
-from score_calculator import ScoreCalculator
-from tab_manager import TabManager
-from event_handlers import EventHandlers
-from ui_components import UIComponents
-from image_processor import ImageProcessor
-from app_logic import AppLogic
-from data_manager import DataManager
-from html_renderer import HtmlRenderer
-from history_manager import HistoryManager
-from ui_constants import (
+from managers.theme_manager import ThemeManager
+from core.score_calculator import ScoreCalculator
+from managers.tab_manager import TabManager
+from ui.event_handlers import EventHandlers
+from ui.ui_components import UIComponents
+from core.image_processor import ImageProcessor
+from core.app_logic import AppLogic
+from managers.data_manager import DataManager
+from ui.html_renderer import HtmlRenderer
+from managers.history_manager import HistoryManager
+from ui.ui_constants import (
     WINDOW_WIDTH, WINDOW_HEIGHT, RIGHT_TOP_HEIGHT,
     LOG_MIN_HEIGHT, LOG_DEFAULT_HEIGHT,
     IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT
@@ -251,17 +251,34 @@ class ScoreCalculatorApp(QMainWindow):
         if html: self.ui.result_text.setHtml(html)
         else: self.ui.result_text.clear()
 
+    def check_character_selected(self, quiet: bool = False) -> bool:
+        """Checks if a character is selected. If not, sets waiting state."""
+        if not self.character_var:
+            if not quiet:
+                self.ui.result_text.setHtml(f"<h3 style='color: orange;'>{self.tr('waiting_for_character')}</h3>")
+            self._waiting_for_character = True
+            return False
+        return True
+
     def import_image(self) -> None:
+        self.check_character_selected(quiet=True)
         file_paths, _ = QFileDialog.getOpenFileNames(self, self.tr("select_image_file"), "", f"{self.tr('image_files')} (*.png *.jpg *.jpeg *.bmp *.gif);;{self.tr('all_files')} (*.*)")
         if file_paths: self.image_proc.process_images_from_paths(file_paths)
 
+    def paste_from_clipboard(self) -> None:
+        self.check_character_selected(quiet=True)
+        self.image_proc.paste_from_clipboard()
+
     def on_ocr_completed(self, result: object) -> None:
-        from data_contracts import OCRResult, BatchItemResult
+        from core.data_contracts import OCRResult, BatchItemResult
+        
+        # Check for character but don't block tab assignment
+        has_char = self.check_character_selected()
         
         if isinstance(result, OCRResult):
             for msg in result.log_messages: self.gui_log(msg)
             
-            # Find the best tab for this result
+            # Find the best tab for this result (cost-based matching works without character)
             cost = result.cost
             main_stat = result.main_stat
             target_tab = self.tab_mgr.find_best_tab_match(cost, main_stat, self.character_var)
@@ -304,7 +321,7 @@ class ScoreCalculatorApp(QMainWindow):
             self.events.on_calc_method_changed(states)
 
     def _setup_shortcuts(self) -> None:
-        QShortcut(QKeySequence("Ctrl+V"), self).activated.connect(self.image_proc.paste_from_clipboard)
+        QShortcut(QKeySequence("Ctrl+V"), self).activated.connect(self.paste_from_clipboard)
         QShortcut(QKeySequence("Ctrl+Return"), self).activated.connect(self.trigger_calculation)
         QShortcut(QKeySequence("F5"), self).activated.connect(self.trigger_calculation)
         QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self.export_result_to_txt)

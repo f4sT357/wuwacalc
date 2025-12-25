@@ -1,8 +1,8 @@
 import os
 import shutil
 from PyQt6.QtWidgets import QApplication, QStyleFactory, QMessageBox
-from constants import THEME_COLORS
-from utils import get_app_path
+from utils.constants import THEME_COLORS
+from utils.utils import get_app_path
 
 class ThemeManager:
     def __init__(self, app_instance):

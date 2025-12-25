@@ -10,8 +10,8 @@ from PIL import Image
 import os
 import traceback
 
-from data_contracts import OCRResult, BatchItemResult, CropConfig
-from app_logic import AppLogic
+from core.data_contracts import OCRResult, BatchItemResult, CropConfig
+from core.app_logic import AppLogic
 
 class WorkerSignals(QObject):
     """
@@ -67,7 +67,7 @@ class OCRWorker(QThread):
                 image.load() 
                 
                 # Apply crop if needed
-                from utils import crop_image_by_percent
+                from utils.utils import crop_image_by_percent
                 
                 if self.crop_params.mode == "percent":
                     cropped_img = crop_image_by_percent(

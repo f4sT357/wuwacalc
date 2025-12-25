@@ -8,7 +8,7 @@ app_instance = QApplication.instance()
 if not app_instance:
     app_instance = QApplication(sys.argv)
 
-from ui_components import UIComponents, SettingsPanel
+from ui.ui_components import UIComponents
 
 class TestUIComponents(unittest.TestCase):
     def setUp(self):
@@ -55,51 +55,21 @@ class TestUIComponents(unittest.TestCase):
         # Mock image related attributes
         self.mock_app.loaded_image = None
         self.mock_app.image_label = None
+        
+        # Notebook needed for UIComponents init
+        self.mock_app.notebook = MagicMock()
 
         self.ui = UIComponents(self.mock_app)
 
-    def test_settings_panel_initialization(self):
-        """Test that SettingsPanel is correctly initialized and linked."""
-        self.assertIsInstance(self.ui.settings_panel, SettingsPanel)
-        self.assertEqual(self.ui.settings_panel.app, self.mock_app)
-        self.assertEqual(self.ui.settings_panel.ui, self.ui)
-
-    def test_property_delegation(self):
-        """Test that UIComponents properties delegate to SettingsPanel widgets."""
-        # Check a few critical properties
-        self.assertIs(self.ui.character_combo, self.ui.settings_panel.character_combo)
-        self.assertIs(self.ui.mode_button_group, self.ui.settings_panel.mode_button_group)
-        
-        # Note: Some properties return None before setup_ui is called, 
-        # so we verify they access the correct attribute on settings_panel
-        # by checking the initial None state
-        self.assertIsNone(self.ui.lbl_cost_config)
-        self.assertIsNone(self.ui.settings_panel.lbl_cost_config)
-
     def test_layout_creation(self):
         """Test that create_main_layout correctly constructs the UI hierarchy."""
-        # We need to ensure QWidget creation works (requires QApplication, handled at top)
         try:
             self.ui.create_main_layout()
         except Exception as e:
             self.fail(f"create_main_layout raised exception: {e}")
             
         self.assertIsNotNone(self.ui.main_widget)
-        self.assertIsNotNone(self.ui.settings_panel.settings_group)
-        
-        # Verify settings widgets are populated
-        self.assertIsNotNone(self.ui.settings_panel.lbl_cost_config)
-        self.assertIsNotNone(self.ui.settings_panel.app.config_combo)
-
-    def test_retranslate_ui(self):
-        """Test that retranslate_ui calls the settings panel's retranslate."""
-        # First create layout to populate widgets
-        self.ui.create_main_layout()
-        
-        # Mock the settings_panel.retranslate_ui method to verify it's called
-        with patch.object(self.ui.settings_panel, 'retranslate_ui') as mock_retranslate:
-            self.ui.retranslate_ui()
-            mock_retranslate.assert_called_once()
+        self.assertIsNotNone(self.ui.settings_group)
 
 if __name__ == '__main__':
     unittest.main()

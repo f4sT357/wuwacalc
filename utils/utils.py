@@ -20,7 +20,8 @@ def get_app_path() -> str:
     """
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
+    # utils.py is in the 'utils' subdirectory, so we need to go up one level to reach the root
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def get_resource_path(relative_path: str = "") -> str:
     """
@@ -32,7 +33,8 @@ def get_resource_path(relative_path: str = "") -> str:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     else:
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        # utils.py is in the 'utils' subdirectory, so we need to go up one level to reach the root
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     return os.path.join(base_path, relative_path)
 

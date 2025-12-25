@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from PyQt6.QtWidgets import QMessageBox, QApplication
 from PyQt6.QtCore import QTimer
-from constants import (
+from utils.constants import (
     TIMER_SAVE_CONFIG_INTERVAL,
     TIMER_CROP_PREVIEW_INTERVAL,
     TIMER_RESIZE_PREVIEW_INTERVAL

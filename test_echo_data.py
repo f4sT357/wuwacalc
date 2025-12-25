@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from echo_data import EchoData
-from data_contracts import SubStat, EchoEntry
+from core.echo_data import EchoData
+from core.data_contracts import SubStat, EchoEntry
 
 class TestEchoData(unittest.TestCase):
     def setUp(self):

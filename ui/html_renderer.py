@@ -1,42 +1,10 @@
-from languages import TRANSLATIONS
-from data_contracts import EvaluationResult, EchoEntry
+from utils.languages import TRANSLATIONS
+from core.data_contracts import EvaluationResult, EchoEntry
+from utils.constants import STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ER
 
 class HtmlRenderer:
     """Class responsible for generating HTML for score results."""
     
-    def __init__(self, tr_func, lang: str, show_shadow: bool = True, shadow_color: str = "#000000", text_color: str = "#333333"):
-        """
-        Initialization
-        
-        Args:
-            tr_func: Translation function (app.tr).
-            lang: Current application language.
-            show_shadow: Whether to show text shadows.
-            shadow_color: Hex color string for the shadow.
-            text_color: Hex color string for the main text.
-        """
-        self.tr = tr_func
-        self.language = lang
-        self.show_shadow = show_shadow
-        self.shadow_color = shadow_color
-        self.text_color = text_color
-        self._update_common_style()
-
-    def set_show_shadow(self, show: bool):
-        """Update the shadow setting and refresh common style."""
-        self.show_shadow = show
-        self._update_common_style()
-
-    def set_shadow_color(self, color: str):
-        """Update the shadow color and refresh common style."""
-        self.shadow_color = color
-        self._update_common_style()
-
-    def set_text_color(self, color: str):
-        """Update the text color and refresh common style."""
-        self.text_color = color
-        self._update_common_style()
-
     def __init__(self, tr_func, lang: str, show_shadow: bool = True, shadow_color: str = "#000000", text_color: str = "#333333", 
                  shadow_ox: float = 2.0, shadow_oy: float = 2.0, shadow_blur: float = 5.0, shadow_spread: float = 0.0):
         """
@@ -89,19 +57,17 @@ class HtmlRenderer:
 
     def _update_common_style(self):
         """Updates the internal CSS style based on current settings."""
-        # Qt's HTML engine doesn't support text-shadow. 
-        # We'll use the shadow_color as a semi-transparent background (Yin/阴) 
-        # to ensure text is always readable against images.
         
         def hex_to_rgba(hex_color, alpha):
             hex_color = hex_color.lstrip('#')
-            r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-            return f"rgba({r}, {g}, {b}, {alpha})"
+            try:
+                r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+                return f"rgba({r}, {g}, {b}, {alpha})"
+            except ValueError:
+                return "rgba(0,0,0,0.5)"
 
         if self.show_shadow:
-            # The shadow color becomes the protection area (box background)
             bg_color = hex_to_rgba(self.shadow_color, 0.5)
-            # Use spread to define border thickness for extra protection
             border_px = max(1, int(self.shadow_spread))
             border_style = f"{border_px}px solid {hex_to_rgba(self.shadow_color, 0.3)}"
         else:
@@ -118,7 +84,7 @@ class HtmlRenderer:
             }}
             h3 {{ color: {self.text_color}; margin-bottom: 5px; }}
             hr {{ border: 0; border-top: 1px solid #ccc; margin: 10px 0; }}
-            .score-block {{ 
+            .score-block {{
                 margin-bottom: 12px; 
                 padding: 8px;
                 border-radius: 6px;
@@ -127,7 +93,6 @@ class HtmlRenderer:
             }}
             .outline, .dark-outline {{
                 font-weight: bold;
-                /* Background color for inline outline spans */
                 background-color: {bg_color};
                 border-radius: 3px;
                 padding: 0 2px;
@@ -241,7 +206,6 @@ class HtmlRenderer:
         
         if evaluation.estimated_stats:
             html += f"<b>{self.tr('estimated_total_stats').replace('\n', '')}</b><br>"
-            from constants import STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ER
             priority = [STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ER]
             
             for sname in priority:

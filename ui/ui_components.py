@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QPixmap
 
-from ui_constants import (
+from ui.ui_constants import (
     WINDOW_WIDTH, WINDOW_HEIGHT, RIGHT_TOP_HEIGHT,
     LOG_MIN_HEIGHT, LOG_DEFAULT_HEIGHT,
     IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT,
@@ -234,7 +234,7 @@ class UIComponents:
         
         self.btn_paste.setText(self.app.tr("paste_clipboard"))
         self.btn_paste.setToolTip(self.app.tr("tooltip_paste"))
-        self.btn_paste.clicked.connect(self.app.image_proc.paste_from_clipboard)
+        self.btn_paste.clicked.connect(self.app.paste_from_clipboard)
         
         self.btn_crop.setText(self.app.tr("perform_crop"))
         self.btn_crop.setToolTip(self.app.tr("tooltip_crop"))
