@@ -3,7 +3,7 @@
 ## 1. アプリケーション起動
 - `wuwacalc17.py`: メインエントリーポイント。各マネージャーとUIコンポーネントを初期化。
 - `DataManager`: 静的なゲームデータ（ステータスの最大値や選択肢）を `data/game_data.json` 等から読み込み保持。
-- `CharacterManager`: 各キャラクターの個別プロファイルを `character_settings_jsons/*.json` から読み込み、重み設定や推奨メインステータスを管理。
+- `CharacterManager`: 各キャラクターの個別プロファイルを `character_settings_jsons/*.json` から読み込み、重み設定や推奨メインステータスを管理。**メインステータスのキーは自動的に `3_1` などの短縮形式に正規化・統一される。**
 - `ConfigManager`: アプリケーションの動作設定（言語、モード、クロップ比率など）を `config.json` から読み込み、状態を保持。
 - `ThemeManager`: 外観のテーマや透明度を適用。
 

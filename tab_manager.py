@@ -306,15 +306,18 @@ class TabManager(QObject):
         return group, sub_entries
 
     def _generate_tab_label(self, tab_name: str) -> str:
-        if "cost" in tab_name:
-            try:
-                parts = tab_name.split('_')
-                c_num = parts[0].replace("cost", "")
-                base_label = self.tr("cost_echo", c_num)
-                suffix = f" {parts[2]}" if len(parts) >= 3 and parts[2].isdigit() else ""
-                return f"{base_label}{suffix}"
-            except Exception as e:
-                self.logger.warning(f"Failed to generate custom tab label for '{tab_name}': {e}")
+        """
+        Generates a display label for a tab.
+        Input: '3_1' -> 'コスト3エコー 1' (or translated equivalent)
+        """
+        try:
+            parts = tab_name.split('_')
+            c_num = parts[0]
+            base_label = self.tr("cost_echo", c_num)
+            suffix = f" {parts[1]}" if len(parts) >= 2 else ""
+            return f"{base_label}{suffix}"
+        except Exception as e:
+            self.logger.debug(f"Falling back to raw tab name for '{tab_name}': {e}")
         return tab_name
 
     def _restore_tab_data(self, tab_name: str, data: Dict[str, Any]) -> None:
@@ -396,19 +399,8 @@ class TabManager(QObject):
             
             keys = []
             
-            # 1. Try matching by tab_name (e.g., 'cost3_echo_1')
-            preferred = mainstats.get(tab_name)
-            
-            # 2. Try matching by shortened key (e.g., '3_1' for 'cost3_echo_1')
-            if not preferred and "cost" in tab_name:
-                short_key = tab_name.replace("cost", "").replace("echo_", "")
-                if short_key.endswith("_"): short_key = short_key[:-1]
-                preferred = mainstats.get(short_key)
-            
-            # 3. Try matching by base cost (e.g., '3')
-            if not preferred:
-                cost_str = str(content.get("cost", ""))
-                preferred = mainstats.get(cost_str)
+            # Match directly by unified key (e.g., '3_1') or base cost ('3')
+            preferred = mainstats.get(tab_name) or mainstats.get(str(content.get("cost", "")))
 
             if preferred:
                 if isinstance(preferred, list):
@@ -416,24 +408,22 @@ class TabManager(QObject):
                 else:
                     keys.append(preferred)
             
-            # Fallback to general options if no preferred stats found
+            # Fallback
             if not keys:
                 cost_num = str(content.get("cost", "1"))
                 keys = self.data_manager.main_stat_options.get(cost_num, ["HP", "ATK", "DEF"])
 
             combo.addItem("---", userData="")
             for k in keys:
-                if k: # Skip empty strings
+                if k:
                     combo.addItem(self.tr(k), userData=k)
             
             if keys:
-                # If we have preferred stats, select the first one
                 target_stat = keys[0]
                 idx = combo.findData(target_stat)
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
             elif current_data:
-                # Otherwise try to restore previous selection
                 idx = combo.findData(current_data)
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
@@ -455,6 +445,50 @@ class TabManager(QObject):
                 if content["main_widget"].currentIndex() <= 0:
                     return name
         return None
+
+    def find_best_tab_match(self, cost: str, main_stat: str, character: str) -> Optional[str]:
+        """
+        Finds the most suitable tab for an OCR result using unified short keys.
+        """
+        if not character or not cost:
+            return None
+            
+        config_key = self._validate_config_key()
+        tab_names = self.data_manager.tab_configs.get(config_key, [])
+        mainstats_pref = self.character_manager.get_main_stats(character)
+        
+        # 1. Identify all tabs that match the cost
+        cost_matches = []
+        for name in tab_names:
+            content = self.tabs_content.get(name)
+            if content and content["cost"] == str(cost):
+                cost_matches.append(name)
+        
+        if not cost_matches:
+            return None
+            
+        # 2. Try to find an empty tab that matches the main stat preference
+        empty_tabs = [n for n in cost_matches if self.tabs_content[n]["main_widget"].currentIndex() <= 0]
+        
+        if empty_tabs:
+            for name in empty_tabs:
+                pref = mainstats_pref.get(name) or mainstats_pref.get(str(cost))
+                if pref:
+                    prefs_list = pref if isinstance(pref, list) else [pref]
+                    if main_stat in prefs_list:
+                        return name
+            # If no preference match, return the first empty tab of that cost
+            return empty_tabs[0]
+        
+        # 3. All tabs filled: check for preference match to allow smart overwrite
+        for name in cost_matches:
+            pref = mainstats_pref.get(name) or mainstats_pref.get(str(cost))
+            if pref:
+                prefs_list = pref if isinstance(pref, list) else [pref]
+                if main_stat in prefs_list:
+                    return name
+                    
+        return cost_matches[0]
 
     def apply_ocr_result(self, result: OCRResult) -> None:
         """Applies OCR results to the currently selected tab."""

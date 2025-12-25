@@ -106,6 +106,10 @@ class CharacterManager(QObject):
                             jp_name = self.get_display_name(internal_name)
 
                         # Update data stores
+                        internal_name = data.get("character") or filename.replace("_character.json", "")
+                        weights = data.get("character_weights")
+                        mainstats = self._normalize_main_stats_keys(data.get("character_mainstats", {}))
+                        
                         self._stat_weights[internal_name] = weights
                         self._main_stats[internal_name] = mainstats
                         self._name_map_en_to_jp[internal_name] = jp_name
@@ -127,6 +131,19 @@ class CharacterManager(QObject):
         self.logger.info("Finished loading character profiles.")
         self.profiles_updated.emit()
 
+    def _normalize_main_stats_keys(self, mainstats: dict) -> dict:
+        """Converts long keys like 'cost3_echo_1' to short keys like '3_1'."""
+        normalized = {}
+        for k, v in mainstats.items():
+            if isinstance(k, str) and "cost" in k:
+                new_key = k.replace("cost", "").replace("echo_", "")
+                if new_key.endswith("_"):
+                    new_key = new_key[:-1]
+                normalized[new_key] = v
+            else:
+                normalized[str(k)] = v
+        return normalized
+
     def register_character(self, name_jp: str, name_en: str, costkey: str, mainstats: dict, weights: dict, 
                            stat_offsets: dict = None, base_stats: dict = None, ideal_stats: dict = None, scaling_stat: str = "攻撃力") -> None:
         """Registers a new character and saves its profile to a JSON file."""
@@ -134,6 +151,9 @@ class CharacterManager(QObject):
         if stat_offsets is None: stat_offsets = {}
         if base_stats is None: base_stats = {}
         if ideal_stats is None: ideal_stats = {}
+        
+        # Normalize mainstats keys before saving
+        normalized_mainstats = self._normalize_main_stats_keys(mainstats)
         
         try:
             # --- Save to JSON file ---
@@ -152,7 +172,7 @@ class CharacterManager(QObject):
                 "character_jp": name_jp,
                 "costkey": costkey,
                 "config": normalized_key,
-                "character_mainstats": mainstats,
+                "character_mainstats": normalized_mainstats,
                 "character_weights": weights,
                 "stat_offsets": stat_offsets,
                 "base_stats": base_stats,
@@ -166,7 +186,7 @@ class CharacterManager(QObject):
 
             # --- Update internal data stores ---
             self._stat_weights[internal_char_name] = weights
-            self._main_stats[internal_char_name] = mainstats
+            self._main_stats[internal_char_name] = normalized_mainstats
             self._name_map_en_to_jp[internal_char_name] = name_jp
             self._name_map_jp_to_en[name_jp] = internal_char_name
             self._character_config_map[internal_char_name] = normalized_key

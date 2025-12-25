@@ -250,25 +250,42 @@ class ScoreCalculatorApp(QMainWindow):
 
     def on_ocr_completed(self, result: object) -> None:
         from data_contracts import OCRResult, BatchItemResult
+        
         if isinstance(result, OCRResult):
             for msg in result.log_messages: self.gui_log(msg)
-            tab_name = self.tab_mgr.get_selected_tab_name()
-            if tab_name:
-                self.tab_mgr.apply_ocr_result(result)
-                self.tab_mgr.save_tab_image(tab_name, result.original_image, result.cropped_image)
-        elif isinstance(result, BatchItemResult):
-            # Batch mode: Try to find an appropriate tab based on cost
-            cost = result.result.cost
-            target_tab = None
-            if cost:
-                target_tab = self.tab_mgr.find_empty_tab_for_cost(cost)
+            
+            # Find the best tab for this result
+            cost = result.cost
+            main_stat = result.main_stat
+            target_tab = self.tab_mgr.find_best_tab_match(cost, main_stat, self.character_var)
             
             if not target_tab:
-                # Fallback to current tab if no empty cost-matching tab found
                 target_tab = self.tab_mgr.get_selected_tab_name()
             
             if target_tab:
-                self.gui_log(f"Applying batch result to tab: {target_tab} (Cost {cost})")
+                # Auto-switch to the target tab for better UX
+                config_key = self.app_config.current_config_key
+                tab_names = self.data_manager.tab_configs.get(config_key, [])
+                if target_tab in tab_names:
+                    idx = tab_names.index(target_tab)
+                    self.notebook.setCurrentIndex(idx)
+                
+                self.gui_log(f"Applying OCR result to tab: {target_tab}")
+                self.tab_mgr.apply_ocr_result_to_tab(target_tab, result)
+                self.tab_mgr.save_tab_image(target_tab, result.original_image, result.cropped_image)
+                
+        elif isinstance(result, BatchItemResult):
+            # Batch mode: Route to best matching tab
+            cost = result.result.cost
+            main_stat = result.result.main_stat
+            
+            target_tab = self.tab_mgr.find_best_tab_match(cost, main_stat, self.character_var)
+            
+            if not target_tab:
+                target_tab = self.tab_mgr.get_selected_tab_name()
+            
+            if target_tab:
+                self.gui_log(f"Applying batch result to tab: {target_tab} (Cost {cost}, Stat {main_stat})")
                 self.tab_mgr.apply_ocr_result_to_tab(target_tab, result.result)
                 self.tab_mgr.save_tab_image(target_tab, result.original_image, result.cropped_image)
             else:
