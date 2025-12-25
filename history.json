@@ -1,5 +1,17 @@
 [
   {
+    "timestamp": "2025-12-25 19:42:38",
+    "character": "Changli",
+    "cost": "4",
+    "action": "Single Evaluation",
+    "result": "Score: 47.85 (rating_a_single)",
+    "fingerprint": "eaf227d5737ad897a9ced1728a748b52",
+    "details": {
+      "score": 47.845622119815665,
+      "rating_key": "rating_a_single"
+    }
+  },
+  {
     "timestamp": "2025-12-25 19:15:16",
     "character": "Changli",
     "cost": "4",

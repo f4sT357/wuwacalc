@@ -45,6 +45,7 @@ class EvaluationResult:
     rating: str
     individual_scores: Dict[str, float]
     estimated_stats: Dict[str, float] = field(default_factory=dict) # New: Resulting stats (Echo + Offsets)
+    comparison_diff: Optional[float] = None # New: Score difference compared to equipped echo
 
 @dataclass
 class TabImageData:

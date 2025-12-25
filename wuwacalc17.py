@@ -83,7 +83,17 @@ class ScoreCalculatorApp(QMainWindow):
         self.ui = UIComponents(self)
         
         # 5. Logic Modules
-        self.html_renderer = HtmlRenderer(self.tr, self.language)
+        self.html_renderer = HtmlRenderer(
+            self.tr, 
+            self.language, 
+            self.app_config.show_text_shadow, 
+            self.app_config.text_shadow_color, 
+            self.app_config.text_color,
+            self.app_config.shadow_offset_x,
+            self.app_config.shadow_offset_y,
+            self.app_config.shadow_blur,
+            self.app_config.shadow_spread
+        )
         self.score_calc = ScoreCalculator(
             self.data_manager,
             self.character_manager,
@@ -303,6 +313,28 @@ class ScoreCalculatorApp(QMainWindow):
         QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self.export_result_to_txt)
         QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(self.clear_all)
 
+    def set_current_as_equipped(self) -> None:
+        """Saves the current tab's data as the equipped echo for this character."""
+        if not self.character_var:
+            QMessageBox.warning(self, self.tr("warning"), self.tr("waiting_for_character"))
+            return
+            
+        tab_name = self.tab_mgr.get_selected_tab_name()
+        if not tab_name:
+            return
+            
+        entry = self.tab_mgr.extract_tab_data(tab_name)
+        if not entry or not entry.main_stat:
+            QMessageBox.warning(self, self.tr("warning"), self.tr("main_stat_missing", tab_name))
+            return
+            
+        self.character_manager.save_equipped_echo(self.character_var, tab_name, entry)
+        self.gui_log(f"Set as Equipped: {self.character_var} - {tab_name}")
+        QMessageBox.information(self, self.tr("info"), self.tr("save_msg", tab_name))
+        
+        # Re-trigger calculation to show the updated comparison (0.00%)
+        self.trigger_calculation()
+
     def export_result_to_txt(self) -> None:
         if self.tab_mgr: self.tab_mgr.export_to_txt(self, self.result_text.toPlainText())
 
@@ -330,6 +362,7 @@ class ScoreCalculatorApp(QMainWindow):
         self.events.setup_connections()
         self.tab_mgr.update_tabs()
         self.events.on_profiles_updated()
+        self.theme_manager.refresh_global_shadows()
         check_and_alert_environment(self.gui_log)
 
     def show_duplicate_entries(self) -> None:
@@ -398,23 +431,63 @@ class ScoreCalculatorApp(QMainWindow):
     def open_image_preprocessing_settings(self) -> None:
         ImagePreprocessingSettingsDialog(self).exec()
 
+    def refresh_results_display(self) -> None:
+        """Refreshes the current HTML display and all stored tab results with latest styles."""
+        import re
+        new_style = self.html_renderer.common_style
+        style_pattern = re.compile(r'<!-- STYLE_START -->.*?<!-- STYLE_END -->', re.DOTALL)
+
+        # 1. Update current display
+        current_html = self.result_text.toHtml()
+        if "<!-- STYLE_START -->" in current_html:
+            updated_html = style_pattern.sub(new_style, current_html)
+            self.result_text.setHtml(updated_html)
+
+        # 2. Update all stored results in TabManager
+        for tab_name in self.tab_mgr._tab_results:
+            old_html = self.tab_mgr.get_tab_result(tab_name)
+            if old_html and "<!-- STYLE_START -->" in old_html:
+                updated_tab_html = style_pattern.sub(new_style, old_html)
+                self.tab_mgr.save_tab_result(tab_name, updated_tab_html)
+
+    def update_shadow_params(self, ox: float, oy: float, blur: float, spread: float) -> None:
+        """Update shadow parameters and refresh display."""
+        self.app_config.shadow_offset_x = ox
+        self.app_config.shadow_offset_y = oy
+        self.app_config.shadow_blur = blur
+        self.app_config.shadow_spread = spread
+        self.html_renderer.set_shadow_params(ox, oy, blur, spread)
+        self.theme_manager.refresh_global_shadows()
+        self.refresh_results_display()
+
     def update_text_color(self, color: str) -> None:
         self.theme_manager.update_text_color(color)
+        self.html_renderer.set_text_color(color)
+        self.theme_manager.refresh_global_shadows()
+        self.refresh_results_display()
 
     def update_background_image(self, path: str) -> None:
         self.theme_manager.update_background_image(path)
+        self.theme_manager.refresh_global_shadows()
+        self.refresh_results_display()
 
     def update_background_opacity(self, opacity: float) -> None:
         self.theme_manager.update_background_opacity(opacity)
+        self.refresh_results_display()
 
     def apply_theme(self, theme_name: str) -> None:
         self.theme_manager.apply_theme(theme_name)
+        # Sync text color to renderer if theme changes it
+        self.html_renderer.set_text_color(self.app_config.text_color)
+        self.theme_manager.refresh_global_shadows()
+        self.refresh_results_display()
 
     def update_input_bg_color(self, color: str) -> None:
         self.theme_manager.update_input_bg_color(color)
 
     def update_app_font(self, font: str) -> None:
         self.theme_manager.update_app_font(font)
+        self.refresh_results_display()
 
     def update_frame_transparency(self, transparent: bool) -> None:
         self.theme_manager.update_frame_transparency(transparent)

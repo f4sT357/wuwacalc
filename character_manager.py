@@ -35,6 +35,7 @@ class CharacterManager(QObject):
         self._base_stats = {}   # Stores base stats (Char + Weapon)
         self._ideal_stats = {}  # Stores target/ideal stats
         self._scaling_stats = {} # Stores primary scaling stat name
+        self._equipped_echoes = {} # character -> {slot -> EchoEntry}
         
         self.tab_configs = data_manager.tab_configs
         
@@ -42,6 +43,61 @@ class CharacterManager(QObject):
         self._character_config_map = copy.deepcopy(data_manager.character_config_map) 
 
         self._load_character_profiles()
+        self._load_equipped_echoes()
+
+    def _load_equipped_echoes(self):
+        """Loads equipped echoes from a JSON file."""
+        file_path = os.path.join(get_app_path(), "equipped_echoes.json")
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    # Convert dicts back to EchoEntry objects (simplified for now)
+                    from data_contracts import EchoEntry, SubStat
+                    for char, slots in data.items():
+                        self._equipped_echoes[char] = {}
+                        for slot, entry_dict in slots.items():
+                            substats = [SubStat(**s) for s in entry_dict.get("substats", [])]
+                            self._equipped_echoes[char][slot] = EchoEntry(
+                                tab_index=0,
+                                cost=entry_dict.get("cost"),
+                                main_stat=entry_dict.get("main_stat"),
+                                substats=substats
+                            )
+            except Exception as e:
+                self.logger.error(f"Failed to load equipped echoes: {e}")
+
+    def save_equipped_echo(self, character: str, slot: str, entry: any):
+        """Saves an echo entry as equipped for a character's slot."""
+        if not character or not slot or not entry:
+            return
+            
+        if character not in self._equipped_echoes:
+            self._equipped_echoes[character] = {}
+        
+        self._equipped_echoes[character][slot] = entry
+        
+        # Persist to file
+        file_path = os.path.join(get_app_path(), "equipped_echoes.json")
+        try:
+            # Convert to serializable format
+            output = {}
+            for char, slots in self._equipped_echoes.items():
+                output[char] = {}
+                for s_key, e_val in slots.items():
+                    output[char][s_key] = {
+                        "cost": e_val.cost,
+                        "main_stat": e_val.main_stat,
+                        "substats": [{"stat": s.stat, "value": s.value} for s in e_val.substats]
+                    }
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(output, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self.logger.error(f"Failed to save equipped echoes: {e}")
+
+    def get_equipped_echo(self, character: str, slot: str) -> Optional[any]:
+        """Gets the equipped echo entry for a character's slot."""
+        return self._equipped_echoes.get(character, {}).get(slot)
 
     def _load_character_profiles(self):
         """Loads character profiles from JSON files in the character_settings_jsons directory."""

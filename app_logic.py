@@ -319,8 +319,7 @@ class AppLogic(QObject):
         num_found = ""
         is_percent = False
         
-        # ステータス名と数値部分を分離するパターンを試す
-        # 例: "防御力 13.8%" -> "防御力", "13.8%"
+        # 1. Try pattern: "Stat Name 12.3%"
         match = re.search(r'(.+?)\s+([\d\.]+(?:\s*[%％])?)', line)
         
         if match:
@@ -337,7 +336,7 @@ class AppLogic(QObject):
                             is_percent = True
                     break
         
-        # フォールバック: 行全体検索
+        # 2. Fallback: Full line search
         if not stat_found:
             for stat, alias in alias_pairs:
                 if alias in line:
@@ -350,37 +349,54 @@ class AppLogic(QObject):
                     break
         
         if stat_found and num_found:
-            # --- Logic to distinguish Flat vs Percent based on stat value ranges ---
-            try:
-                val_num = float(num_found)
-                # Only apply auto-correction for stats that have both Flat and Percent versions.
-                # Other stats like Crit Rate or Energy Regen always use their base name (without %).
-                if stat_found in ["攻撃力", "HP", "防御力"]:
-                    if "." in num_found and val_num < 20.0:
-                        if not is_percent:
-                            self.log_message.emit(f"Force-correcting {stat_found} {num_found} to Percent based on value range.")
-                            is_percent = True
-                    elif val_num > 20.0:
-                        if is_percent:
-                            self.log_message.emit(f"Force-correcting {stat_found} {num_found} to Flat based on value range.")
-                            is_percent = False
-                
-                    # Update stat name to % version ONLY for ATK, HP, DEF
-                    if is_percent and not stat_found.endswith('%'):
-                        stat_found += '%'
-                    elif not is_percent and stat_found.endswith('%'):
-                        stat_found = stat_found.rstrip('%')
-                else:
-                    # For other stats, ensure we DON'T add % to the internal key name
-                    # as constants.py doesn't use it for ER, Crit, etc.
-                    if stat_found.endswith('%'):
-                        stat_found = stat_found.rstrip('%')
-
-            except ValueError:
-                pass
-
-            return SubStat(stat=stat_found, value=num_found), is_percent
+            # --- Auto-correction and Validation ---
+            corrected_stat, corrected_val, was_percent = self.validate_and_correct_substat(stat_found, num_found, is_percent)
+            return SubStat(stat=corrected_stat, value=corrected_val), was_percent
+            
         return None
+
+    def validate_and_correct_substat(self, stat_name: str, raw_value: str, is_percent: bool) -> Tuple[str, str, bool]:
+        """
+        Validates the OCR value against game data and corrects common errors.
+        """
+        try:
+            val = float(raw_value)
+        except ValueError:
+            return stat_name, raw_value, is_percent
+
+        # Get max value for this stat from game data
+        # Note: stat_name might not have '%' yet
+        search_name = stat_name if stat_name in self.data_manager.substat_max_values else f"{stat_name}%"
+        max_val = self.data_manager.substat_max_values.get(search_name)
+        
+        if not max_val:
+            return stat_name, raw_value, is_percent
+
+        # Logic for Stats that have both Flat and Percent (ATK, HP, DEF)
+        if stat_name in ["攻撃力", "HP", "防御力"]:
+            # If value is small (e.g. 6.4 - 14.7) but detected as Flat, it's likely Percent
+            if not is_percent and val < 20.0:
+                is_percent = True
+                stat_name = f"{stat_name}%"
+            # If value is large (e.g. 30 - 580) but detected as Percent, it's likely Flat
+            elif is_percent and val > 20.0:
+                is_percent = False
+                stat_name = stat_name.replace("%", "")
+        
+        # Correction for missing decimal points (Common OCR error: 10.5 -> 105)
+        # If value > max_val * 1.5, it's highly likely a missing decimal
+        if val > max_val * 1.5:
+            # Try inserting a decimal point before the last digit
+            # e.g., 105 -> 10.5, 74 -> 7.4
+            new_val = val / 10.0
+            if new_val <= max_val * 1.1:
+                self.log_message.emit(f"Correcting {stat_name}: {val} -> {new_val} (assuming missing decimal point)")
+                val = new_val
+        
+        # Final clamping/rounding to 1 decimal place for UI consistency
+        formatted_val = f"{val:.1f}" if is_percent or "." in raw_value else str(int(val))
+        
+        return stat_name, formatted_val, is_percent
 
     def detect_cost_from_ocr(self, ocr_text: str) -> Optional[str]:
         """

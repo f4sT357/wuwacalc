@@ -35,16 +35,32 @@ class DisplaySettingsDialog(QDialog):
         self.initial_transparent_frames = self.app.app_config.transparent_frames
         self.selected_transparent_frames = self.initial_transparent_frames
 
+        self.initial_text_shadow = getattr(self.app.app_config, 'show_text_shadow', True)
+        self.selected_text_shadow = self.initial_text_shadow
+
+        self.initial_shadow_color = getattr(self.app.app_config, 'text_shadow_color', "#000000")
+        self.selected_shadow_color = self.initial_shadow_color
+
+        self.initial_shadow_ox = getattr(self.app.app_config, 'shadow_offset_x', 2.0)
+        self.selected_shadow_ox = self.initial_shadow_ox
+        self.initial_shadow_oy = getattr(self.app.app_config, 'shadow_offset_y', 2.0)
+        self.selected_shadow_oy = self.initial_shadow_oy
+        self.initial_shadow_blur = getattr(self.app.app_config, 'shadow_blur', 5.0)
+        self.selected_shadow_blur = self.initial_shadow_blur
+        self.initial_shadow_spread = getattr(self.app.app_config, 'shadow_spread', 0.0)
+        self.selected_shadow_spread = self.initial_shadow_spread
+
         self.init_ui()
 
     def init_ui(self):
         # Force fixed colors for this dialog to ensure usability
+        # Use specific selectors to avoid overriding preview boxes
         self.setStyleSheet("""
             QDialog {
                 background-color: #000000;
                 color: #ffffff;
             }
-            QLabel, QCheckBox, QGroupBox {
+            QLabel:not([objectName^="preview"]), QCheckBox, QGroupBox {
                 background-color: #000000;
                 color: #ffffff;
             }
@@ -85,8 +101,9 @@ class DisplaySettingsDialog(QDialog):
         color_layout.addWidget(self.text_color_button)
 
         self.color_preview_label = QLabel()
+        self.color_preview_label.setObjectName("previewText")
         self.color_preview_label.setFixedSize(50, 20)
-        self.color_preview_label.setStyleSheet(f"background-color: {self.selected_text_color}; border: 1px solid black;")
+        self.color_preview_label.setStyleSheet(f"background-color: {self.selected_text_color} !important; border: 1px solid white;")
         color_layout.addWidget(self.color_preview_label)
 
         layout.addLayout(color_layout)
@@ -100,9 +117,10 @@ class DisplaySettingsDialog(QDialog):
         input_bg_layout.addWidget(self.btn_input_bg)
 
         self.input_bg_preview = QLabel()
+        self.input_bg_preview.setObjectName("previewInput")
         self.input_bg_preview.setFixedSize(50, 20)
-        bg_style = f"background-color: {self.selected_input_bg};" if self.selected_input_bg else "background-color: transparent;"
-        self.input_bg_preview.setStyleSheet(f"{bg_style} border: 1px solid black;")
+        bg_style = f"background-color: {self.selected_input_bg} !important;" if self.selected_input_bg else "background-color: transparent !important;"
+        self.input_bg_preview.setStyleSheet(f"{bg_style} border: 1px solid white;")
         input_bg_layout.addWidget(self.input_bg_preview)
 
         self.btn_reset_input_bg = QPushButton(self.app.tr("reset"))
@@ -131,6 +149,39 @@ class DisplaySettingsDialog(QDialog):
 
         layout.addLayout(font_layout)
 
+        # Text Shadow Setting
+        shadow_layout = QHBoxLayout()
+        self.cb_text_shadow = QCheckBox(self.app.tr("text_shadow"))
+        self.cb_text_shadow.setChecked(self.initial_text_shadow)
+        self.cb_text_shadow.toggled.connect(self._update_text_shadow)
+        shadow_layout.addWidget(self.cb_text_shadow)
+        
+        # Shadow Color picker
+        self.btn_shadow_color = QPushButton(self.app.tr("shadow_color"))
+        self.btn_shadow_color.clicked.connect(self._pick_shadow_color)
+        self.btn_shadow_color.setEnabled(self.initial_text_shadow)
+        shadow_layout.addWidget(self.btn_shadow_color)
+        
+        self.shadow_color_preview = QLabel()
+        self.shadow_color_preview.setObjectName("previewShadow")
+        self.shadow_color_preview.setFixedSize(50, 20)
+        self.shadow_color_preview.setStyleSheet(f"background-color: {self.selected_shadow_color} !important; border: 1px solid white;")
+        shadow_layout.addWidget(self.shadow_color_preview)
+        shadow_layout.addStretch()
+        layout.addLayout(shadow_layout)
+
+        # Advanced Shadow Controls
+        self.shadow_ctrl_group = QHBoxLayout()
+        
+        self.slider_ox = self._create_shadow_slider("OX", -5, 5, self.initial_shadow_ox)
+        self.slider_oy = self._create_shadow_slider("OY", -5, 5, self.initial_shadow_oy)
+        self.slider_blur = self._create_shadow_slider("Blur", 0, 15, self.initial_shadow_blur)
+        self.slider_spread = self._create_shadow_slider("Spread", 0, 5, self.initial_shadow_spread)
+        
+        self.shadow_ctrl_group.addStretch()
+        layout.addLayout(self.shadow_ctrl_group)
+        self._update_shadow_controls_visibility(self.initial_text_shadow)
+
         # Transparent Frames Setting
         transparent_frames_layout = QHBoxLayout()
         self.cb_transparent_frames = QCheckBox(self.app.tr("transparent_frames") if self.app.tr("transparent_frames") != "transparent_frames" else "フレーム透過")
@@ -148,7 +199,8 @@ class DisplaySettingsDialog(QDialog):
         self.theme_map = {
             self.app.tr("dark_theme"): "dark",
             self.app.tr("light_theme"): "light",
-            self.app.tr("clear_theme"): "clear"
+            self.app.tr("clear_theme"): "clear",
+            self.app.tr("custom_theme"): "custom"
         }
         self.theme_map_inv = {v: k for k, v in self.theme_map.items()}
 
@@ -222,13 +274,49 @@ class DisplaySettingsDialog(QDialog):
 
         layout.addLayout(btn_layout)
 
+    def _auto_switch_to_custom(self):
+        """Automatically switch theme combo to 'Custom' if an individual setting is changed."""
+        if self.selected_theme != "custom":
+            custom_label = self.app.tr("custom_theme")
+            if custom_label in self.theme_map:
+                self.combo_theme.setCurrentText(custom_label)
+                self.selected_theme = "custom"
+
+    def _create_shadow_slider(self, label, min_val, max_val, current):
+        vbox = QVBoxLayout()
+        lbl = QLabel(label)
+        lbl.setFixedWidth(40)
+        vbox.addWidget(lbl)
+        s = QSlider(Qt.Orientation.Horizontal)
+        s.setRange(min_val, max_val)
+        s.setValue(int(current))
+        s.setFixedWidth(80)
+        s.valueChanged.connect(self._on_shadow_slider_changed)
+        vbox.addWidget(s)
+        self.shadow_ctrl_group.addLayout(vbox)
+        return s
+
+    def _on_shadow_slider_changed(self):
+        self.selected_shadow_ox = self.slider_ox.value()
+        self.selected_shadow_oy = self.slider_oy.value()
+        self.selected_shadow_blur = self.slider_blur.value()
+        self.selected_shadow_spread = self.slider_spread.value()
+        self._auto_switch_to_custom()
+
+    def _update_shadow_controls_visibility(self, enabled):
+        self.slider_ox.setEnabled(enabled)
+        self.slider_oy.setEnabled(enabled)
+        self.slider_blur.setEnabled(enabled)
+        self.slider_spread.setEnabled(enabled)
+
     def _pick_text_color(self):
         current_color = QColor(self.selected_text_color)
         color = QColorDialog.getColor(current_color, self, self.app.tr("select_text_color"))
 
         if color.isValid():
             self.selected_text_color = color.name() 
-            self.color_preview_label.setStyleSheet(f"background-color: {self.selected_text_color}; border: 1px solid black;")
+            self.color_preview_label.setStyleSheet(f"background-color: {self.selected_text_color} !important; border: 1px solid white;")
+            self._auto_switch_to_custom()
 
     def _select_background_image(self):
         image_filter = "Image Files (*.png *.jpg *.jpeg *.bmp *.webp);;All Files (*)"
@@ -241,6 +329,7 @@ class DisplaySettingsDialog(QDialog):
         if file_path:
             self.selected_background_image = file_path
             self.lbl_bg_path.setText(os.path.basename(file_path))
+            self._auto_switch_to_custom()
 
     def _cleanup_images(self):
         self.app.cleanup_unused_images()
@@ -248,17 +337,58 @@ class DisplaySettingsDialog(QDialog):
     def _clear_background_image(self):
         self.selected_background_image = ""
         self.lbl_bg_path.setText("None")
+        self._auto_switch_to_custom()
 
     def _update_selected_theme(self, text):
         if text in self.theme_map:
-            self.selected_theme = self.theme_map[text]
+            theme_id = self.theme_map[text]
+            self.selected_theme = theme_id
+            
+            # Auto-apply preset colors if switching TO a preset (not Custom)
+            from constants import THEME_COLORS
+            if theme_id in THEME_COLORS and theme_id != "custom":
+                colors = THEME_COLORS[theme_id]
+                self.selected_text_color = colors.get("text", self.selected_text_color)
+                self.selected_shadow_color = colors.get("shadow", self.selected_shadow_color)
+                self.selected_input_bg = colors.get("input_bg", self.selected_input_bg)
+                
+                # Reset shadow sliders to defaults for presets
+                self.selected_shadow_ox = 2.0; self.selected_shadow_oy = 2.0
+                self.selected_shadow_blur = 5.0; self.selected_shadow_spread = 0.0
+                self.slider_ox.setValue(2); self.slider_oy.setValue(2)
+                self.slider_blur.setValue(5); self.slider_spread.setValue(0)
+                
+                self._update_all_previews()
+
+    def _update_all_previews(self):
+        """Update all color preview squares with currently selected values."""
+        self.color_preview_label.setStyleSheet(f"background-color: {self.selected_text_color} !important; border: 1px solid white;")
+        self.shadow_color_preview.setStyleSheet(f"background-color: {self.selected_shadow_color} !important; border: 1px solid white;")
+        bg_style = f"background-color: {self.selected_input_bg} !important;" if self.selected_input_bg else "background-color: transparent !important;"
+        self.input_bg_preview.setStyleSheet(f"{bg_style} border: 1px solid white;")
 
     def _update_opacity_label(self, value):
         self.selected_opacity = value / 100.0
         self.lbl_opacity_val.setText(f"{value}%")
+        self._auto_switch_to_custom()
 
     def _update_transparent_frames(self, checked):
         self.selected_transparent_frames = checked
+        self._auto_switch_to_custom()
+
+    def _update_text_shadow(self, checked):
+        self.selected_text_shadow = checked
+        self.btn_shadow_color.setEnabled(checked)
+        self._update_shadow_controls_visibility(checked)
+        self._auto_switch_to_custom()
+
+    def _pick_shadow_color(self):
+        current = QColor(self.selected_shadow_color)
+        color = QColorDialog.getColor(current, self, self.app.tr("shadow_color"))
+        if color.isValid():
+            self.selected_shadow_color = color.name()
+            self.shadow_color_preview.setStyleSheet(f"background-color: {self.selected_shadow_color} !important; border: 1px solid white;")
+            self._auto_switch_to_custom()
 
     def _apply_settings(self):
         if self.selected_text_color != self.initial_text_color:
@@ -282,6 +412,28 @@ class DisplaySettingsDialog(QDialog):
         if self.selected_transparent_frames != self.initial_transparent_frames:
             self.app.app_config.transparent_frames = self.selected_transparent_frames
             self.app.update_frame_transparency(self.selected_transparent_frames)
+            
+        if self.selected_text_shadow != self.initial_text_shadow:
+            self.app.app_config.show_text_shadow = self.selected_text_shadow
+            self.app.html_renderer.set_show_shadow(self.selected_text_shadow)
+            self.app.refresh_results_display()
+            
+        if self.selected_shadow_color != self.initial_shadow_color:
+            self.app.app_config.text_shadow_color = self.selected_shadow_color
+            self.app.html_renderer.set_shadow_color(self.selected_shadow_color)
+            self.app.refresh_results_display()
+
+        # Update Shadow Params
+        if (self.selected_shadow_ox != self.initial_shadow_ox or 
+            self.selected_shadow_oy != self.initial_shadow_oy or 
+            self.selected_shadow_blur != self.initial_shadow_blur or 
+            self.selected_shadow_spread != self.initial_shadow_spread):
+            self.app.update_shadow_params(
+                self.selected_shadow_ox, 
+                self.selected_shadow_oy, 
+                self.selected_shadow_blur, 
+                self.selected_shadow_spread
+            )
 
         self.app.config_manager.save()
         self.accept()
@@ -292,11 +444,13 @@ class DisplaySettingsDialog(QDialog):
 
         if color.isValid():
             self.selected_input_bg = color.name()
-            self.input_bg_preview.setStyleSheet(f"background-color: {self.selected_input_bg}; border: 1px solid black;")
+            self.input_bg_preview.setStyleSheet(f"background-color: {self.selected_input_bg} !important; border: 1px solid white;")
+            self._auto_switch_to_custom()
 
     def _reset_input_bg_color(self):
         self.selected_input_bg = ""
         self.input_bg_preview.setStyleSheet("background-color: transparent; border: 1px solid black;")
+        self._auto_switch_to_custom()
 
     def _full_reset(self):
         reply = QMessageBox.question(
@@ -314,10 +468,21 @@ class DisplaySettingsDialog(QDialog):
             self.selected_theme = "dark"
             self.selected_input_bg = "#3c3c3c"
             self.selected_font = ""
+            self.selected_text_shadow = True
+            self.selected_shadow_color = "#000000"
+            self.selected_shadow_ox = 2.0
+            self.selected_shadow_oy = 2.0
+            self.selected_shadow_blur = 5.0
+            self.selected_shadow_spread = 0.0
 
-            self.color_preview_label.setStyleSheet(f"background-color: {self.selected_text_color}; border: 1px solid black;")
             self.lbl_bg_path.setText("None")
             self.slider_opacity.setValue(100)
+            self.cb_text_shadow.setChecked(True)
+            self.btn_shadow_color.setEnabled(True)
+            self.slider_ox.setValue(2); self.slider_oy.setValue(2)
+            self.slider_blur.setValue(5); self.slider_spread.setValue(0)
+            self._update_shadow_controls_visibility(True)
+            self._update_all_previews()
 
             if "dark" in self.theme_map_inv:
                 self.combo_theme.setCurrentText(self.theme_map_inv["dark"])
@@ -342,6 +507,7 @@ class DisplaySettingsDialog(QDialog):
             self.selected_font = ""
         else:
             self.selected_font = font_name
+        self._auto_switch_to_custom()
 
     def _open_help(self):
         """Open the HTML help file in default browser."""

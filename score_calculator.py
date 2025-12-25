@@ -57,6 +57,15 @@ class ScoreCalculator(QObject):
             )
             
             if evaluation:
+                # Comparison logic
+                equipped = self.character_manager.get_equipped_echo(character, tab_name)
+                if equipped:
+                    eq_eval = self._process_echo_evaluation(
+                        equipped, weights, config_bundle, enabled_methods, character, "INTERNAL", tab_name, record_history=False
+                    )
+                    if eq_eval:
+                        evaluation.comparison_diff = evaluation.total_score - eq_eval.total_score
+
                 substats = self.extract_substats_from_entry(entry)
                 echo = EchoData(entry.cost, entry.main_stat, substats)
                 
@@ -148,7 +157,8 @@ class ScoreCalculator(QObject):
 
     def _process_echo_evaluation(self, entry: EchoEntry, weights: Dict[str, float], 
                                  config_bundle: Dict[str, Any], enabled_methods: Dict[str, bool],
-                                 character: str, action_type: str, tab_name_for_log: str) -> Optional[EvaluationResult]:
+                                 character: str, action_type: str, tab_name_for_log: str,
+                                 record_history: bool = True) -> Optional[EvaluationResult]:
         """
         Core logic for evaluating an echo entry.
         """
@@ -156,7 +166,9 @@ class ScoreCalculator(QObject):
             return None
 
         substats = self.extract_substats_from_entry(entry)
-        self.log_requested.emit(f"Evaluating Echo - Cost: {entry.cost}, Main: {entry.main_stat}, Substats: {substats}")
+        if record_history:
+            self.log_requested.emit(f"Evaluating Echo - Cost: {entry.cost}, Main: {entry.main_stat}, Substats: {substats}")
+        
         echo = EchoData(entry.cost, entry.main_stat, substats)
         
         # Get stat offsets and calculation params
@@ -168,9 +180,10 @@ class ScoreCalculator(QObject):
         
         # Duplicate Detection Logic
         fingerprint = echo.get_fingerprint()
-        duplicates = self.history_mgr.find_duplicates(fingerprint)
-        if duplicates:
-            self.log_requested.emit(f"[{tab_name_for_log}] Duplicate Detected (Previous IDs: {duplicates})")
+        if record_history:
+            duplicates = self.history_mgr.find_duplicates(fingerprint)
+            if duplicates:
+                self.log_requested.emit(f"[{tab_name_for_log}] Duplicate Detected (Previous IDs: {duplicates})")
         
         evaluation = echo.evaluate_comprehensive(
             weights, config_bundle, enabled_methods, 
@@ -181,21 +194,22 @@ class ScoreCalculator(QObject):
         )
         
         # Record to history
-        result_summary = f"Score: {evaluation.total_score:.2f} ({evaluation.rating})"
-        
-        app_config = self.config_manager.get_app_config()
-        self.history_mgr.add_entry(
-            character=character,
-            cost=entry.cost or "Unknown",
-            action=action_type,
-            result=result_summary,
-            fingerprint=fingerprint,
-            details={
-                "score": evaluation.total_score,
-                "rating_key": evaluation.rating
-            },
-            duplicate_mode=app_config.history_duplicate_mode
-        )
+        if record_history:
+            result_summary = f"Score: {evaluation.total_score:.2f} ({evaluation.rating})"
+            
+            app_config = self.config_manager.get_app_config()
+            self.history_mgr.add_entry(
+                character=character,
+                cost=entry.cost or "Unknown",
+                action=action_type,
+                result=result_summary,
+                fingerprint=fingerprint,
+                details={
+                    "score": evaluation.total_score,
+                    "rating_key": evaluation.rating
+                },
+                duplicate_mode=app_config.history_duplicate_mode
+            )
         
         return evaluation
 

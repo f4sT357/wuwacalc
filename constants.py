@@ -141,6 +141,8 @@ THEME_COLORS = {
     "dark": {
         "background": "#2e2e2e",
         "input_bg": "#202020",
+        "text": "#ffffff",
+        "shadow": "#000000",
         "border": "#5a5a5a",
         "button_bg": "#5a5a5a",
         "button_text": "#ffffff",
@@ -153,6 +155,8 @@ THEME_COLORS = {
     "light": {
         "background": "#f0f0f0",
         "input_bg": "#ffffff",
+        "text": "#000000",
+        "shadow": "#ffffff",
         "border": "#c0c0c0",
         "button_bg": "#e0e0e0",
         "button_text": "#000000",
@@ -165,6 +169,8 @@ THEME_COLORS = {
     "clear": {
         "background": "#eefeff",
         "input_bg": "#ffffff",
+        "text": "#000000",
+        "shadow": "#ffffff",
         "border": "#b0d0e0",
         "button_bg": "#d0efff",
         "button_text": "#000000",
@@ -173,6 +179,20 @@ THEME_COLORS = {
         "tab_text": "#000000",
         "tab_selected": "#80d0ff",
         "group_border": "#b0d0e0"
+    },
+    "custom": {
+        "background": "#2e2e2e",
+        "input_bg": "#202020",
+        "text": "#ffffff",
+        "shadow": "#000000",
+        "border": "#5a5a5a",
+        "button_bg": "#5a5a5a",
+        "button_text": "#ffffff",
+        "button_hover": "#6a6a6a",
+        "tab_bg": "#3e3e3e",
+        "tab_text": "#ffffff",
+        "tab_selected": "#4a90e2",
+        "group_border": "#5a5a5a"
     }
 }
 

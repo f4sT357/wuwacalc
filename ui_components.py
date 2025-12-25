@@ -48,13 +48,30 @@ class UIComponents:
             "cv": QCheckBox()
         }
         
+        # Attribute holders for labels and other widgets that need retranslation
+        self.lbl_cost_config = QLabel()
+        self.lbl_character = QLabel()
+        self.lbl_language = QLabel()
+        self.lbl_input_mode = QLabel()
+        self.lbl_calc_mode = QLabel()
+        self.lbl_methods = QLabel()
+        
+        self.btn_load = QPushButton()
+        self.btn_paste = QPushButton()
+        self.btn_crop = QPushButton()
+        self.cb_auto_calculate = QCheckBox()
+        self.lbl_crop_mode = QLabel()
+        self.rb_crop_drag = QRadioButton()
+        self.rb_crop_percent = QRadioButton()
+        
+        self.crop_labels: Dict[str, QLabel] = {}
+        
         # Attribute holders for app-side reference
         self.main_widget = None
         self.settings_group = None
         self.image_group = None
         self.result_group = None
         self.log_group = None
-        self.lbl_methods = None
 
     def create_main_layout(self) -> None:
         self.main_widget = QWidget()
@@ -91,20 +108,24 @@ class UIComponents:
         grid = QGridLayout()
         vbox.addLayout(grid)
 
-        grid.addWidget(QLabel(self.app.tr("cost_config")), 0, 0)
+        self.lbl_cost_config.setText(self.app.tr("cost_config"))
+        grid.addWidget(self.lbl_cost_config, 0, 0)
         self.config_combo.addItems(list(self.app.data_manager.tab_configs.keys()))
         self.config_combo.setCurrentText(self.app.current_config_key)
         grid.addWidget(self.config_combo, 0, 1)
 
-        grid.addWidget(QLabel(self.app.tr("character")), 0, 2)
+        self.lbl_character.setText(self.app.tr("character"))
+        grid.addWidget(self.lbl_character, 0, 2)
         grid.addWidget(self.character_combo, 0, 3)
 
-        grid.addWidget(QLabel(self.app.tr("language")), 1, 0)
+        self.lbl_language.setText(self.app.tr("language"))
+        grid.addWidget(self.lbl_language, 1, 0)
         self.lang_combo.addItems(["ja", "en"])
         self.lang_combo.setCurrentText(self.app.language)
         grid.addWidget(self.lang_combo, 1, 1)
 
-        grid.addWidget(QLabel(self.app.tr("input_mode")), 1, 2)
+        self.lbl_input_mode.setText(self.app.tr("input_mode"))
+        grid.addWidget(self.lbl_input_mode, 1, 2)
         mode_h = QHBoxLayout()
         self.rb_manual.setText(self.app.tr("manual"))
         self.rb_ocr.setText(self.app.tr("ocr"))
@@ -123,7 +144,8 @@ class UIComponents:
         self.cb_auto_main.setChecked(self.app.auto_apply_main_stats)
         grid.addWidget(self.cb_auto_main, 2, 0, 1, 2)
 
-        grid.addWidget(QLabel(self.app.tr("calc_mode")), 2, 2)
+        self.lbl_calc_mode.setText(self.app.tr("calc_mode"))
+        grid.addWidget(self.lbl_calc_mode, 2, 2)
         calc_h = QHBoxLayout()
         self.rb_batch.setText(self.app.tr("batch")); self.rb_single.setText(self.app.tr("single_only"))
         
@@ -138,7 +160,7 @@ class UIComponents:
         grid.addLayout(calc_h, 2, 3)
 
         methods_h = QHBoxLayout()
-        self.lbl_methods = QLabel(self.app.tr("methods_label"))
+        self.lbl_methods.setText(self.app.tr("methods_label"))
         methods_h.addWidget(self.lbl_methods)
         enabled = self.app.app_config.enabled_calc_methods
         for m, cb in self.method_checkboxes.items():
@@ -154,6 +176,7 @@ class UIComponents:
     def _setup_action_buttons(self, layout: QHBoxLayout) -> None:
         self.action_buttons = {}
         buttons = [("calculate", self.app.trigger_calculation, " (F5)"),
+                   ("set_equipped", self.app.set_current_as_equipped, ""),
                    ("export_txt", self.app.export_result_to_txt, " (Ctrl+S)"),
                    ("clear_all", self.app.clear_all, " (Ctrl+R)"),
                    ("clear_tab", self.app.clear_current_tab, "")]
@@ -183,10 +206,10 @@ class UIComponents:
         self.btn_preprocess_settings.clicked.connect(self.app.open_image_preprocessing_settings)
         layout.addWidget(self.btn_preprocess_settings)
         
-        btn_help = QPushButton(self.app.tr("help"))
-        btn_help.setFixedWidth(60)
-        btn_help.clicked.connect(self.app._open_readme)
-        layout.addWidget(btn_help)
+        self.btn_help = QPushButton(self.app.tr("help"))
+        self.btn_help.setFixedWidth(60)
+        self.btn_help.clicked.connect(self.app._open_readme)
+        layout.addWidget(self.btn_help)
         layout.addStretch()
 
     def _setup_image_ui(self, layout: QVBoxLayout) -> None:
@@ -195,39 +218,42 @@ class UIComponents:
         layout.addWidget(self.image_group)
         
         btn_h = QHBoxLayout()
-        btn_load = QPushButton(self.app.tr("load_image"))
-        btn_load.clicked.connect(self.app.import_image)
-        btn_paste = QPushButton(self.app.tr("paste_clipboard"))
-        btn_paste.clicked.connect(self.app.image_proc.paste_from_clipboard)
-        btn_crop = QPushButton(self.app.tr("perform_crop"))
-        btn_crop.clicked.connect(self.app.image_proc.perform_crop)
-        cb_auto = QCheckBox(self.app.tr("auto_calculate"))
-        cb_auto.setChecked(self.app.app_config.auto_calculate)
-        cb_auto.toggled.connect(self.app.on_auto_calculate_change)
+        self.btn_load.setText(self.app.tr("load_image"))
+        self.btn_load.clicked.connect(self.app.import_image)
+        self.btn_paste.setText(self.app.tr("paste_clipboard"))
+        self.btn_paste.clicked.connect(self.app.image_proc.paste_from_clipboard)
+        self.btn_crop.setText(self.app.tr("perform_crop"))
+        self.btn_crop.clicked.connect(self.app.image_proc.perform_crop)
+        self.cb_auto_calculate.setText(self.app.tr("auto_calculate"))
+        self.cb_auto_calculate.setChecked(self.app.app_config.auto_calculate)
+        self.cb_auto_calculate.toggled.connect(self.app.on_auto_calculate_change)
         
-        btn_h.addWidget(btn_load); btn_h.addWidget(btn_paste); btn_h.addWidget(btn_crop); btn_h.addWidget(cb_auto)
+        btn_h.addWidget(self.btn_load); btn_h.addWidget(self.btn_paste); btn_h.addWidget(self.btn_crop); btn_h.addWidget(self.cb_auto_calculate)
         vbox.addLayout(btn_h)
         
         crop_h = QHBoxLayout()
-        self.lbl_crop_mode = QLabel(self.app.tr("crop_mode"))
+        self.lbl_crop_mode.setText(self.app.tr("crop_mode"))
         crop_h.addWidget(self.lbl_crop_mode)
-        rb_d = QRadioButton(self.app.tr("drag")); rb_p = QRadioButton(self.app.tr("percent"))
+        self.rb_crop_drag.setText(self.app.tr("drag"))
+        self.rb_crop_percent.setText(self.app.tr("percent"))
         
         # Group Crop Mode Radio Buttons
         self.grp_crop_mode = QButtonGroup(self.image_group)
-        self.grp_crop_mode.addButton(rb_d)
-        self.grp_crop_mode.addButton(rb_p)
+        self.grp_crop_mode.addButton(self.rb_crop_drag)
+        self.grp_crop_mode.addButton(self.rb_crop_percent)
         
-        if self.app.crop_mode_var == "drag": rb_d.setChecked(True)
-        else: rb_p.setChecked(True)
-        rb_d.toggled.connect(lambda c: self.app.events.on_crop_mode_change("drag") if c else None)
-        rb_p.toggled.connect(lambda c: self.app.events.on_crop_mode_change("percent") if c else None)
-        crop_h.addWidget(rb_d); crop_h.addWidget(rb_p)
+        if self.app.crop_mode_var == "drag": self.rb_crop_drag.setChecked(True)
+        else: self.rb_crop_percent.setChecked(True)
+        self.rb_crop_drag.toggled.connect(lambda c: self.app.events.on_crop_mode_change("drag") if c else None)
+        self.rb_crop_percent.toggled.connect(lambda c: self.app.events.on_crop_mode_change("percent") if c else None)
+        crop_h.addWidget(self.rb_crop_drag); crop_h.addWidget(self.rb_crop_percent)
         
-        self.app.entry_crop_l, self.app.slider_crop_l = self._create_crop_item(crop_h, "L%", self.app.app_config.crop_left_percent, "slider_crop_l")
-        self.app.entry_crop_t, self.app.slider_crop_t = self._create_crop_item(crop_h, "T%", self.app.app_config.crop_top_percent, "slider_crop_t")
-        self.app.entry_crop_w, self.app.slider_crop_w = self._create_crop_item(crop_h, "W%", self.app.app_config.crop_width_percent, "slider_crop_w")
-        self.app.entry_crop_h, self.app.slider_crop_h = self._create_crop_item(crop_h, "H%", self.app.app_config.crop_height_percent, "slider_crop_h")
+        self.app.entry_crop_l, self.app.slider_crop_l, lbl_l = self._create_crop_item(crop_h, self.app.tr("left_percent"), self.app.app_config.crop_left_percent, "slider_crop_l")
+        self.app.entry_crop_t, self.app.slider_crop_t, lbl_t = self._create_crop_item(crop_h, self.app.tr("top_percent"), self.app.app_config.crop_top_percent, "slider_crop_t")
+        self.app.entry_crop_w, self.app.slider_crop_w, lbl_w = self._create_crop_item(crop_h, self.app.tr("width_percent"), self.app.app_config.crop_width_percent, "slider_crop_w")
+        self.app.entry_crop_h, self.app.slider_crop_h, lbl_h = self._create_crop_item(crop_h, self.app.tr("height_percent"), self.app.app_config.crop_height_percent, "slider_crop_h")
+        self.crop_labels["L"] = lbl_l; self.crop_labels["T"] = lbl_t; self.crop_labels["W"] = lbl_w; self.crop_labels["H"] = lbl_h
+
         vbox.addLayout(crop_h)
         
         self.app.image_label = QLabel(self.app.tr("no_image"))
@@ -235,15 +261,16 @@ class UIComponents:
         self.app.image_label.setMinimumHeight(IMAGE_PREVIEW_MAX_HEIGHT)
         vbox.addWidget(self.app.image_label)
 
-    def _create_crop_item(self, layout: QHBoxLayout, label: str, val: float, name: str) -> Tuple[QLineEdit, QSlider]:
+    def _create_crop_item(self, layout: QHBoxLayout, label_text: str, val: float, name: str) -> Tuple[QLineEdit, QSlider, QLabel]:
         vbox = QVBoxLayout()
-        vbox.addWidget(QLabel(label))
+        lbl = QLabel(label_text)
+        vbox.addWidget(lbl)
         e = QLineEdit(str(val)); e.setFixedWidth(40); e.textChanged.connect(self.app.on_crop_percent_change)
         vbox.addWidget(e)
         s = QSlider(Qt.Orientation.Horizontal); s.setRange(0, 100); s.setValue(int(val)); s.setObjectName(name); s.valueChanged.connect(self.app.on_crop_slider_change)
         vbox.addWidget(s)
         layout.addLayout(vbox)
-        return e, s
+        return e, s, lbl
 
     def _setup_result_ui(self, layout: QVBoxLayout) -> None:
         self.result_group = QGroupBox(self.app.tr("calc_result"))
@@ -261,8 +288,13 @@ class UIComponents:
 
     def retranslate_ui(self) -> None:
         self.settings_group.setTitle(self.app.tr("basic_settings"))
+        self.lbl_cost_config.setText(self.app.tr("cost_config"))
+        self.lbl_character.setText(self.app.tr("character"))
+        self.lbl_language.setText(self.app.tr("language"))
+        self.lbl_input_mode.setText(self.app.tr("input_mode"))
         self.rb_manual.setText(self.app.tr("manual")); self.rb_ocr.setText(self.app.tr("ocr"))
         self.cb_auto_main.setText(self.app.tr("auto_main"))
+        self.lbl_calc_mode.setText(self.app.tr("calc_mode"))
         self.rb_batch.setText(self.app.tr("batch")); self.rb_single.setText(self.app.tr("single_only"))
         self.lbl_methods.setText(self.app.tr("methods_label"))
         for m, cb in self.method_checkboxes.items(): cb.setText(self.app.tr(f"method_{m}"))
@@ -271,10 +303,30 @@ class UIComponents:
         self.btn_display_settings.setText(self.app.tr("display_settings"))
         self.btn_history.setText(self.app.tr("history"))
         self.btn_preprocess_settings.setText(self.app.tr("preprocess_settings"))
+        self.btn_help.setText(self.app.tr("help"))
+        
+        # Update character combo first item (placeholder)
+        self.character_combo.setItemText(0, f"-- {self.app.tr('character')} --")
+        
         self.result_group.setTitle(self.app.tr("calc_result"))
         self.log_group.setTitle(self.app.tr("log"))
+        
         self.image_group.setTitle(self.app.tr("ocr_image"))
+        self.btn_load.setText(self.app.tr("load_image"))
+        self.btn_paste.setText(self.app.tr("paste_clipboard"))
+        self.btn_crop.setText(self.app.tr("perform_crop"))
+        self.cb_auto_calculate.setText(self.app.tr("auto_calculate"))
         self.lbl_crop_mode.setText(self.app.tr("crop_mode"))
+        self.rb_crop_drag.setText(self.app.tr("drag"))
+        self.rb_crop_percent.setText(self.app.tr("percent"))
+        
+        self.crop_labels["L"].setText(self.app.tr("left_percent"))
+        self.crop_labels["T"].setText(self.app.tr("top_percent"))
+        self.crop_labels["W"].setText(self.app.tr("width_percent"))
+        self.crop_labels["H"].setText(self.app.tr("height_percent"))
+        
+        if not self.app.image_proc.loaded_image:
+            self.app.image_label.setText(self.app.tr("no_image"))
 
     def update_ui_mode(self) -> None:
         is_ocr = (self.app.mode_var == "ocr")
@@ -292,16 +344,34 @@ class UIComponents:
     def update_character_combo(self, profiles: List[Any], current: str = "") -> None:
         self.character_combo.blockSignals(True)
         self.character_combo.clear()
+        
+        lang = self.app.language
         formatted = []
         for p in profiles:
-            if isinstance(p, dict): formatted.append((p.get('name_jp', ''), p.get('name_en', '')))
-            elif isinstance(p, tuple): formatted.append(p)
+            if isinstance(p, dict):
+                jp = p.get('name_jp', '')
+                en = p.get('name_en', '')
+                display_name = en if lang == 'en' else jp
+                formatted.append((display_name, en))
+            elif isinstance(p, tuple):
+                # (display_name, internal_name)
+                formatted.append(p)
+        
+        # Sort by display name
         formatted.sort(key=lambda x: x[0])
+        
         self.character_combo.addItem(f"-- {self.app.tr('character')} --", userData="")
-        for jp, en in formatted: self.character_combo.addItem(jp, userData=en)
+        for display_name, internal_name in formatted:
+            self.character_combo.addItem(display_name, userData=internal_name)
+        
         idx = self.character_combo.findData(current)
-        if idx >= 0: self.character_combo.setCurrentIndex(idx)
-        else: self.character_combo.setCurrentIndex(0)
-        if self.character_combo.currentIndex() <= 0: self.character_combo.setEditText("")
+        if idx >= 0:
+            self.character_combo.setCurrentIndex(idx)
+        else:
+            self.character_combo.setCurrentIndex(0)
+            
+        if self.character_combo.currentIndex() <= 0:
+            self.character_combo.setEditText("")
+            
         self.character_combo.blockSignals(False)
-        self.app.logger.info(f"Populated character combo with {len(formatted)} items.")
+        self.app.logger.info(f"Populated character combo with {len(formatted)} items in {lang}.")
