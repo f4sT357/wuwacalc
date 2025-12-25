@@ -128,7 +128,9 @@ class UIComponents:
         grid.addWidget(self.lbl_input_mode, 1, 2)
         mode_h = QHBoxLayout()
         self.rb_manual.setText(self.app.tr("manual"))
+        self.rb_manual.setToolTip(self.app.tr("tooltip_manual_mode"))
         self.rb_ocr.setText(self.app.tr("ocr"))
+        self.rb_ocr.setToolTip(self.app.tr("tooltip_ocr_mode"))
         
         # Group Input Mode Radio Buttons
         self.grp_input_mode = QButtonGroup(self.main_widget)
@@ -148,6 +150,8 @@ class UIComponents:
         grid.addWidget(self.lbl_calc_mode, 2, 2)
         calc_h = QHBoxLayout()
         self.rb_batch.setText(self.app.tr("batch")); self.rb_single.setText(self.app.tr("single_only"))
+        self.rb_batch.setToolTip(self.app.tr("tooltip_batch_mode"))
+        self.rb_single.setToolTip(self.app.tr("tooltip_single_mode"))
         
         # Group Calc Mode Radio Buttons
         self.grp_calc_mode = QButtonGroup(self.main_widget)
@@ -175,19 +179,21 @@ class UIComponents:
 
     def _setup_action_buttons(self, layout: QHBoxLayout) -> None:
         self.action_buttons = {}
-        buttons = [("calculate", self.app.trigger_calculation, " (F5)"),
-                   ("set_equipped", self.app.set_current_as_equipped, ""),
-                   ("export_txt", self.app.export_result_to_txt, " (Ctrl+S)"),
-                   ("clear_all", self.app.clear_all, " (Ctrl+R)"),
-                   ("clear_tab", self.app.clear_current_tab, "")]
-        for k, cmd, s in buttons:
+        # key, slot, tooltip_key
+        buttons = [("calculate", self.app.trigger_calculation, "tooltip_calculate"),
+                   ("set_equipped", self.app.set_current_as_equipped, "tooltip_set_equipped"),
+                   ("export_txt", self.app.export_result_to_txt, "tooltip_export_txt"),
+                   ("clear_all", self.app.clear_all, "tooltip_clear_all"),
+                   ("clear_tab", self.app.clear_current_tab, "tooltip_clear_tab")]
+        for k, cmd, tooltip_key in buttons:
             btn = QPushButton(self.app.tr(k))
             btn.clicked.connect(cmd)
-            btn.setToolTip(self.app.tr(k) + s)
+            btn.setToolTip(self.app.tr(tooltip_key))
             layout.addWidget(btn)
-            self.action_buttons[k] = (btn, s)
+            self.action_buttons[k] = (btn, tooltip_key)
         
         self.btn_char_setting = QPushButton(self.app.tr("char_setting"))
+        self.btn_char_setting.setToolTip(self.app.tr("tooltip_char_setting"))
         menu = QMenu(self.btn_char_setting)
         menu.addAction(self.app.tr("new")).triggered.connect(self.app.open_char_settings_new)
         menu.addAction(self.app.tr("edit")).triggered.connect(self.app.open_char_settings_edit)
@@ -195,18 +201,22 @@ class UIComponents:
         layout.addWidget(self.btn_char_setting)
         
         self.btn_display_settings = QPushButton(self.app.tr("display_settings"))
+        self.btn_display_settings.setToolTip(self.app.tr("tooltip_display_settings"))
         self.btn_display_settings.clicked.connect(self.app.open_display_settings)
         layout.addWidget(self.btn_display_settings)
         
         self.btn_history = QPushButton(self.app.tr("history"))
+        self.btn_history.setToolTip(self.app.tr("tooltip_history"))
         self.btn_history.clicked.connect(self.app.open_history)
         layout.addWidget(self.btn_history)
 
         self.btn_preprocess_settings = QPushButton(self.app.tr("preprocess_settings"))
+        self.btn_preprocess_settings.setToolTip(self.app.tr("tooltip_preprocess"))
         self.btn_preprocess_settings.clicked.connect(self.app.open_image_preprocessing_settings)
         layout.addWidget(self.btn_preprocess_settings)
         
         self.btn_help = QPushButton(self.app.tr("help"))
+        self.btn_help.setToolTip(self.app.tr("tooltip_help"))
         self.btn_help.setFixedWidth(60)
         self.btn_help.clicked.connect(self.app._open_readme)
         layout.addWidget(self.btn_help)
@@ -219,12 +229,19 @@ class UIComponents:
         
         btn_h = QHBoxLayout()
         self.btn_load.setText(self.app.tr("load_image"))
+        self.btn_load.setToolTip(self.app.tr("tooltip_load_image"))
         self.btn_load.clicked.connect(self.app.import_image)
+        
         self.btn_paste.setText(self.app.tr("paste_clipboard"))
+        self.btn_paste.setToolTip(self.app.tr("tooltip_paste"))
         self.btn_paste.clicked.connect(self.app.image_proc.paste_from_clipboard)
+        
         self.btn_crop.setText(self.app.tr("perform_crop"))
+        self.btn_crop.setToolTip(self.app.tr("tooltip_crop"))
         self.btn_crop.clicked.connect(self.app.image_proc.perform_crop)
+        
         self.cb_auto_calculate.setText(self.app.tr("auto_calculate"))
+        self.cb_auto_calculate.setToolTip(self.app.tr("tooltip_auto_calculate"))
         self.cb_auto_calculate.setChecked(self.app.app_config.auto_calculate)
         self.cb_auto_calculate.toggled.connect(self.app.on_auto_calculate_change)
         
@@ -248,18 +265,18 @@ class UIComponents:
         self.rb_crop_percent.toggled.connect(lambda c: self.app.events.on_crop_mode_change("percent") if c else None)
         crop_h.addWidget(self.rb_crop_drag); crop_h.addWidget(self.rb_crop_percent)
         
-        self.app.entry_crop_l, self.app.slider_crop_l, lbl_l = self._create_crop_item(crop_h, self.app.tr("left_percent"), self.app.app_config.crop_left_percent, "slider_crop_l")
-        self.app.entry_crop_t, self.app.slider_crop_t, lbl_t = self._create_crop_item(crop_h, self.app.tr("top_percent"), self.app.app_config.crop_top_percent, "slider_crop_t")
-        self.app.entry_crop_w, self.app.slider_crop_w, lbl_w = self._create_crop_item(crop_h, self.app.tr("width_percent"), self.app.app_config.crop_width_percent, "slider_crop_w")
-        self.app.entry_crop_h, self.app.slider_crop_h, lbl_h = self._create_crop_item(crop_h, self.app.tr("height_percent"), self.app.app_config.crop_height_percent, "slider_crop_h")
+        self.entry_crop_l, self.slider_crop_l, lbl_l = self._create_crop_item(crop_h, self.app.tr("left_percent"), self.app.app_config.crop_left_percent, "slider_crop_l")
+        self.entry_crop_t, self.slider_crop_t, lbl_t = self._create_crop_item(crop_h, self.app.tr("top_percent"), self.app.app_config.crop_top_percent, "slider_crop_t")
+        self.entry_crop_w, self.slider_crop_w, lbl_w = self._create_crop_item(crop_h, self.app.tr("width_percent"), self.app.app_config.crop_width_percent, "slider_crop_w")
+        self.entry_crop_h, self.slider_crop_h, lbl_h = self._create_crop_item(crop_h, self.app.tr("height_percent"), self.app.app_config.crop_height_percent, "slider_crop_h")
         self.crop_labels["L"] = lbl_l; self.crop_labels["T"] = lbl_t; self.crop_labels["W"] = lbl_w; self.crop_labels["H"] = lbl_h
 
         vbox.addLayout(crop_h)
         
-        self.app.image_label = QLabel(self.app.tr("no_image"))
-        self.app.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.app.image_label.setMinimumHeight(IMAGE_PREVIEW_MAX_HEIGHT)
-        vbox.addWidget(self.app.image_label)
+        self.image_label = QLabel(self.app.tr("no_image"))
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setMinimumHeight(IMAGE_PREVIEW_MAX_HEIGHT)
+        vbox.addWidget(self.image_label)
 
     def _create_crop_item(self, layout: QHBoxLayout, label_text: str, val: float, name: str) -> Tuple[QLineEdit, QSlider, QLabel]:
         vbox = QVBoxLayout()
@@ -275,15 +292,15 @@ class UIComponents:
     def _setup_result_ui(self, layout: QVBoxLayout) -> None:
         self.result_group = QGroupBox(self.app.tr("calc_result"))
         l = QVBoxLayout(self.result_group)
-        self.app.result_text = QTextEdit(); self.app.result_text.setReadOnly(True)
-        l.addWidget(self.app.result_text)
+        self.result_text = QTextEdit(); self.result_text.setReadOnly(True)
+        l.addWidget(self.result_text)
         layout.addWidget(self.result_group)
 
     def _setup_log_ui(self, layout: QVBoxLayout) -> None:
         self.log_group = QGroupBox(self.app.tr("log"))
         l = QVBoxLayout(self.log_group)
-        self.app.log_text = QTextEdit(); self.app.log_text.setReadOnly(True)
-        l.addWidget(self.app.log_text)
+        self.log_text = QTextEdit(); self.log_text.setReadOnly(True)
+        l.addWidget(self.log_text)
         layout.addWidget(self.log_group)
 
     def retranslate_ui(self) -> None:
@@ -293,17 +310,29 @@ class UIComponents:
         self.lbl_language.setText(self.app.tr("language"))
         self.lbl_input_mode.setText(self.app.tr("input_mode"))
         self.rb_manual.setText(self.app.tr("manual")); self.rb_ocr.setText(self.app.tr("ocr"))
+        self.rb_manual.setToolTip(self.app.tr("tooltip_manual_mode"))
+        self.rb_ocr.setToolTip(self.app.tr("tooltip_ocr_mode"))
         self.cb_auto_main.setText(self.app.tr("auto_main"))
         self.lbl_calc_mode.setText(self.app.tr("calc_mode"))
         self.rb_batch.setText(self.app.tr("batch")); self.rb_single.setText(self.app.tr("single_only"))
+        self.rb_batch.setToolTip(self.app.tr("tooltip_batch_mode"))
+        self.rb_single.setToolTip(self.app.tr("tooltip_single_mode"))
         self.lbl_methods.setText(self.app.tr("methods_label"))
         for m, cb in self.method_checkboxes.items(): cb.setText(self.app.tr(f"method_{m}"))
-        for k, (btn, s) in self.action_buttons.items(): btn.setText(self.app.tr(k)); btn.setToolTip(self.app.tr(k) + s)
+        for k, (btn, tooltip_key) in self.action_buttons.items():
+            btn.setText(self.app.tr(k))
+            btn.setToolTip(self.app.tr(tooltip_key))
+            
         self.btn_char_setting.setText(self.app.tr("char_setting"))
+        self.btn_char_setting.setToolTip(self.app.tr("tooltip_char_setting"))
         self.btn_display_settings.setText(self.app.tr("display_settings"))
+        self.btn_display_settings.setToolTip(self.app.tr("tooltip_display_settings"))
         self.btn_history.setText(self.app.tr("history"))
+        self.btn_history.setToolTip(self.app.tr("tooltip_history"))
         self.btn_preprocess_settings.setText(self.app.tr("preprocess_settings"))
+        self.btn_preprocess_settings.setToolTip(self.app.tr("tooltip_preprocess"))
         self.btn_help.setText(self.app.tr("help"))
+        self.btn_help.setToolTip(self.app.tr("tooltip_help"))
         
         # Update character combo first item (placeholder)
         self.character_combo.setItemText(0, f"-- {self.app.tr('character')} --")
@@ -313,9 +342,13 @@ class UIComponents:
         
         self.image_group.setTitle(self.app.tr("ocr_image"))
         self.btn_load.setText(self.app.tr("load_image"))
+        self.btn_load.setToolTip(self.app.tr("tooltip_load_image"))
         self.btn_paste.setText(self.app.tr("paste_clipboard"))
+        self.btn_paste.setToolTip(self.app.tr("tooltip_paste"))
         self.btn_crop.setText(self.app.tr("perform_crop"))
+        self.btn_crop.setToolTip(self.app.tr("tooltip_crop"))
         self.cb_auto_calculate.setText(self.app.tr("auto_calculate"))
+        self.cb_auto_calculate.setToolTip(self.app.tr("tooltip_auto_calculate"))
         self.lbl_crop_mode.setText(self.app.tr("crop_mode"))
         self.rb_crop_drag.setText(self.app.tr("drag"))
         self.rb_crop_percent.setText(self.app.tr("percent"))
@@ -326,13 +359,13 @@ class UIComponents:
         self.crop_labels["H"].setText(self.app.tr("height_percent"))
         
         if not self.app.image_proc.loaded_image:
-            self.app.image_label.setText(self.app.tr("no_image"))
+            self.image_label.setText(self.app.tr("no_image"))
 
     def update_ui_mode(self) -> None:
         is_ocr = (self.app.mode_var == "ocr")
         is_p = (self.app.crop_mode_var == "percent")
         for attr in ['entry_crop_l', 'slider_crop_l', 'entry_crop_t', 'slider_crop_t', 'entry_crop_w', 'slider_crop_w', 'entry_crop_h', 'slider_crop_h']:
-            w = getattr(self.app, attr, None)
+            w = getattr(self, attr, None)
             if w: w.setEnabled(is_ocr and is_p)
 
     def filter_characters_by_config(self) -> None:

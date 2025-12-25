@@ -51,9 +51,6 @@ class ScoreCalculatorApp(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         # 1. Basic properties
-        self.log_text = None
-        self.result_text = None
-        self.image_label = None
         self._startup_messages = []
         self._last_displayed_image_hash = None
         self._last_image_preview = None
@@ -201,8 +198,8 @@ class ScoreCalculatorApp(QMainWindow):
         self._frame_original_properties = {}
 
     def gui_log(self, message: str) -> None:
-        if self.log_text:
-            self.log_text.append(message)
+        if getattr(self, 'ui', None) and getattr(self.ui, 'log_text', None):
+            self.ui.log_text.append(message)
         self.logger.info(message)
 
     def tr(self, key: str, *args: Any) -> str:
@@ -213,7 +210,7 @@ class ScoreCalculatorApp(QMainWindow):
         try:
             if not self.character_var:
                 self._waiting_for_character = True
-                self.result_text.setHtml(f"<h3 style='color: orange;'>{self.tr('waiting_for_character')}</h3>")
+                self.ui.result_text.setHtml(f"<h3 style='color: orange;'>{self.tr('waiting_for_character')}</h3>")
                 return
             self._waiting_for_character = False
             self.show_duplicate_entries()
@@ -228,11 +225,11 @@ class ScoreCalculatorApp(QMainWindow):
         except Exception as e: self.logger.exception(f"Calc error: {e}")
 
     def on_single_calc_completed(self, html: str, tab_name: str, evaluation: object) -> None:
-        self.result_text.setHtml(html)
+        self.ui.result_text.setHtml(html)
         self.tab_mgr.save_tab_result(tab_name, html)
 
     def on_batch_calc_completed(self, html: str, character: str) -> None:
-        self.result_text.setHtml(html)
+        self.ui.result_text.setHtml(html)
 
     def on_tabs_updated(self) -> None:
         self.ui.update_ui_mode()
@@ -251,8 +248,8 @@ class ScoreCalculatorApp(QMainWindow):
 
     def show_tab_result(self, tab_name: str) -> None:
         html = self.tab_mgr.get_tab_result(tab_name)
-        if html: self.result_text.setHtml(html)
-        else: self.result_text.clear()
+        if html: self.ui.result_text.setHtml(html)
+        else: self.ui.result_text.clear()
 
     def import_image(self) -> None:
         file_paths, _ = QFileDialog.getOpenFileNames(self, self.tr("select_image_file"), "", f"{self.tr('image_files')} (*.png *.jpg *.jpeg *.bmp *.gif);;{self.tr('all_files')} (*.*)")
@@ -336,27 +333,32 @@ class ScoreCalculatorApp(QMainWindow):
         self.trigger_calculation()
 
     def export_result_to_txt(self) -> None:
-        if self.tab_mgr: self.tab_mgr.export_to_txt(self, self.result_text.toPlainText())
+        if self.tab_mgr: self.tab_mgr.export_to_txt(self, self.ui.result_text.toPlainText())
 
     def clear_all(self) -> None:
         if self.tab_mgr:
             self.tab_mgr.clear_all()
-            self.result_text.clear()
+            self.ui.result_text.clear()
             self.update_image_preview(None)
 
     def clear_current_tab(self) -> None:
         if self.tab_mgr:
             self.tab_mgr.clear_current_tab()
-            self.result_text.clear()
+            self.ui.result_text.clear()
 
     def update_image_preview(self, image: Optional['Image.Image']) -> None:
-        if not is_pil_installed or self.image_label is None or image is None:
-            if self.image_label: self.image_label.setText(self.tr("no_image")); self.image_label.setPixmap(QPixmap())
+        ui = getattr(self, 'ui', None)
+        lbl = getattr(ui, 'image_label', None)
+        
+        if not is_pil_installed or lbl is None or image is None:
+            if lbl: 
+                lbl.setText(self.tr("no_image"))
+                lbl.setPixmap(QPixmap())
             return
         qim = ImageQt.ImageQt(image)
         pixmap = QPixmap.fromImage(qim)
         scaled = pixmap.scaled(IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-        self.image_label.setPixmap(scaled)
+        lbl.setPixmap(scaled)
 
     def _post_init_setup(self) -> None:
         self.events.setup_connections()
@@ -438,10 +440,10 @@ class ScoreCalculatorApp(QMainWindow):
         style_pattern = re.compile(r'<!-- STYLE_START -->.*?<!-- STYLE_END -->', re.DOTALL)
 
         # 1. Update current display
-        current_html = self.result_text.toHtml()
+        current_html = self.ui.result_text.toHtml()
         if "<!-- STYLE_START -->" in current_html:
             updated_html = style_pattern.sub(new_style, current_html)
-            self.result_text.setHtml(updated_html)
+            self.ui.result_text.setHtml(updated_html)
 
         # 2. Update all stored results in TabManager
         for tab_name in self.tab_mgr._tab_results:
@@ -457,6 +459,13 @@ class ScoreCalculatorApp(QMainWindow):
         self.app_config.shadow_blur = blur
         self.app_config.shadow_spread = spread
         self.html_renderer.set_shadow_params(ox, oy, blur, spread)
+        self.theme_manager.refresh_global_shadows()
+        self.refresh_results_display()
+
+    def update_shadow_color(self, color: str) -> None:
+        """Update shadow color and refresh display."""
+        self.app_config.text_shadow_color = color
+        self.html_renderer.set_shadow_color(color)
         self.theme_manager.refresh_global_shadows()
         self.refresh_results_display()
 

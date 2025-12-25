@@ -400,33 +400,32 @@ class AppLogic(QObject):
 
     def detect_cost_from_ocr(self, ocr_text: str) -> Optional[str]:
         """
-        Detects the cost (4, 3, 1) from the first line of the OCR text.
+        Detects the cost (4, 3, 1) from the first few lines of the OCR text.
         """
         if not ocr_text:
             return None
         
-        # Get the first non-empty line
-        first_line = ""
-        for line in ocr_text.splitlines():
-            stripped_line = line.strip()
-            if stripped_line:
-                first_line = stripped_line
-                break
+        # Get all non-empty lines
+        lines = [line.strip() for line in ocr_text.splitlines() if line.strip()]
         
-        if not first_line:
+        if not lines:
             return None
 
-        self.log_message.emit(f"Searching for cost in first line: '{first_line}'")
+        # Check first 3 lines
+        check_count = min(len(lines), 3)
+        self.log_message.emit(f"Searching for cost in first {check_count} lines.")
         
-        # 1. Search for explicit "Cost" text on the first line only
+        # 1. Search for explicit "Cost" text
         cost_pattern = re.compile(r'(?:COST|Cost|cost|コスト)[\s:.]*([134])')
-        match = cost_pattern.search(first_line)
-        if match:
-            cost_found = match.group(1)
-            self.log_message.emit(f"Cost '{cost_found}' detected on first line.")
-            return cost_found
+        
+        for i in range(check_count):
+            line = lines[i]
+            match = cost_pattern.search(line)
+            if match:
+                cost_found = match.group(1)
+                self.log_message.emit(f"Cost '{cost_found}' detected on line {i+1}: '{line}'")
+                return cost_found
             
-        # Per user request, do not fall back to other lines or class names if not found on first line.
-        self.log_message.emit("No cost detected on the first line as per strict requirement.")
+        self.log_message.emit("No cost detected in the first few lines.")
         return None
 

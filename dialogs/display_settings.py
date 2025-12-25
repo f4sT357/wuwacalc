@@ -419,9 +419,7 @@ class DisplaySettingsDialog(QDialog):
             self.app.refresh_results_display()
             
         if self.selected_shadow_color != self.initial_shadow_color:
-            self.app.app_config.text_shadow_color = self.selected_shadow_color
-            self.app.html_renderer.set_shadow_color(self.selected_shadow_color)
-            self.app.refresh_results_display()
+            self.app.update_shadow_color(self.selected_shadow_color)
 
         # Update Shadow Params
         if (self.selected_shadow_ox != self.initial_shadow_ox or 

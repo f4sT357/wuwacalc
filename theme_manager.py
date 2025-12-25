@@ -55,16 +55,28 @@ class ThemeManager:
         if is_transparent:
             group_bg = "transparent"
             group_border = "none"
-            text_edit_bg = "rgba(0, 0, 0, 0.2)"
+            # Use theme-based colors with low alpha for a more consistent look
+            text_edit_bg = self._hex_to_rgba(colors['input_bg'], 0.15)
             # Keep tabs slightly more visible for structure
-            tab_pane_bg = "rgba(0, 0, 0, 0.1)"
+            tab_pane_bg = self._hex_to_rgba(colors['background'], 0.1)
             tab_pane_border = f"1px solid rgba(128, 128, 128, 0.3)"
+            # Buttons and inputs also become more transparent
+            c_btn = self._hex_to_rgba(colors['button_bg'], 0.1)
+            c_btn_hover = self._hex_to_rgba(colors['button_hover'], 0.1)
+            c_input = self._hex_to_rgba(colors['input_bg'], 0.15)
+            # Tabs also follow transparency
+            c_tab = self._hex_to_rgba(colors['tab_bg'], 0.2)
+            c_tab_sel = self._hex_to_rgba(colors['tab_selected'], 0.4)
+            
+            # Make borders semi-transparent
+            c_border = self._hex_to_rgba(colors['border'], 0.15)
         else:
             group_bg = c_bg
             group_border = f"1px solid {colors['group_border']}"
             text_edit_bg = c_input
             tab_pane_bg = c_bg
             tab_pane_border = f"1px solid {colors['border']}"
+            c_border = colors['border']
 
         stylesheet = f"""
             QMainWindow {{ 
@@ -80,19 +92,19 @@ class ThemeManager:
             QLineEdit, QSpinBox, QDoubleSpinBox {{ 
                 background-color: {c_input}; 
                 color: {self.app.app_config.text_color}; 
-                border: 1px solid {colors['border']}; 
+                border: 1px solid {c_border}; 
                 {font_style} 
             }}
             QTextEdit {{
                 background-color: {text_edit_bg}; 
                 color: {self.app.app_config.text_color}; 
-                border: 1px solid {colors['border']}; 
+                border: 1px solid {c_border}; 
                 {font_style}
             }}
             QPushButton {{ 
                 background-color: {c_btn}; 
                 color: {self.app.app_config.text_color}; 
-                border: 1px solid {colors['border']}; 
+                border: 1px solid {c_border}; 
                 padding: 5px; 
                 {font_style} 
             }}
@@ -130,7 +142,7 @@ class ThemeManager:
             QComboBox {{ 
                 background-color: {c_input}; 
                 color: {self.app.app_config.text_color}; 
-                border: 1px solid {colors['border']}; 
+                border: 1px solid {c_border}; 
                 {font_style} 
             }}
             QComboBox QAbstractItemView {{ 
