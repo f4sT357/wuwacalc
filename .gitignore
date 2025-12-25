@@ -15,6 +15,8 @@ build/
 dist/
 dist/*
 *.spec
+wuwacalc17-distribution/
+wuwacalc17-distribution.zip
 
 # Logs
 *.log
@@ -30,19 +32,28 @@ log3.txt
 .idea/
 *.swp
 *.swo
+.wuwacalc.log.swp
 
 # Test / cache
 .pytest_cache/
 .mypy_cache/
 .tox/
 .cache/
+test_run/
 
 # OS
 .DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
 
 # Project specific (ignore local/runtime artifacts)
 config.json
-test_run/
+notes/
+spec_view.txt
+*_backup.txt
+wuwacalc_fixed.txt
+wuwacalc_spec_backup.txt
 
 # Tesseract binaries (ignore built/runtime copies and heavy data files)
 tesseract/
@@ -52,133 +63,6 @@ wuwacalc/tesseract/
 tesseract/**/tessdata/
 wuwacalc/tesseract/**/tessdata/
 *.traineddata
-
-# Built executables and archives
-*.exe
-*.zip
-
-# Keep license texts tracked; do NOT ignore licenses/ or THIRD_PARTY_LICENSES.md
-# licenses/
-# THIRD_PARTY_LICENSES.md
-
-# Images and large binaries that should not be versioned
-*.png
-*.jpg
-*.jpeg
-images/
-sampleimage/
-
-# Misc
-.env
-.envrc
-node_modules/
-
-# Personal / secret files - prevent committing identifying environment data
-.ssh/
-# SSH keys
-id_rsa
-id_dsa
-id_ecdsa
-id_ed25519
-*.pem
-*.ppk
-*.key
-*.pfx
-*.p12
-
-# Credential/config files
-.netrc
-.git-credentials
-.docker/config.json
-.npmrc
-local_settings.py
-settings_local.py
-credentials.json
-
-# Cloud provider credentials
-.aws/
-.azure/
-.gcloud/
-
-# OS specific
-Thumbs.db
-ehthumbs.db
-desktop.ini
-
-# PowerShell history
-ConsoleHost_history.txt
- 
-# Ignore miscellaneous local files
-.antigravity-rules
-GEMINI.md
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-
-# Build / distribution
-build/
-dist/
-dist/*
-*.spec
-
-# Logs
-*.log
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-
-# Build / distribution
-build/
-dist/
-dist/*
-*.spec
-
-# Logs
-*.log
-wuwacalc.log
-error_log.txt
-log2.txt
-log3.txt
-
-# Editor / IDE
-.cursor/
-.cursorrules
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Test / cache
-.pytest_cache/
-.mypy_cache/
-.tox/
-.cache/
-
-# OS
-.DS_Store
-
-# Project specific (ignore local/runtime artifacts)
-config.json
-test_run/
-
-# Tesseract binaries (if you build locally, these should NOT be committed)
-# keep the repo's `tesseract/` source under version control if needed; only ignore built/installed copies
 Tesseract-OCR/
 
 # Built executables and archives
@@ -200,6 +84,10 @@ sampleimage/
 .env
 .envrc
 node_modules/
+.antigravity-rules
+GEMINI.md
+PROCESS_FLOW.md
+AI_ACTIONS.md
 
 # Personal / secret files - prevent committing identifying environment data
 .ssh/
@@ -227,11 +115,6 @@ credentials.json
 .aws/
 .azure/
 .gcloud/
-
-# OS specific
-Thumbs.db
-ehthumbs.db
-desktop.ini
 
 # PowerShell history
 ConsoleHost_history.txt
