@@ -95,7 +95,8 @@ class ScoreCalculatorApp(QMainWindow):
             self.notebook,
             self.data_manager,
             self.config_manager,
-            self.tr
+            self.tr,
+            self.character_manager
         )
         self.logic = AppLogic(self.tr, self.data_manager, self.config_manager)
         self.image_proc = ImageProcessor(self.logic, self.config_manager)
@@ -256,7 +257,22 @@ class ScoreCalculatorApp(QMainWindow):
                 self.tab_mgr.apply_ocr_result(result)
                 self.tab_mgr.save_tab_image(tab_name, result.original_image, result.cropped_image)
         elif isinstance(result, BatchItemResult):
-            self.tab_mgr.apply_ocr_result_to_tab("Auto", result.result) # Simplified for now
+            # Batch mode: Try to find an appropriate tab based on cost
+            cost = result.result.cost
+            target_tab = None
+            if cost:
+                target_tab = self.tab_mgr.find_empty_tab_for_cost(cost)
+            
+            if not target_tab:
+                # Fallback to current tab if no empty cost-matching tab found
+                target_tab = self.tab_mgr.get_selected_tab_name()
+            
+            if target_tab:
+                self.gui_log(f"Applying batch result to tab: {target_tab} (Cost {cost})")
+                self.tab_mgr.apply_ocr_result_to_tab(target_tab, result.result)
+                self.tab_mgr.save_tab_image(target_tab, result.original_image, result.cropped_image)
+            else:
+                self.gui_log("Could not find a suitable tab for batch result.")
 
     def _on_method_toggled_wrapper(self) -> None:
         if self.events and self.ui:

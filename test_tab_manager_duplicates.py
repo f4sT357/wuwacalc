@@ -15,7 +15,13 @@ class DummyApp:
 class TestTabManagerDuplicates(unittest.TestCase):
     def setUp(self):
         self.app = DummyApp()
-        self.tab_mgr = TabManager(self.app)
+        # Mock dependencies for TabManager
+        self.data_manager = self.app.data_manager
+        self.config_manager = type('cm', (), {'get_app_config': lambda: type('cfg', (), {'character_var': '', 'auto_apply_main_stats': False})()})()
+        self.tr = lambda x: x
+        self.character_manager = type('char_mgr', (), {'get_main_stats': lambda self, name: {}})()
+        
+        self.tab_mgr = TabManager(self.app.notebook, self.data_manager, self.config_manager, self.tr, self.character_manager)
         # テスト用のタブデータを直接セット
         self.tab_mgr.tabs_content = {
             'tab1': {},

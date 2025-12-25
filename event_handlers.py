@@ -66,11 +66,12 @@ class EventHandlers:
     
     def on_config_change(self, text: str) -> None:
         """Rebuild the tab configuration in response to a cost configuration change."""
+        self.app.current_config_key = text # Update app state
         self.config_manager.update_app_setting('current_config_key', text)
         if not getattr(self.app, "_updating_tabs", False):
             self.tab_mgr.update_tabs()
             self.logger.info(f"Cost configuration changed: Tabs updated by {text}")
-            self.tab_mgr.apply_character_main_stats()
+            self.tab_mgr.apply_character_main_stats(character=self.app.character_var)
             self.ui.filter_characters_by_config()
             self.save_config()
     
@@ -98,7 +99,7 @@ class EventHandlers:
             else:
                 self.logger.info("on_character_change: applying character main stats")
                 t0 = time.monotonic()
-                self.tab_mgr.apply_character_main_stats()
+                self.tab_mgr.apply_character_main_stats(character=internal_name)
                 t1 = time.monotonic()
                 self.logger.info(f"apply_character_main_stats duration: {t1 - t0:.4f}s")
             
@@ -160,6 +161,7 @@ class EventHandlers:
     
     def on_mode_change(self, mode: str) -> None:
         """Handle input mode change."""
+        self.app.mode_var = mode # Update app state
         self.config_manager.update_app_setting('mode_var', mode)
         self.ui.update_ui_mode()
         self.save_config()
@@ -173,6 +175,7 @@ class EventHandlers:
             self.on_mode_change("ocr")
     
     def on_auto_main_change(self, checked: bool) -> None:
+        self.app.auto_apply_main_stats = checked # Update app state
         self.config_manager.update_app_setting('auto_apply_main_stats', checked)
         self.save_config()
 
@@ -181,6 +184,7 @@ class EventHandlers:
         self.save_config()
 
     def on_score_mode_change(self, mode: str) -> None:
+        self.app.score_mode_var = mode # Update app state
         self.config_manager.update_app_setting('score_mode_var', mode)
         self.save_config()
 

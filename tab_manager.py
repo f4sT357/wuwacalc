@@ -42,7 +42,8 @@ class TabManager(QObject):
                  notebook: QTabWidget, 
                  data_manager: Any, 
                  config_manager: Any, 
-                 tr_func: Callable):
+                 tr_func: Callable,
+                 character_manager: Any):
         """
         Initialization with explicit dependencies.
         
@@ -51,12 +52,14 @@ class TabManager(QObject):
             data_manager: DataManager instance.
             config_manager: ConfigManager instance.
             tr_func: Translation function.
+            character_manager: CharacterManager instance.
         """
         super().__init__()
         self.notebook = notebook
         self.data_manager = data_manager
         self.config_manager = config_manager
         self.tr = tr_func
+        self.character_manager = character_manager
         
         self.logger = logging.getLogger(__name__)
         self.tabs_content = {}
@@ -356,7 +359,8 @@ class TabManager(QObject):
                 entries.append(entry)
         return entries
 
-    def find_duplicate_entries(self, entries: List[EchoEntry]) -> List[int]:
+    @staticmethod
+    def find_duplicate_entries(entries: List[EchoEntry]) -> List[int]:
         seen = {}
         duplicates = []
         for idx, entry in enumerate(entries):
@@ -375,7 +379,12 @@ class TabManager(QObject):
             return
         if not force and not self.config_manager.get_app_config().auto_apply_main_stats:
             return
-        mainstats = self.data_manager.character_main_stats.get(character, {})
+        
+        mainstats = self.character_manager.get_main_stats(character)
+        if not mainstats:
+            self.logger.debug(f"No main stats found for character: {character}")
+            return
+
         for tab_name, content in self.tabs_content.items():
             self._update_main_stat_combobox(content["main_widget"], content, mainstats, tab_name)
 
@@ -384,35 +393,68 @@ class TabManager(QObject):
             combo.blockSignals(True)
             current_data = combo.currentData()
             combo.clear()
-            keys = []
-            preferred = mainstats.get(tab_name)
-            if preferred:
-                keys.extend(preferred if isinstance(preferred, list) else [preferred])
-            else:
-                cost_str = str(content.get("cost", ""))
-                keys.extend(mainstats.get(cost_str, []))
             
+            keys = []
+            
+            # 1. Try matching by tab_name (e.g., 'cost3_echo_1')
+            preferred = mainstats.get(tab_name)
+            
+            # 2. Try matching by shortened key (e.g., '3_1' for 'cost3_echo_1')
+            if not preferred and "cost" in tab_name:
+                short_key = tab_name.replace("cost", "").replace("echo_", "")
+                if short_key.endswith("_"): short_key = short_key[:-1]
+                preferred = mainstats.get(short_key)
+            
+            # 3. Try matching by base cost (e.g., '3')
+            if not preferred:
+                cost_str = str(content.get("cost", ""))
+                preferred = mainstats.get(cost_str)
+
+            if preferred:
+                if isinstance(preferred, list):
+                    keys.extend(preferred)
+                else:
+                    keys.append(preferred)
+            
+            # Fallback to general options if no preferred stats found
             if not keys:
                 cost_num = str(content.get("cost", "1"))
                 keys = self.data_manager.main_stat_options.get(cost_num, ["HP", "ATK", "DEF"])
 
             combo.addItem("---", userData="")
             for k in keys:
-                combo.addItem(self.tr(k), userData=k)
+                if k: # Skip empty strings
+                    combo.addItem(self.tr(k), userData=k)
             
-            if preferred:
-                target_stat = preferred[0] if isinstance(preferred, list) else preferred
+            if keys:
+                # If we have preferred stats, select the first one
+                target_stat = keys[0]
                 idx = combo.findData(target_stat)
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
             elif current_data:
+                # Otherwise try to restore previous selection
                 idx = combo.findData(current_data)
                 if idx >= 0:
                     combo.setCurrentIndex(idx)
+                    
             combo.blockSignals(False)
         except Exception as e:
             self.logger.exception(f"Error updating main stat combobox for '{tab_name}': {e}")
             combo.blockSignals(False)
+
+    def find_empty_tab_for_cost(self, cost: str) -> Optional[str]:
+        """Find the first tab of a given cost that doesn't have a main stat selected yet."""
+        config_key = self._validate_config_key()
+        tab_names = self.data_manager.tab_configs.get(config_key, [])
+        
+        for name in tab_names:
+            content = self.tabs_content.get(name)
+            if content and content["cost"] == str(cost):
+                # Check if it's empty (no main stat selected beyond default)
+                if content["main_widget"].currentIndex() <= 0:
+                    return name
+        return None
 
     def apply_ocr_result(self, result: OCRResult) -> None:
         """Applies OCR results to the currently selected tab."""
@@ -427,6 +469,9 @@ class TabManager(QObject):
         
         content = self.tabs_content[tab_name]
         
+        # Block signals to prevent redundant calculation triggers
+        content["main_widget"].blockSignals(True)
+        
         # Apply Main Stat
         if result.main_stat:
             idx = content["main_widget"].findData(result.main_stat)
@@ -437,6 +482,7 @@ class TabManager(QObject):
         # Apply Substats
         sub_entries = content["sub_entries"]
         for stat_widget, val_widget in sub_entries:
+            stat_widget.blockSignals(True)
             stat_widget.setCurrentIndex(0)
             val_widget.clear()
 
@@ -446,6 +492,11 @@ class TabManager(QObject):
                 if idx >= 0:
                     sub_entries[i][0].setCurrentIndex(idx)
                 sub_entries[i][1].setText(str(substat_data.value))
+        
+        # Unblock signals
+        content["main_widget"].blockSignals(False)
+        for stat_widget, _ in sub_entries:
+            stat_widget.blockSignals(False)
 
     def save_tab_image(self, tab_name: str, original: Any, cropped: Any) -> None:
         self._tab_images[tab_name] = TabImageData(original=original, cropped=cropped)
