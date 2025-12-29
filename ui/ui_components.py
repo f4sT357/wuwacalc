@@ -18,6 +18,7 @@ from ui.ui_constants import (
     IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT,
     VALUE_ENTRY_WIDTH
 )
+from core.data_contracts import OCRResult
 
 # Internal UI Constants
 VALUE_ENTRY_WIDTH = 60

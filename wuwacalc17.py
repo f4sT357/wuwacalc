@@ -270,6 +270,13 @@ class ScoreCalculatorApp(QMainWindow):
         self.html_renderer.set_text_color(self.app_config.text_color)
         self._refresh_ui_styles()
 
+    def refresh_results_display(self) -> None:
+        """Refreshes the current tab's result and image preview."""
+        tab_name = self.tab_mgr.get_selected_tab_name()
+        if tab_name:
+            self.show_tab_result(tab_name)
+            self.show_tab_image(tab_name)
+
     def _refresh_ui_styles(self) -> None:
         self.theme_manager.refresh_global_shadows()
         self.refresh_results_display()

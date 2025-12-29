@@ -425,6 +425,58 @@ class TabManager(QObject):
 
         for tab_name, content in self.tabs_content.items():
             self._update_main_stat_combobox(content["main_widget"], content, mainstats, tab_name)
+        
+        # Apply equipped echoes if they exist
+        self._apply_equipped_echoes(character)
+
+    def _apply_equipped_echoes(self, character: str) -> None:
+        """Applies equipped echoes for the given character to the tabs."""
+        for tab_name in self.tabs_content:
+            equipped = self.character_manager.get_equipped_echo(character, tab_name)
+            if equipped:
+                self.apply_echo_entry_to_tab(tab_name, equipped)
+
+    def apply_echo_entry_to_tab(self, tab_name: str, entry: EchoEntry) -> None:
+        """Applies an EchoEntry to a specific tab's UI widgets."""
+        if tab_name not in self.tabs_content:
+            return
+            
+        content = self.tabs_content[tab_name]
+        main_combo = content["main_widget"]
+        sub_entries = content["sub_entries"]
+        
+        # Block signals to prevent redundant calculation triggers
+        main_combo.blockSignals(True)
+        
+        # Apply Main Stat
+        if entry.main_stat:
+            idx = main_combo.findData(entry.main_stat)
+            # If the stat is not in the recommended list, add it temporarily
+            if idx < 0:
+                main_combo.addItem(self.tr(entry.main_stat), userData=entry.main_stat)
+                idx = main_combo.findData(entry.main_stat)
+            
+            if idx >= 0:
+                main_combo.setCurrentIndex(idx)
+
+        # Clear and Apply Substats
+        for stat_widget, val_widget in sub_entries:
+            stat_widget.blockSignals(True)
+            stat_widget.setCurrentIndex(0)
+            val_widget.clear()
+
+        for i, substat in enumerate(entry.substats):
+            if i < len(sub_entries):
+                stat_combo, val_edit = sub_entries[i]
+                idx = stat_combo.findData(substat.stat)
+                if idx >= 0:
+                    stat_combo.setCurrentIndex(idx)
+                val_edit.setText(str(substat.value))
+        
+        # Unblock signals
+        main_combo.blockSignals(False)
+        for stat_widget, _ in sub_entries:
+            stat_widget.blockSignals(False)
 
     def _update_main_stat_combobox(self, combo: QComboBox, content: Dict[str, Any], mainstats: Dict[str, Any], tab_name: str) -> None:
         try:
