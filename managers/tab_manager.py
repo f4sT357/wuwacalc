@@ -7,10 +7,10 @@ Provides functions for managing, saving, restoring, clearing, and exporting tab 
 from typing import Dict, Any, List, Optional, Tuple, Callable
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, 
-    QComboBox, QLineEdit, QGridLayout, QTabWidget, QMessageBox, QFileDialog
+    QComboBox, QLineEdit, QGridLayout, QTabWidget, QMessageBox, QFileDialog, QMenu
 )
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import QObject, Signal, Qt
+from PySide6.QtGui import QPixmap, QAction
+from PySide6.QtCore import QObject, Signal, Qt, QPoint
 from core.data_contracts import EchoEntry, SubStat, OCRResult
 from utils.constants import DEFAULT_COST_CONFIG
 import logging
@@ -299,11 +299,46 @@ class TabManager(QObject):
                 stat_combo.addItem(self.tr(s), userData=s)
             val_entry = QLineEdit()
             val_entry.setFixedWidth(60)
+            val_entry.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            val_entry.customContextMenuRequested.connect(
+                lambda pos, e=val_entry, s=stat_combo: self._show_stat_context_menu(pos, e, s)
+            )
             cell_layout.addWidget(stat_combo)
             cell_layout.addWidget(val_entry)
             group_layout.addWidget(cell_widget, row, col)
             sub_entries.append((stat_combo, val_entry))
         return group, sub_entries
+
+    def _show_stat_context_menu(self, pos: QPoint, entry: QLineEdit, combo: QComboBox) -> None:
+        """Shows a context menu with possible roll values for the selected stat."""
+        stat_name = combo.currentData()
+        if not stat_name:
+            return
+
+        menu = QMenu()
+        
+        # Get roll ranges from calc_config
+        roll_config = self.data_manager.roll_quality_config
+        ranges = roll_config.get("ranges", {}).get(stat_name, {})
+        
+        if ranges:
+            # Order: Max, Good, Low
+            for label, key in [("Max", "Max"), ("Good", "Good"), ("Low", "Low")]:
+                val = ranges.get(key)
+                if val is not None:
+                    action = QAction(f"{label}: {val}", menu)
+                    action.triggered.connect(lambda checked=False, v=val, e=entry: e.setText(str(v)))
+                    menu.addAction(action)
+        else:
+            # Fallback to max value from game_data if detailed ranges not available
+            max_val = self.data_manager.substat_max_values.get(stat_name)
+            if max_val:
+                action = QAction(f"Max: {max_val}", menu)
+                action.triggered.connect(lambda checked=False, v=max_val, e=entry: e.setText(str(v)))
+                menu.addAction(action)
+
+        if not menu.isEmpty():
+            menu.exec(entry.mapToGlobal(pos))
 
     def _generate_tab_label(self, tab_name: str) -> str:
         """

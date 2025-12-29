@@ -37,6 +37,70 @@ class OcrParser:
             raw_text=raw_text
         )
 
+    def parse_with_boxes(self, raw_text: str, data: Dict[str, Any], language: str) -> OCRResult:
+        """
+        Parses raw text and Tesseract data into a structured OCRResult with bounding boxes.
+        """
+        result = self.parse(raw_text, language)
+        
+        # Link boxes to the parsed results
+        processed_boxes = self._extract_boxes_from_tess_data(data)
+        
+        # Main stat box
+        if result.main_stat:
+            result.boxes["main_stat"] = self._find_box_for_text(result.main_stat, processed_boxes)
+            
+        # Cost box
+        if result.cost:
+            result.boxes["cost"] = self._find_box_for_text(result.cost, processed_boxes)
+
+        # Substat boxes
+        for sub in result.substats:
+            # Try to find a box that contains BOTH the stat name and potentially the value
+            # This is heuristic but usually works well for line-by-line OCR
+            sub.box = self._find_box_for_stat_line(sub.stat, sub.value, processed_boxes)
+            
+        return result
+
+    def _extract_boxes_from_tess_data(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        boxes = []
+        n_boxes = len(data['text'])
+        for i in range(n_boxes):
+            if data['text'][i].strip():
+                boxes.append({
+                    'text': data['text'][i],
+                    'left': data['left'][i],
+                    'top': data['top'][i],
+                    'width': data['width'][i],
+                    'height': data['height'][i]
+                })
+        return boxes
+
+    def _find_box_for_text(self, text: str, boxes: List[Dict[str, Any]]) -> Optional[Tuple[int, int, int, int]]:
+        # Find a box that contains the text
+        for box in boxes:
+            if text in box['text']:
+                return (box['left'], box['top'], box['width'], box['height'])
+        return None
+
+    def _find_box_for_stat_line(self, stat: str, val: str, boxes: List[Dict[str, Any]]) -> Optional[Tuple[int, int, int, int]]:
+        # Heuristic: find boxes on the same horizontal line that contain the stat name and value
+        target_boxes = []
+        for box in boxes:
+            if stat in box['text'] or val in box['text']:
+                target_boxes.append(box)
+        
+        if not target_boxes:
+            return None
+            
+        # Group boxes that are vertically close (same line)
+        left = min(b['left'] for b in target_boxes)
+        top = min(b['top'] for b in target_boxes)
+        right = max(b['left'] + b['width'] for b in target_boxes)
+        bottom = max(b['top'] + b['height'] for b in target_boxes)
+        
+        return (left, top, right - left, bottom - top)
+
     def detect_main_stat(self, ocr_text: str, cost: Optional[str]) -> Optional[str]:
         """Detects the main stat from the OCR text."""
         if not ocr_text:

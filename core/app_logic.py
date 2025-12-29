@@ -175,9 +175,10 @@ class AppLogic(QObject):
 
     def perform_ocr_workflow(self, image: 'Image.Image', language: str) -> OCRResult:
         """
-        Performs the full OCR workflow: image processing, text recognition,
-        and parsing of substats and cost.
+        Performs the full OCR workflow including bounding boxes.
         """
-        raw_text = self._perform_ocr(image, language)
-        return self.ocr_parser.parse(raw_text, language)
+        raw_text, data = self._perform_ocr_with_boxes(image, language)
+        if raw_text and data:
+            return self.ocr_parser.parse_with_boxes(raw_text, data, language)
+        return self.ocr_parser.parse(raw_text or "", language)
 

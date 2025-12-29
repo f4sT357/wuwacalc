@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
     QComboBox, QCheckBox, QRadioButton, QSlider, QMenu, QLineEdit, QTabWidget, QGridLayout, QCompleter,
     QButtonGroup
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QPainter, QPen, QColor
+from PySide6.QtCore import Qt, Signal, QRect
 
 from ui.ui_constants import (
     WINDOW_WIDTH, WINDOW_HEIGHT, RIGHT_TOP_HEIGHT,
@@ -18,6 +18,76 @@ from ui.ui_constants import (
     IMAGE_PREVIEW_MAX_WIDTH, IMAGE_PREVIEW_MAX_HEIGHT,
     VALUE_ENTRY_WIDTH
 )
+
+# Internal UI Constants
+VALUE_ENTRY_WIDTH = 60
+
+class OCRImageLabel(QLabel):
+    """Custom label for drawing OCR bounding boxes."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.ocr_result = None
+        self.original_crop_size = None # (width, height)
+        self.scale_factor = 1.0
+        self.offset_x = 0
+        self.offset_y = 0
+        self.setText("No Image")
+
+    def set_ocr_result(self, result, original_size=None):
+        self.ocr_result = result
+        if original_size:
+            self.original_crop_size = original_size
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self.ocr_result or not self.pixmap():
+            return
+
+        painter = QPainter(self)
+        
+        # Determine scaling and offsets relative to the displayed pixmap
+        # QLabel centers the pixmap by default if alignment is centered
+        pix_size = self.pixmap().size()
+        lbl_size = self.size()
+        
+        # Calculate offsets to draw within the actual image area
+        self.offset_x = (lbl_size.width() - pix_size.width()) // 2
+        self.offset_y = (lbl_size.height() - pix_size.height()) // 2
+        
+        # Calculate scale factor
+        if self.original_crop_size:
+            # We assume the pixmap is scaled maintaining aspect ratio
+            self.scale_factor = pix_size.width() / self.original_crop_size[0]
+        else:
+            self.scale_factor = 1.0
+        
+        # Draw Main Stat / Cost boxes
+        pen_main = QPen(QColor(0, 255, 0, 180), 2)
+        painter.setPen(pen_main)
+        for key in ["main_stat", "cost"]:
+            box = self.ocr_result.boxes.get(key)
+            if box:
+                self._draw_box(painter, box)
+
+        # Draw Substat boxes
+        pen_sub = QPen(QColor(0, 120, 255, 180), 2)
+        painter.setPen(pen_sub)
+        for sub in self.ocr_result.substats:
+            if sub.box:
+                self._draw_box(painter, sub.box)
+
+    def _draw_box(self, painter, box):
+        x, y, w, h = box
+        # Scale to match displayed pixmap (heuristic scaling)
+        # Note: In a robust impl, we'd pass the original cropped image size.
+        # Here we approximate.
+        painter.drawRect(
+            int(x * self.scale_factor + self.offset_x),
+            int(y * self.scale_factor + self.offset_y),
+            int(w * self.scale_factor),
+            int(h * self.scale_factor)
+        )
 
 class UIComponents:
     def __init__(self, app: 'ScoreCalculatorApp') -> None:
@@ -120,7 +190,7 @@ class UIComponents:
 
         self.lbl_language.setText(self.app.tr("language"))
         grid.addWidget(self.lbl_language, 1, 0)
-        self.lang_combo.addItems(["ja", "en"])
+        self.lang_combo.addItems(["ja", "en", "zh"])
         self.lang_combo.setCurrentText(self.app.language)
         grid.addWidget(self.lang_combo, 1, 1)
 
@@ -273,7 +343,7 @@ class UIComponents:
 
         vbox.addLayout(crop_h)
         
-        self.image_label = QLabel(self.app.tr("no_image"))
+        self.image_label = OCRImageLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setMinimumHeight(IMAGE_PREVIEW_MAX_HEIGHT)
         vbox.addWidget(self.image_label)
@@ -360,6 +430,16 @@ class UIComponents:
         
         if not self.app.image_proc.loaded_image:
             self.image_label.setText(self.app.tr("no_image"))
+
+    def display_ocr_overlay(self, result: OCRResult) -> None:
+        """Displays bounding boxes on the current image preview."""
+        if hasattr(self, 'image_label') and isinstance(self.image_label, OCRImageLabel):
+            if self.image_label.pixmap():
+                # Get the size of the CROPPED image used for OCR
+                orig_size = None
+                if self.app.image_proc.loaded_image:
+                    orig_size = self.app.image_proc.loaded_image.size
+                self.image_label.set_ocr_result(result, original_size=orig_size)
 
     def update_ui_mode(self) -> None:
         is_ocr = (self.app.mode_var == "ocr")

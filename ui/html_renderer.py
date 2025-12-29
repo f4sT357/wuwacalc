@@ -139,6 +139,18 @@ class HtmlRenderer:
         html += f"<h3><u>{title}</u></h3>"
         html += f"<hr>"
         
+        # New: Display consistency advice
+        if evaluation.consistency_advice:
+            html += f"<div style='color: #ff5555; background: rgba(255,0,0,0.1); padding: 5px; border-left: 3px solid #ff5555; margin-bottom: 10px;'>"
+            html += f"⚠️ {evaluation.consistency_advice}</div>"
+
+        # New: Display build optimization advice
+        if evaluation.advice_list:
+            html += "<div style='margin-bottom: 10px; font-size: 0.95em; color: #88ccff; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px;'>"
+            for advice in evaluation.advice_list:
+                html += f"• {advice}<br>"
+            html += "</div>"
+        
         html += f"<b>{self.tr('echo_info').replace('\n', '')}</b><br>"
         html += f"&nbsp;&nbsp;• {self.tr('cost')}: {entry.cost}<br>"
         html += f"&nbsp;&nbsp;• {self.tr('main_stat')}: {self.tr(main_stat)}<br>"
@@ -222,6 +234,10 @@ class HtmlRenderer:
                     html += f"<br><b>&nbsp;&nbsp;{sname}: {val:.1f}</b><br>"
                 if sname.startswith("Goal "):
                     html += f"<b>&nbsp;&nbsp;{sname}: {val:.1f}%</b><br>"
+            
+            # Adjustment for Crit Ratio Check logic inside HTML rendering if necessary
+            # The current app might use these values for something.
+            # Here we just display. 
             
             html += f"<hr>"
 

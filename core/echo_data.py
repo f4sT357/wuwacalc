@@ -217,9 +217,9 @@ class EchoData:
             ideal_stats: Dictionary of target values.
             scaling_stat: Name of the primary stat for calculation (ATK, DEF, HP).
         """
-        if stat_offsets is None: stat_offsets = {}
-        if base_stats is None: base_stats = {}
-        if ideal_stats is None: ideal_stats = {}
+        if stat_offsets is None: stat_offsets = config_bundle.get("stat_offsets", {})
+        if base_stats is None: base_stats = config_bundle.get("base_stats", {})
+        if ideal_stats is None: ideal_stats = config_bundle.get("ideal_stats", {})
         
         # Default to all methods enabled if not specified
         if enabled_methods is None:
@@ -319,13 +319,81 @@ class EchoData:
             if target_stat_val > 0:
                 estimated_stats[f"Goal {scaling_stat} %"] = (final_stat_val / target_stat_val) * 100
 
+        # Main Stat Consistency Check
+        consistency_msg = ""
+        is_best = True
+        penalty = 1.0
+        
+        expected_main_stats = config_bundle.get("character_main_stats", {})
+        # Find all valid candidates for this cost (e.g., '3', '3_1', '3_2')
+        cost_prefix = str(self.cost).split('_')[0]
+        possible_targets = [v for k, v in expected_main_stats.items() if k.startswith(cost_prefix)]
+        
+        if possible_targets:
+            # Check for direct match
+            if self.main_stat in possible_targets:
+                is_best = True
+            # Special handling for Element DMG placeholder
+            elif "属性ダメージアップ" in possible_targets and "ダメージアップ" in self.main_stat and self.main_stat != "通常攻撃ダメージアップ":
+                is_best = True
+            # Handle "Acceptable" cases like ATK% for Cost 3 attackers
+            elif cost_prefix == "3" and self.main_stat == "攻撃力%" and any("ダメージアップ" in t or t == "属性ダメージアップ" for t in possible_targets):
+                is_best = True
+                consistency_msg = "攻撃力%は属性ダメージに次ぐ有力な選択肢です（許容範囲）"
+                penalty = 0.97 # Slight penalty for not being "optimal"
+            else:
+                is_best = False
+                target_str = " / ".join(set(possible_targets))
+                consistency_msg = f"メインステータスが一致しません（理想：{target_str}）"
+                penalty = 0.8
+
+        achievement_rate *= penalty
+
+        # Build Advice Generation (Gap to Ideal)
+        advice_list = []
+        ideal_stats = config_bundle.get("ideal_stats", {})
+        
+        if ideal_stats:
+            # Get current estimated total stats (including echo)
+            curr_crit_rate = estimated_stats.get(STAT_CRIT_RATE, 0)
+            curr_crit_dmg = estimated_stats.get(STAT_CRIT_DMG, 0)
+            # CRITICAL: Adjustment for Wuthering Waves (Display - 100%)
+            adj_crit_dmg = max(0, curr_crit_dmg - 100.0)
+            
+            # 1. Crit Ratio Check (1:2)
+            if curr_crit_rate > 5 and adj_crit_dmg > 5:
+                if curr_crit_rate > 100.0:
+                    effective_rate = 100.0
+                    if curr_crit_rate > 105.0:
+                        advice_list.append("会心率が100%を大きく超えています。過剰分を会心ダメージ等に振り分けましょう")
+                else:
+                    effective_rate = curr_crit_rate
+
+                # Ideal DMG should be Rate * 2
+                ideal_adj_dmg = effective_rate * 2.0
+                if adj_crit_dmg < ideal_adj_dmg * 0.8:
+                    advice_list.append("会心ダメージを優先的に稼ぐのが効率的です")
+                elif effective_rate < (adj_crit_dmg / 2.0) * 0.8 and effective_rate < 100.0:
+                    advice_list.append("会心率をもう少し上げると期待値が伸びます")
+
+            # 2. Stat sufficiency check
+            if STAT_ER in ideal_stats and STAT_ER in estimated_stats:
+                if estimated_stats[STAT_ER] < ideal_stats[STAT_ER] * 0.9:
+                    advice_list.append(f"{STAT_ER}が足りていません（目標: {ideal_stats[STAT_ER]}%）")
+            
+            if STAT_ATK_PERCENT in ideal_stats and STAT_ATK_PERCENT in estimated_stats:
+                if estimated_stats[STAT_ATK_PERCENT] < ideal_stats[STAT_ATK_PERCENT] * 0.8:
+                    advice_list.append(f"{STAT_ATK_PERCENT}を稼ぐとダメージが伸びます")
+
         return EvaluationResult(
             total_score=achievement_rate, 
             effective_count=self.effective_stats_count,
             recommendation="rec_continue" if achievement_rate < 30 else "rec_use",
             rating=rating_key,
             individual_scores=results,
-            estimated_stats=estimated_stats
+            estimated_stats=estimated_stats,
+            consistency_advice=consistency_msg,
+            advice_list=advice_list
         )
 
     def get_rating_by_achievement(self, rate, cost):

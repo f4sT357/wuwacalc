@@ -134,9 +134,10 @@ class EventHandlers:
             
             if target_tab:
                 self._switch_to_tab(target_tab)
-                self.app.gui_log(f"Applying OCR result to tab: {target_tab}")
                 self.tab_mgr.apply_ocr_result_to_tab(target_tab, result)
                 self.tab_mgr.save_tab_image(target_tab, result.original_image, result.cropped_image)
+                # Show overlay on the current display
+                self.ui.display_ocr_overlay(result)
                 
         elif isinstance(result, BatchItemResult):
             target_tab = self.tab_mgr.find_best_tab_match(result.result.cost, result.result.main_stat, self.app.character_var)
@@ -147,6 +148,8 @@ class EventHandlers:
                 self.app.gui_log(f"Applying batch result to tab: {target_tab}")
                 self.tab_mgr.apply_ocr_result_to_tab(target_tab, result.result)
                 self.tab_mgr.save_tab_image(target_tab, result.original_image, result.cropped_image)
+                # Note: For batch, overlay only shows if it's the current tab, 
+                # but we'll focus on single first.
 
     def _switch_to_tab(self, tab_name: str) -> None:
         config_key = self.app.app_config.current_config_key
