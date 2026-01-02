@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any, TYPE_CHECKING
+from typing import List, Dict, Optional, Any, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -11,6 +11,7 @@ class SubStat:
 
     stat: str
     value: str
+    box: Optional[Tuple[int, int, int, int]] = None # (x, y, w, h)
 
 
 @dataclass
@@ -22,6 +23,7 @@ class OCRResult:
     cost: Optional[str]
     main_stat: Optional[str]
     raw_text: str
+    boxes: Dict[str, Tuple[int, int, int, int]] = field(default_factory=dict) # General boxes (Main, Cost etc)
 
 
 @dataclass
@@ -54,9 +56,10 @@ class EvaluationResult:
     recommendation: str
     rating: str
     individual_scores: Dict[str, float]
-    estimated_stats: Dict[str, float] = field(default_factory=dict)  # New: Resulting stats (Echo + Offsets)
-    comparison_diff: Optional[float] = None  # New: Score difference compared to equipped echo
-
+    estimated_stats: Dict[str, float] = field(default_factory=dict) # New: Resulting stats (Echo + Offsets)
+    comparison_diff: Optional[float] = None # New: Score difference compared to equipped echo
+    consistency_advice: str = "" # New: Advice about main stat consistency
+    advice_list: List[str] = field(default_factory=list) # New: List of build optimization advice
 
 @dataclass
 class TabImageData:

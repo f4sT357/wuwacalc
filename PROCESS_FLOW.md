@@ -1,52 +1,113 @@
-# プログラム処理フロー
+# Wuthering Waves Echo Score Calculator プロセスフロー
 
-## 1. アプリケーション起動
-- `wuwacalc17.py`: エントリーポイント。`ScoreCalculatorApp` クラスがメインウィンドウとして動作。
-- `core/app_setup.py`: `AppContext` を介して、依存関係のある全てのマネージャーとコアロジックを一括初期化。
-- `ui/ui_components.py`: PySide6 を用いたメインレイアウトの構築。
-- `ui/event_handlers.py`: ユーザー操作や各種シグナル（OCR完了、計算要求等）に対する全イベント制御を集約。
+本ドキュメントでは、アプリの内部動作、ファイル構成、OCR処理、およびスコア計算のロジックについて詳細に解説します。
 
-## 2. 画像読み込みと解析 (OCR)
-- **取得**: クリップボード監視またはファイル選択（`EventHandlers.import_image`）により画像を取得。
-- **前処理**: `core/image_processor.py` でグレースケール化、適応的二値化、リサイズを実施。
-- **非同期実行**: `core/worker_thread.py (OCRWorker)` がバックグラウンドで Tesseract を実行。
-- **解析**: `core/ocr_parser.py` が正規表現を用いてステータス名と数値を抽出。
-- **反映**: `ui/event_handlers.py (_apply_ocr_result)` が、コストやステータスから最適なタブを自動判別して解析結果を流し込む。
+---
 
-## 3. スコア計算と評価ロジック
-- **計算エンジン**: `core/score_calculator.py` がマネージャーから取得した重みデータを用いて計算を実行。
-- **評価アルゴリズム**: `core/echo_data.py` が以下の5つの手法で評価を実施：
-    1. 正規化スコア (Normalized)
-    2. 重要度比率 (Ratio)
-    3. ロール品質 (Roll Quality)
-    4. 有効ステータス数 (Effective Count)
-    5. クリティカル価値 (CV-based)
-- **比較機能**: 現在の「装備中」エコーとのスコア差分（Comparison Diff）をリアルタイムに算出。
+## 1. 全体アーキテクチャ
+アプリは **PySide6** をベースとしたマルチコンポーネント構成となっています。
 
-## 4. UIレンダリングと表示
-- **HTML生成**: `ui/html_renderer.py` が CSS スタイルを含む計算結果の HTML を生成。
-- **動的リフレッシュ**: `wuwacalc17.py (refresh_results_display)` が、設定変更（色、フォント、影）を既存の表示結果に即座に反映。
-- **テーマ管理**: `managers/theme_manager.py` がアプリ全体の配色や背景透過度を制御。
+- **Main Window (`wuwacalc17.py`)**: アプリの起動、各コンポーネントの初期化、イベントの橋渡し。
+- **Core Logic**:
+    - `AppContext`: 各種マネージャやロジッククラスを保持する依存注入コンテナ。
+    - `AppLogic`: OCRの実行（前処理、Tesseract呼び出し）を管理。
+    - `ScoreCalculator`: スコア計算エンジンの核心。
+    - `ImageProcessor`: クリップボードやファイルからの画像取得、クロップ処理、OCR後のデータルーティング。
+- **Managers**:
+    - `ConfigManager`: `config.json` の読み書き。
+    - `CharacterManager`: キャラクタープロフィール（名前、属性、推奨ステータスの重み）の管理。
+    - `TabManager`: 各エボ（タブ）に紐付くデータ（ステータス、画像、計算結果）の管理。
+    - `ThemeManager`: UIテーマ（Dark/Light/Clear）の適用。
+- **UI Components**:
+    - `UIComponents`: ウィジェットの生成とレイアウト構築。
+    - `EventHandlers`: UI操作（クリック、選択変更）と内部ロジックの紐付け。
+    - `HtmlRenderer`: 計算結果を美しいHTML（CSS組み込み）として描画。
 
-## 5. ビルド共有（スコアボード）
-- **画像生成**: `core/scoreboard_generator.py` が 5 つのエコー情報を統合した build 紹介画像を生成。
-- **最適化**: フォントキャッシュによる高速描画。
-- **動的テーマ**: キャラクターの属性（焦熱、凝縮、回折、消滅、電導、気動）を判別し、背景とアクセントカラーを自動設定。
+---
 
-# 現在の状況と改善点
+## 2. ファイル構成
+プロジェクトの主要なファイル構成は以下の通りです。
 
-## 1. 堅牢性の向上 (完了)
-- **バリデーション**: `score_calculator.py` で数値変換時の異常値（NaN/Inf）や不正文字列を事前に排除。
-- **安全なプロパティ**: `DataManager` の各プロパティにデフォルト値と型チェックを追加し、JSON破損によるクラッシュを防止。
+```text
+wuwacalc/
+├── wuwacalc17.py          # エントリポイント（メインウィンドウ）
+├── core/                  # コアロジック (OCR, 計算エンジン, データ定義)
+│   ├── app_logic.py
+│   ├── app_setup.py
+│   ├── data_contracts.py
+│   ├── echo_data.py
+│   ├── image_processor.py
+│   ├── ocr_parser.py
+│   └── score_calculator.py
+├── managers/              # 各種管理クラス (設定, データ, キャラ, テーマ, タブ)
+│   ├── character_manager.py
+│   ├── config_manager.py
+│   ├── data_manager.py
+│   ├── history_manager.py
+│   ├── tab_manager.py
+│   ├── theme_manager.py
+├── ui/                    # UI関連 (コンポーネント, イベント, ダイアログ)
+│   ├── dialogs/           # 各種設定・入力ダイアログ
+│   ├── event_handlers.py
+│   ├── html_renderer.py
+│   ├── ui_components.py
+│   └── ui_constants.py
+├── utils/                 # ユーティリティ (定数, ロガー, 翻訳, 汎用関数)
+│   ├── constants.py
+│   ├── languages.py
+│   ├── logger.py
+│   └── utils.py
+├── data/                  # 共通データファイル (JSON)
+├── character_settings_jsons/ # 各キャラの個別設定 (JSON)
+└── tools/                 # 開発・ビルド補助ツール
+```
 
-## 2. コード品質と保守性 (大幅改善)
-- **PEP 8 準拠**: 主要な全ファイルにおいてインポート順序、docstring、命名規則、空行の配置を修正。
-- **スパゲッティコードの解消**: 
-    - メインウィンドウに混在していた表示更新ロジックを `HtmlRenderer` へ委譲。
-    - `EventHandlers` 内の重複していた OCR 適用処理を `_apply_ocr_result` に統一。
-- **安全性**: `GEMINI.md` に「変更後の自動構文チェック」ルールを追加。
+---
 
-## 3. 今後の課題
-- **データ更新の自動化**: 新キャラクター追加時に手動で JSON を編集する手間を減らすための、マスターデータからの自動生成機能。
-- **UI/UX**: 複数エコーをまとめて「一括装備登録」する機能。
-- **計算ロジック**: セット効果（属性ダメージアップ等）を含めたトータルステータスのシミュレーション。
+## 3. OCR処理フロー (`Paste` or `Import` → `Parse`)
+画像から数値を抽出するまでの一連の流れです。
+
+1.  **画像入力**:
+    - `Clipboard` または `File` から画像を取得し、`ImageProcessor` へ渡す。
+2.  **前処理 (`AppLogic._preprocess_for_ocr`)**:
+    - 設定に応じて **OpenCV (Adaptive Threshold)** または **Pillow** エンジンを使用。
+    - グレースケール化、リサイズ（解像度不足時）、コントラスト調整、2値化を行い、OCR精度を最大化する。
+3.  **OCR実行 (`pytesseract`)**:
+    - 言語設定 `jpn+eng` を使用。
+    - 文字列だけでなく、Bounding Box（文字位置情報）も取得し、後のデータ検証に利用。
+4.  **パース (`OcrParser`)**:
+    - 正規表現と事前定義されたエイリアスマッピングを用いて、ステータス名と数値を分離。
+    - `COST` (1/3/4) の判定、`メインステータス` の特定、5つの `サブステータス` の抽出を行う。
+5.  **データ検証・補正**:
+    - OCRの読み間違い（例: 点の欠落）を、ゲーム内の理論的な最大値チェックを通じて自動補正。
+6.  **自動タブ割り当て (`TabManager.find_best_tab_match`)**:
+    - 抽出されたコストやメインステータスを基に、空いているタブ、または既存の適切なタブへデータを自動流し込み。
+
+---
+
+## 4. スコア計算ロジック (`ScoreCalculator`)
+現在、以下の5つの指標で評価を行っています：
+
+1.  **正規化スコア (Normalized)**:
+    - 各サブステータスの数値を、その項目の最大値（100%）に対する割合で算出。
+2.  **期待値比 (Ratio)**:
+    - キャラクターごとに設定された「有効ステータス」の期待値を合算。
+3.  **ロール評価 (Roll)**:
+    - 各項目の最高値を「1.0ロール」とし、合計で何ロール分の強さがあるかを算出（最大 5.0）。
+4.  **有効度 (Effective)**:
+    - 設定された重み付けに基づき、キャラクターにとってどれだけ無駄のないステータスかを評価。
+5.  **Crit Value (CV)**:
+    - `会心率 * 2 + 会心ダメージ` の伝統的な評価指標。
+
+---
+
+## 5. データ管理
+- **設定ファイル (`config.json`)**: アプリ設定、クロップ位置、最後に選択したキャラなどを保存。
+- **キャラクター定義 (`character_settings_jsons/*.json`)**: 各キャラの推奨ステータス、属性、計算用重みを保持。
+- **装備履歴 (`equipped_echoes.json`)**: 現在装備中の音骸データを保存し、新しい音骸との比較（スコア増減）を表示可能にする。
+
+---
+
+## 6. 開発履歴と移行
+- **PyQt6 → PySide6**: 2025年12月、LGPLライセンスへの準拠とメンテナンス性の向上のため、完全に移行済み。
+- **PROCESS_FLOW.md**: 今回、gitignoreから除外され、プロジェクトの公式な技術解説ドキュメントとして再定義された。

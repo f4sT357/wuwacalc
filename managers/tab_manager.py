@@ -25,7 +25,6 @@ if TYPE_CHECKING:
     from managers.character_manager import CharacterManager
     from core.score_calculator import ScoreCalculator
 
-
 class TabImageData:
     """Container for original and cropped images associated with a tab."""
     def __init__(self, original: Image.Image, cropped: Image.Image):
@@ -234,6 +233,7 @@ class TabManager(QObject):
             "cost_key": cost_key, 
             "widget": tab_widget
         }
+
 
     def _generate_tab_label(self, tab_name: str) -> str:
         """Generate a translated display label for a tab."""

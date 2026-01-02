@@ -8,7 +8,7 @@ import os
 import re
 import shutil
 import time
-from typing import Optional, Any, Callable
+from typing import Optional, Any, Callable, Tuple, Dict
 from core.data_contracts import OCRResult
 from core.ocr_parser import OcrParser
 from pytesseract import Output
@@ -174,10 +174,60 @@ class AppLogic(QObject):
         processed = processed.point(lambda p: 255 if p > threshold else 0)
         return processed
 
+    def _perform_ocr_with_boxes(self, image: "Image.Image", language: str = "ja") -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        start_time = time.time()
+        if not is_pytesseract_installed:
+            self.log_message.emit(self.tr("pytesseract_not_installed"))
+            return None, None
+        
+        if not pytesseract.pytesseract.tesseract_cmd:
+            self._setup_tesseract_path()
+            if not pytesseract.pytesseract.tesseract_cmd:
+                return None, None
+
+        try:
+            processed = self._preprocess_for_ocr(image)
+            self.log_message.emit(f"Image for Tesseract OCR (Boxes) - size: {processed.size}, mode: {processed.mode}")
+            custom_config = "--oem 3 --psm 6"
+
+            tess_lang = "jpn+eng"
+
+            # 1. Get raw text
+            output_bytes = pytesseract.image_to_string(
+                processed, lang=tess_lang, config=custom_config, output_type=Output.BYTES
+            )
+            ocr_text = output_bytes.decode("utf-8", errors="ignore")
+            ocr_text = re.sub(r'[|｜・°º«»〝〟"\'‘] ', "", ocr_text)
+
+            # 2. Get box data
+            # Note: image_to_data might produce slightly different tokenization than image_to_string,
+            # but usually it's consistent enough for mapping.
+            data = pytesseract.image_to_data(
+                processed, lang=tess_lang, config=custom_config, output_type=Output.DICT
+            )
+
+            end_time = time.time()
+            self.log_message.emit(f"OCR process (with boxes) took {end_time - start_time:.2f} seconds.")
+            self.log_message.emit(f"OCR Raw Text:\n{ocr_text.strip()}")
+            return ocr_text, data
+
+        except pytesseract.TesseractError as te:
+            self.ocr_error.emit(self.tr("ocr_error_title"), self.tr("ocr_lang_data_error", te))
+            self.log_message.emit(self.tr("ocr_lang_data_error_log", te))
+        except FileNotFoundError as fnf:
+            self.ocr_error.emit(self.tr("ocr_error_title"), self.tr("tesseract_exec_not_found", fnf))
+            self.log_message.emit(self.tr("tesseract_exec_error_log", fnf))
+        except Exception as ocr_error:
+            self.ocr_error.emit(self.tr("ocr_error_title"), self.tr("ocr_process_error", ocr_error))
+            self.log_message.emit(self.tr("ocr_process_error_log", ocr_error))
+        
+        return None, None
+
     def perform_ocr_workflow(self, image: "Image.Image", language: str) -> OCRResult:
         """
-        Performs the full OCR workflow: image processing, text recognition,
-        and parsing of substats and cost.
+        Performs the full OCR workflow including bounding boxes.
         """
-        raw_text = self._perform_ocr(image, language)
-        return self.ocr_parser.parse(raw_text, language)
+        raw_text, data = self._perform_ocr_with_boxes(image, language)
+        if raw_text and data:
+            return self.ocr_parser.parse_with_boxes(raw_text, data, language)
+        return self.ocr_parser.parse(raw_text or "", language)

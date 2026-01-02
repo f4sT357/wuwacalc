@@ -196,6 +196,10 @@ class EventHandlers:
             self.tab_mgr.apply_ocr_result_to_tab(target_tab, ocr_data)
             self.tab_mgr.save_tab_image(target_tab, original_img, cropped_img)
 
+            # Show overlay on the current display (from Incoming)
+            if not is_batch:
+                 self.ui.display_ocr_overlay(ocr_data)
+
             # Auto-calculate if enabled
             if self.app.app_config.auto_calculate:
                 QTimer.singleShot(100, self.trigger_calculation)

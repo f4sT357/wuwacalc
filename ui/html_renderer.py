@@ -134,9 +134,22 @@ class HtmlRenderer:
         """Generate comprehensive HTML report for a single Echo."""
         title = self.tr("individual_score_title", character, tab_name).replace("\n", "")
         html = self.common_style
-        html += f"<h3><u>{title}</u></h3><hr>"
+        html += f"<h3><u>{title}</u></h3>"
+        html += f"<hr>"
+        
+        # New: Display consistency advice
+        if evaluation.consistency_advice:
+            html += f"<div style='color: #ff5555; background: rgba(255,0,0,0.1); padding: 5px; border-left: 3px solid #ff5555; margin-bottom: 10px;'>"
+            html += f"⚠️ {evaluation.consistency_advice}</div>"
 
-        html += f"<b>{self.tr('echo_info')}</b><br>"
+        # New: Display build optimization advice
+        if evaluation.advice_list:
+            html += "<div style='margin-bottom: 10px; font-size: 0.95em; color: #88ccff; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 4px;'>"
+            for advice in evaluation.advice_list:
+                html += f"• {advice}<br>"
+            html += "</div>"
+        
+        html += f"<b>{self.tr('echo_info').replace('\n', '')}</b><br>"
         html += f"&nbsp;&nbsp;• {self.tr('cost')}: {entry.cost}<br>"
         html += f"&nbsp;&nbsp;• {self.tr('main_stat')}: {self.tr(main_stat)}<br>"
         html += f"&nbsp;&nbsp;• {self.tr('level', echo.level)}<br>"
@@ -167,6 +180,29 @@ class HtmlRenderer:
                 label, desc = method_map[m_id]
                 rating = evaluation.rating if m_id == "achievement" else m_id
                 html += self.format_score_block(label, score, rating, desc)
+
+        html += f"<hr>"
+        
+        if evaluation.estimated_stats:
+            html += f"<b>{self.tr('estimated_total_stats').replace('\n', '')}</b><br>"
+            priority = [STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ER]
+            
+            for sname in priority:
+                if sname in evaluation.estimated_stats:
+                    val = evaluation.estimated_stats[sname]
+                    html += f"&nbsp;&nbsp;• {self.tr(sname)}: {val:.1f}<br>"
+            
+            for sname, val in sorted(evaluation.estimated_stats.items()):
+                if sname not in priority and val > 0 and not sname.startswith(("Total ", "Goal ")):
+                    html += f"&nbsp;&nbsp;• {self.tr(sname)}: {val:.1f}<br>"
+            
+            for sname, val in evaluation.estimated_stats.items():
+                if sname.startswith("Total "):
+                    html += f"<br><b>&nbsp;&nbsp;{sname}: {val:.1f}</b><br>"
+                if sname.startswith("Goal "):
+                    html += f"<b>&nbsp;&nbsp;{sname}: {val:.1f}%</b><br>"
+            
+            html += f"<hr>"
 
         html += "<hr>"
 

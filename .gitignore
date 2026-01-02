@@ -86,7 +86,6 @@ sampleimage/
 node_modules/
 .antigravity-rules
 GEMINI.md
-PROCESS_FLOW.md
 AI_ACTIONS.md
 
 # Personal / secret files - prevent committing identifying environment data
