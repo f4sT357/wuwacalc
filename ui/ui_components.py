@@ -21,12 +21,8 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QButtonGroup,
 )
-<<<<<<< HEAD
-from PySide6.QtCore import Qt
-=======
 from PySide6.QtGui import QPixmap, QPainter, QPen, QColor
 from PySide6.QtCore import Qt, Signal, QRect
->>>>>>> e53b3001f31f4b812dea6e641dce0b786c046a59
 
 from ui.ui_constants import (
     WINDOW_WIDTH,

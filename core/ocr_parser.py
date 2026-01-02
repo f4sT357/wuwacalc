@@ -6,7 +6,7 @@ Responsible for extracting structured data from raw OCR text.
 
 import re
 import logging
-from typing import List, Tuple, Optional, Any
+from typing import List, Tuple, Optional, Any, Dict
 from core.data_contracts import SubStat, OCRResult
 
 
