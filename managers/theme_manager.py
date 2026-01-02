@@ -193,14 +193,13 @@ class ThemeManager:
         self.app.config_manager.update_app_setting("custom_input_bg_color", new_color)
         self.apply_theme(self.get_current_theme())
 
-        def update_frame_transparency(self, transparent: bool) -> None:
+    def update_frame_transparency(self, transparent: bool) -> None:
+        """Toggle frame transparency and refresh styles."""
+        self.app.app_config.transparent_frames = transparent
+        self.app.config_manager.update_app_setting("transparent_frames", transparent)
+        self.apply_theme(self.get_current_theme())
 
-            """Toggle frame transparency and refresh styles."""
-
-            self.app.app_config.transparent_frames = transparent
-
-            self.app.config_manager.update_app_setting("transparent_frames", transparent)
-
-            self.apply_theme(self.get_current_theme())
-
-    
+    def refresh_global_shadows(self) -> None:
+        """Refresh shadow effects on all applicable widgets."""
+        # TODO: Implement shadow application logic
+        pass

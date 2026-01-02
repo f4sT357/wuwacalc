@@ -75,6 +75,7 @@ class ScoreCalculator(QObject):
 
             weights = self.character_manager.get_stat_weights(character)
             config_bundle = self._get_config_bundle()
+            config_bundle["character_main_stats"] = self.character_manager.get_main_stats(character)
 
             evaluation = self._process_echo_evaluation(
                 entry, weights, config_bundle, enabled_methods, 
@@ -130,6 +131,7 @@ class ScoreCalculator(QObject):
         try:
             weights = self.character_manager.get_stat_weights(character)
             config_bundle = self._get_config_bundle()
+            config_bundle["character_main_stats"] = self.character_manager.get_main_stats(character)
 
             all_evaluations = []
             total_scores = {"total": 0.0}

@@ -75,6 +75,7 @@ class AppConfig:
             "cv": False,
         }
     )
+    background_opacity: float = 0.9
 
     def __post_init__(self):
         pass

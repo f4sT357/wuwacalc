@@ -303,7 +303,14 @@ class EchoData:
         expected_main_stats = config_bundle.get("character_main_stats", {})
         # Find all valid candidates for this cost (e.g., '3', '3_1', '3_2')
         cost_prefix = str(self.cost).split('_')[0]
-        possible_targets = [v for k, v in expected_main_stats.items() if k.startswith(cost_prefix)]
+        possible_targets = []
+        for k, v in expected_main_stats.items():
+            if k.startswith(cost_prefix):
+                if isinstance(v, (list, tuple)):
+                    possible_targets.extend([str(x) for x in v if isinstance(x, (str, int, float))])
+                elif isinstance(v, (str, int, float)):
+                    possible_targets.append(str(v))
+                # Ignore dicts or other unhashable types to prevent crash
         
         if possible_targets:
             # Check for direct match

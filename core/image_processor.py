@@ -45,10 +45,16 @@ class ImageProcessor(QObject):
         # Internal state
         self.loaded_image = None
         self.original_image = None
+        self.manual_crop_rect = None  # (left, top, right, bottom) relative 0.0-1.0
 
         # Batch processing state
         self._batch_assigned_tabs: Set[str] = set()
         self._batch_successful_count = 0
+
+    def set_manual_crop_rect(self, rect: tuple) -> None:
+        """Set manual crop area (left, top, right, bottom) as 0.0-1.0 ratios."""
+        self.manual_crop_rect = rect
+        self.perform_crop()
 
     def process_images_from_paths(self, file_paths: List[str]) -> None:
         """Process one or multiple image paths."""
@@ -128,6 +134,9 @@ class ImageProcessor(QObject):
         """Process a single loaded PIL Image."""
         self.original_image = image.convert("RGB")
         self.log_requested.emit(f"Image loaded: {file_path if file_path else 'Memory'}")
+        
+        # Reset manual crop on new image
+        self.manual_crop_rect = None
 
         self.perform_crop()
 
@@ -177,10 +186,34 @@ class ImageProcessor(QObject):
 
         try:
             if app_config.crop_mode == "drag":
-                # For 'drag' mode, we might need a signal to request drag crop from UI
-                # but usually the dialog handles it.
-                # For simplicity, we trigger the signal that we need a crop
-                pass
+                if self.manual_crop_rect:
+                    w, h = self.original_image.size
+                    l, t, r, b = self.manual_crop_rect
+                    # Convert ratios to pixels
+                    left = int(l * w)
+                    top = int(t * h)
+                    right = int(r * w)
+                    bottom = int(b * h)
+                    # Constraint
+                    left = max(0, min(w, left))
+                    top = max(0, min(h, top))
+                    right = max(0, min(w, right))
+                    bottom = max(0, min(h, bottom))
+                    
+                    if right > left and bottom > top:
+                        self.loaded_image = self.original_image.crop((left, top, right, bottom))
+                        self.image_updated.emit(self.loaded_image)
+                        self.run_ocr()
+                    else:
+                        self.log_requested.emit("Invalid crop area.")
+                else:
+                    # If no crop set, show original mainly for selection
+                    self.loaded_image = self.original_image.copy()
+                    self.image_updated.emit(self.loaded_image)
+                    self.log_requested.emit("Drag mode: Please select an area to crop.")
+                
+                # IMPORTANT: Do NOT fall through to percent crop
+                return
 
             # Perform percent crop
             self.loaded_image = crop_image_by_percent(

@@ -66,6 +66,7 @@ class EventHandlers:
 
         # State to track OCR trigger context
         self._ocr_trigger_character = None
+        self._temp_ocr_result = None
 
     def setup_connections(self) -> None:
         """Set up all signal and slot connections for the application."""
@@ -105,6 +106,8 @@ class EventHandlers:
         self.ui.rb_batch.toggled.connect(lambda c: self.on_score_mode_change("batch") if c else None)
         self.ui.rb_single.toggled.connect(lambda c: self.on_score_mode_change("single") if c else None)
 
+        self.ui.image_label.selection_completed.connect(self.image_proc.set_manual_crop_rect)
+
         for method, cb in self.ui.method_checkboxes.items():
             cb.toggled.connect(self.on_calc_method_changed)
 
@@ -142,8 +145,20 @@ class EventHandlers:
 
     def on_ocr_completed(self, result: Any) -> None:
         """Handle OCR process completion and route data to tabs."""
-        # Check for character selection waiting state
-        self.app.check_character_selected(quiet=True)
+        # Visual Feedback: Show overlay immediately
+        ocr_data = result if isinstance(result, OCRResult) else result.result
+        self.ui.display_ocr_overlay(ocr_data)
+
+        # Defer if no character selected
+        if not self.app.character_var:
+            self._temp_ocr_result = result
+            self.app.gui_log("OCR data cached. Waiting for character selection.")
+            QMessageBox.information(
+                self.app, self.app.tr("info"),
+                "OCR完了。適用先のキャラクターを選択してください。\n"
+                "Please select a character to apply the data to the correct cost slot."
+            )
+            return
 
         # Prevent OCR from overwriting if character context changed during processing
         if (self._ocr_trigger_character is not None
@@ -353,6 +368,18 @@ class EventHandlers:
             if loaded_count > 0:
                 self.app.gui_log(f"Auto-load complete: {loaded_count} echoes restored.")
 
+            # Check and apply deferred OCR data
+            if self._temp_ocr_result:
+                result = self._temp_ocr_result
+                self.app.gui_log("Applying cached OCR data to new character context...")
+                if isinstance(result, OCRResult):
+                    self._apply_ocr_result(result, result.original_image, result.cropped_image)
+                elif isinstance(result, BatchItemResult):
+                     self._apply_ocr_result(
+                        result.result, result.original_image, result.cropped_image, is_batch=True
+                    )
+                self._temp_ocr_result = None
+
             # Auto-calculate
             should_calc = (getattr(self.app, "_waiting_for_character", False)
                            or self.app.app_config.auto_calculate)
@@ -428,6 +455,7 @@ class EventHandlers:
         self.app.crop_mode_var = mode
         self.config_manager.update_app_setting('crop_mode', mode)
         self.save_config()
+        self.ui.image_label.set_drag_enabled(mode == "drag")
 
     def on_crop_percent_change(self, text: str) -> None:
         """Handle direct numeric input for crop percentage areas."""

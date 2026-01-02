@@ -34,7 +34,9 @@ from core.data_contracts import OCRResult
 VALUE_ENTRY_WIDTH = 60
 
 class OCRImageLabel(QLabel):
-    """Custom label for drawing OCR bounding boxes."""
+    """Custom label for drawing OCR bounding boxes and handling drag selection."""
+    selection_completed = Signal(tuple)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.ocr_result = None
@@ -42,7 +44,16 @@ class OCRImageLabel(QLabel):
         self.scale_factor = 1.0
         self.offset_x = 0
         self.offset_y = 0
+        
+        # Drag selection state
+        self.start_pos = None
+        self.end_pos = None
+        self.is_selecting = False
+        self.drag_enabled = True # Can be toggled
+
         self.setText("No Image")
+        # Enable mouse tracking if needed for hover, but drag works with press/move
+        self.setMouseTracking(True)
 
     def set_ocr_result(self, result, original_size=None):
         self.ocr_result = result
@@ -50,8 +61,77 @@ class OCRImageLabel(QLabel):
             self.original_crop_size = original_size
         self.update()
 
+    def set_drag_enabled(self, enabled: bool):
+        self.drag_enabled = enabled
+        if not enabled:
+            self.start_pos = None
+            self.end_pos = None
+            self.is_selecting = False
+            self.update()
+
+    def mousePressEvent(self, event):
+        if self.drag_enabled and self.pixmap():
+            self.start_pos = event.position().toPoint()
+            self.end_pos = self.start_pos
+            self.is_selecting = True
+            self.update()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self.is_selecting and self.drag_enabled:
+            self.end_pos = event.position().toPoint()
+            self.update()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self.is_selecting and self.drag_enabled and self.pixmap():
+            self.end_pos = event.position().toPoint()
+            self.is_selecting = False
+            self.update()
+            
+            # Calculate selection relative to the pixmap
+            # Need to reverse the offset and scaling logic
+            pix_size = self.pixmap().size()
+            lbl_size = self.size()
+            
+            offset_x = (lbl_size.width() - pix_size.width()) // 2
+            offset_y = (lbl_size.height() - pix_size.height()) // 2
+            
+            x1 = self.start_pos.x() - offset_x
+            y1 = self.start_pos.y() - offset_y
+            x2 = self.end_pos.x() - offset_x
+            y2 = self.end_pos.y() - offset_y
+            
+            # Clamp to pixmap area
+            x1 = max(0, min(pix_size.width(), x1))
+            y1 = max(0, min(pix_size.height(), y1))
+            x2 = max(0, min(pix_size.width(), x2))
+            y2 = max(0, min(pix_size.height(), y2))
+            
+            if abs(x2 - x1) > 5 and abs(y2 - y1) > 5:
+                # Normalize 0.0-1.0
+                l = min(x1, x2) / pix_size.width()
+                t = min(y1, y2) / pix_size.height()
+                r = max(x1, x2) / pix_size.width()
+                b = max(y1, y2) / pix_size.height()
+                self.selection_completed.emit((l, t, r, b))
+            
+        else:
+            super().mouseReleaseEvent(event)
+
     def paintEvent(self, event):
         super().paintEvent(event)
+        
+        if self.is_selecting and self.start_pos and self.end_pos:
+            painter = QPainter(self)
+            pen = QPen(QColor(255, 0, 0), 2, Qt.DashLine)
+            painter.setPen(pen)
+            rect = QRect(self.start_pos, self.end_pos).normalized()
+            painter.drawRect(rect)
+            return
+
         if not self.ocr_result or not self.pixmap():
             return
 
@@ -385,6 +465,7 @@ class UIComponents:
         self.image_label = OCRImageLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setMinimumHeight(IMAGE_PREVIEW_MAX_HEIGHT)
+        self.image_label.set_drag_enabled(self.app.crop_mode_var == "drag")
         vbox.addWidget(self.image_label)
 
     def _create_crop_item(
