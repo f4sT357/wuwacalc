@@ -1,16 +1,32 @@
-import os
-import shutil
-from PySide6.QtWidgets import QApplication, QStyleFactory, QMessageBox
+"""
+Theme Management Module (PySide6)
+
+Handles application-wide styling, color themes, and dynamic 
+element-based accent colors.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
+from PySide6.QtWidgets import QApplication, QStyleFactory
 from utils.constants import THEME_COLORS
-from utils.utils import get_app_path
+
+if TYPE_CHECKING:
+    from wuwacalc17 import ScoreCalculatorApp
+
 
 class ThemeManager:
-    def __init__(self, app_instance):
+    """Manages UI themes and dynamic styling for the application."""
+
+    def __init__(self, app_instance: ScoreCalculatorApp):
         self.app = app_instance
+        self.logger = logging.getLogger(__name__)
 
     def _hex_to_rgba(self, hex_color: str, alpha: float) -> str:
-        """Convert hex color to rgba string."""
-        hex_color = hex_color.lstrip('#')
+        """Convert hex color string to CSS rgba format."""
+        hex_color = hex_color.lstrip("#")
         if len(hex_color) == 6:
             r = int(hex_color[0:2], 16)
             g = int(hex_color[2:4], 16)
@@ -19,68 +35,48 @@ class ThemeManager:
         return hex_color
 
     def _apply_theme_stylesheet(self, theme_name: str) -> None:
-        """Sets the stylesheet based on the theme name."""
+        """Generate and apply the global CSS stylesheet based on current state."""
         colors = THEME_COLORS.get(theme_name, THEME_COLORS["light"])
-        bg_image = self.app.app_config.background_image
-        alpha = self.app.app_config.background_opacity
         is_transparent = self.app.app_config.transparent_frames
-        
-        main_window_bg_style = ""
-        
-        c_bg = colors['background']
-        c_input = self.app.app_config.custom_input_bg_color or colors['input_bg']
-        c_btn = colors['button_bg']
-        c_btn_hover = colors['button_hover']
-        c_tab = colors['tab_bg']
-        c_tab_sel = colors['tab_selected']
+        config = self.app.app_config
 
-        if bg_image:
-            if not os.path.isabs(bg_image):
-                bg_image = os.path.join(get_app_path(), bg_image)
-
-            if os.path.exists(bg_image):
-                img_path = bg_image.replace('\\', '/')
-                main_window_bg_style = f"border-image: url('{img_path}') 0 0 0 0 stretch stretch;"
-                
-                c_bg = self._hex_to_rgba(c_bg, alpha)
-                c_input = self._hex_to_rgba(c_input, alpha)
-                c_btn = self._hex_to_rgba(c_btn, alpha)
-                c_btn_hover = self._hex_to_rgba(c_btn_hover, alpha)
-                c_tab = self._hex_to_rgba(c_tab, alpha)
-                c_tab_sel = self._hex_to_rgba(c_tab_sel, alpha)
-        
-        font_style = f"font-family: '{self.app.app_config.app_font}';" if self.app.app_config.app_font else ""
-
-        # Adjust GroupBox, Frame and TextEdit based on transparency setting
-        if is_transparent:
-            group_bg = "transparent"
-            group_border = "none"
-            # Use theme-based colors with low alpha for a more consistent look
-            text_edit_bg = self._hex_to_rgba(colors['input_bg'], 0.15)
-            # Keep tabs slightly more visible for structure
-            tab_pane_bg = self._hex_to_rgba(colors['background'], 0.1)
-            tab_pane_border = f"1px solid rgba(128, 128, 128, 0.3)"
-            # Buttons and inputs also become more transparent
-            c_btn = self._hex_to_rgba(colors['button_bg'], 0.1)
-            c_btn_hover = self._hex_to_rgba(colors['button_hover'], 0.1)
-            c_input = self._hex_to_rgba(colors['input_bg'], 0.15)
-            # Tabs also follow transparency
-            c_tab = self._hex_to_rgba(colors['tab_bg'], 0.2)
-            c_tab_sel = self._hex_to_rgba(colors['tab_selected'], 0.4)
-            
-            # Make borders semi-transparent
-            c_border = self._hex_to_rgba(colors['border'], 0.15)
+        # 1. Determine Accent Color
+        if config.accent_mode == "custom":
+            c_accent = config.custom_accent_color
         else:
-            group_bg = c_bg
-            group_border = f"1px solid {colors['group_border']}"
+            # element-based (auto)
+            profile = self.app.character_manager.get_character_profile(self.app.character_var)
+            element = profile.element if profile else "default"
+            from core.scoreboard_generator import ScoreboardGenerator
+            theme_cfg = ScoreboardGenerator.ELEMENT_THEMES.get(
+                element, ScoreboardGenerator.DEFAULT_THEME
+            )
+            acc_rgb = theme_cfg["accent"]
+            c_accent = f"rgb({acc_rgb[0]}, {acc_rgb[1]}, {acc_rgb[2]})"
+
+        c_bg = colors["background"]
+        c_input = config.custom_input_bg_color or colors["input_bg"]
+        c_btn = colors["button_bg"]
+        c_border = colors["border"]
+        group_border = f"2px solid {c_accent}"
+        
+        font_family = config.app_font
+        font_style = f"font-family: '{font_family}';" if font_family else ""
+
+        if is_transparent:
+            text_edit_bg = self._hex_to_rgba(colors["input_bg"], 0.15)
+            tab_pane_bg = self._hex_to_rgba(colors["background"], 0.1)
+            tab_pane_border = f"1px solid {self._hex_to_rgba(c_accent, 0.3)}"
+            c_border = self._hex_to_rgba(c_accent, 0.4)
+            group_border = f"2px solid {self._hex_to_rgba(c_accent, 0.5)}"
+        else:
             text_edit_bg = c_input
             tab_pane_bg = c_bg
-            tab_pane_border = f"1px solid {colors['border']}"
-            c_border = colors['border']
+            tab_pane_border = f"1px solid {c_accent}"
 
         stylesheet = f"""
             QMainWindow {{ 
-                {main_window_bg_style if main_window_bg_style else f"background-color: {colors['background']};"}
+                background-color: {colors['background']};
                 color: {self.app.app_config.text_color}; 
                 {font_style} 
             }}
@@ -105,50 +101,54 @@ class ThemeManager:
                 background-color: {c_btn}; 
                 color: {self.app.app_config.text_color}; 
                 border: 1px solid {c_border}; 
+                border-radius: 4px;
                 padding: 5px; 
                 {font_style} 
             }}
             QPushButton:hover {{ 
-                background-color: {c_btn_hover}; 
+                background-color: {self._hex_to_rgba(c_accent, 0.2)}; 
+                border: 1px solid {c_accent};
             }}
             QTabWidget::pane {{ 
                 border: {tab_pane_border}; 
                 background-color: {tab_pane_bg}; 
+                border-radius: 4px;
             }}
             QTabBar::tab {{ 
-                background: {c_tab}; 
+                background: {colors['tab_bg']}; 
                 color: {self.app.app_config.text_color}; 
-                padding: 5px; 
-                min-width: 80px;
+                padding: 8px 12px; 
+                margin-right: 2px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
                 {font_style} 
             }}
             QTabBar::tab:selected {{ 
-                background: {c_tab_sel}; 
+                background: {c_accent}; 
+                color: white;
                 font-weight: bold;
             }}
             QGroupBox {{ 
                 border: {group_border}; 
+                border-radius: 8px;
                 margin-top: 15px; 
-                background-color: {group_bg}; 
+                padding-top: 10px;
+                background-color: {self._hex_to_rgba(c_bg, 0.5) if is_transparent else c_bg}; 
                 {font_style} 
                 font-weight: bold;
             }}
             QGroupBox::title {{ 
                 subcontrol-origin: margin; 
                 subcontrol-position: top left; 
-                padding: 0 5px; 
+                padding: 0 10px; 
+                color: {c_accent};
                 background-color: transparent; 
             }}
             QComboBox {{ 
                 background-color: {c_input}; 
                 color: {self.app.app_config.text_color}; 
                 border: 1px solid {c_border}; 
-                {font_style} 
-            }}
-            QComboBox QAbstractItemView {{ 
-                background-color: {c_input}; 
-                color: {self.app.app_config.text_color}; 
-                selection-background-color: {colors['button_hover']}; 
+                border-radius: 3px;
                 {font_style} 
             }}
         """
@@ -156,114 +156,51 @@ class ThemeManager:
         if q_app:
             q_app.setStyleSheet(stylesheet)
 
-    def update_app_font(self, font_family: str):
+    def update_app_font(self, font_family: str) -> None:
+        """Update the application font and refresh styles."""
         self.app.config_manager.update_app_setting("app_font", font_family)
-        self.apply_theme(self.app._current_app_theme)
+        self.apply_theme(self.get_current_theme())
+
+    def get_current_theme(self) -> str:
+        """Return the identifier of the currently active theme."""
+        return getattr(self.app, "_current_app_theme", "dark")
 
     def apply_theme(self, theme_name: str) -> None:
+        """Apply a named theme and refresh the global stylesheet."""
         try:
             self.app._current_app_theme = theme_name
             self.app.config_manager.update_app_setting("theme", theme_name)
+            
+            # Sync text color from theme defaults
+            colors = THEME_COLORS.get(theme_name, THEME_COLORS["dark"])
+            self.app.app_config.text_color = colors.get("text", "#ffffff")
+            
             if QApplication.instance():
                 QApplication.setStyle(QStyleFactory.create("Fusion"))
                 self._apply_theme_stylesheet(theme_name)
         except Exception as e:
-            self.app.logger.exception(f"Error applying theme: {e}")
-
-    def update_background_image(self, new_path: str) -> None:
-        try:
-            if not new_path:
-                self.app.app_config.background_image = ""
-                self.app.config_manager.update_app_setting("background_image", "")
-            else:
-                app_path = get_app_path()
-                images_dir = os.path.join(app_path, 'images')
-                final_dest_path = self._copy_image_safely(new_path, images_dir)
-                saved_path = os.path.relpath(final_dest_path, app_path).replace('\\', '/')
-                self.app.app_config.background_image = saved_path
-                self.app.config_manager.update_app_setting("background_image", saved_path)
-            self.apply_theme(self.app._current_app_theme)
-        except Exception as e:
-            self.app.logger.exception(f"Error background image: {e}")
-
-    def update_background_opacity(self, opacity: float) -> None:
-        self.app.app_config.background_opacity = opacity
-        self.app.config_manager.update_app_setting("background_opacity", opacity)
-        self.apply_theme(self.app._current_app_theme)
+            self.logger.exception(f"Error applying theme: {e}")
 
     def update_text_color(self, new_color: str) -> None:
+        """Update global text color and refresh styles."""
         self.app.app_config.text_color = new_color
         self.app.config_manager.update_app_setting("text_color", new_color)
-        self.apply_theme(self.app._current_app_theme)
+        self.apply_theme(self.get_current_theme())
 
     def update_input_bg_color(self, new_color: str) -> None:
+        """Update input background color and refresh styles."""
         self.app.app_config.custom_input_bg_color = new_color
         self.app.config_manager.update_app_setting("custom_input_bg_color", new_color)
-        self.apply_theme(self.app._current_app_theme)
+        self.apply_theme(self.get_current_theme())
 
-    def update_frame_transparency(self, transparent: bool):
-        """Update transparency and re-apply theme to ensure global stylesheet wins."""
-        self.app.app_config.transparent_frames = transparent
-        self.app.config_manager.update_app_setting("transparent_frames", transparent)
-        self.apply_theme(self.app._current_app_theme)
+        def update_frame_transparency(self, transparent: bool) -> None:
 
-    def refresh_global_shadows(self) -> None:
-        from PySide6.QtWidgets import QGraphicsDropShadowEffect, QLabel, QCheckBox, QRadioButton, QPushButton, QGroupBox, QTabBar, QApplication
-        from PySide6.QtGui import QColor
-        config = self.app.app_config
-        show = config.show_text_shadow
-        color = QColor(config.text_shadow_color)
-        
-        # Target more widget types and scan all widgets in the application
-        target_types = (QLabel, QCheckBox, QRadioButton, QPushButton, QGroupBox, QTabBar)
-        
-        # Use QApplication.allWidgets() to reach widgets in modal dialogs as well
-        for w in QApplication.allWidgets():
-            if isinstance(w, target_types):
-                try:
-                    # Clear existing effect
-                    w.setGraphicsEffect(None)
-                    
-                    if show:
-                        # QGroupBox shadow might blur the border too much, 
-                        # but users often want the title to have shadow.
-                        effect = QGraphicsDropShadowEffect(w)
-                        effect.setBlurRadius(config.shadow_blur)
-                        effect.setOffset(config.shadow_offset_x, config.shadow_offset_y)
-                        effect.setColor(color)
-                        w.setGraphicsEffect(effect)
-                except Exception:
-                    continue
+            """Toggle frame transparency and refresh styles."""
 
-    def _copy_image_safely(self, source_path: str, dest_dir: str) -> str:
-        os.makedirs(dest_dir, exist_ok=True)
-        filename = os.path.basename(source_path)
-        dest_path = os.path.join(dest_dir, filename)
-        if os.path.exists(dest_path):
-            try:
-                if os.path.samefile(source_path, dest_path): return dest_path
-            except Exception: pass
-            name, ext = os.path.splitext(filename)
-            i = 1
-            while True:
-                new_filename = f"{name}_{i}{ext}"
-                new_dest_path = os.path.join(dest_dir, new_filename)
-                if not os.path.exists(new_dest_path): 
-                    dest_path = new_dest_path
-                    break
-                i += 1
-        shutil.copy(source_path, dest_path)
-        return dest_path
+            self.app.app_config.transparent_frames = transparent
 
-    def cleanup_unused_images(self):
-        images_dir = os.path.join(get_app_path(), 'images')
-        if not os.path.isdir(images_dir): return
-        current = os.path.basename(self.app.app_config.background_image) if self.app.app_config.background_image else None
-        try:
-            unused = [f for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir, f)) and f != current]
-            if not unused: return
-            if QMessageBox.question(self.app, "Cleanup", f"Delete {len(unused)} unused images?", QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
-                for f in unused:
-                    try: os.remove(os.path.join(images_dir, f))
-                    except: pass
-        except Exception: pass
+            self.app.config_manager.update_app_setting("transparent_frames", transparent)
+
+            self.apply_theme(self.get_current_theme())
+
+    

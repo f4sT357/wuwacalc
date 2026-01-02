@@ -1,15 +1,52 @@
+"""
+Echo Data Module
+
+Provides the EchoData class for storing echo statistics 
+and performing various scoring evaluations.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from typing import Dict, Any, Optional, List, Tuple
+
 from utils.constants import (
-    STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ATK_FLAT, STAT_ER,
-    CV_KEY_CRIT_RATE, CV_KEY_CRIT_DMG, CV_KEY_ATK_PERCENT, 
-    CV_KEY_ATK_FLAT_DIVISOR, CV_KEY_ATK_FLAT_MULTIPLIER, CV_KEY_ER, CV_KEY_DMG_BONUS,
-    DAMAGE_BONUS_STATS
+    STAT_CRIT_RATE,
+    STAT_CRIT_DMG,
+    STAT_ATK_PERCENT,
+    STAT_ATK_FLAT,
+    STAT_DEF_PERCENT,
+    STAT_DEF_FLAT,
+    STAT_HP_PERCENT,
+    STAT_HP_FLAT,
+    STAT_ER,
+    CV_KEY_CRIT_RATE,
+    CV_KEY_CRIT_DMG,
+    CV_KEY_ATK_PERCENT,
+    CV_KEY_ATK_FLAT_DIVISOR,
+    CV_KEY_ATK_FLAT_MULTIPLIER,
+    CV_KEY_ER,
+    CV_KEY_DMG_BONUS,
+    DAMAGE_BONUS_STATS,
 )
 from core.data_contracts import EvaluationResult
 
+
 class EchoData:
-    """Echo data class (extended version)."""
-    def __init__(self, cost: int, main_stat: str, substats: dict[str, float]):
-        self.cost = cost
+    """
+    Represents an individual Echo and provides methods for comprehensive scoring.
+    """
+
+    def __init__(self, cost: int | str, main_stat: str, substats: Dict[str, float]):
+        """
+        Initialize an Echo instance.
+
+        Args:
+            cost: Echo cost (1, 3, or 4).
+            main_stat: Name of the primary statistic.
+            substats: Mapping of substat names to their numeric values.
+        """
+        self.cost = str(cost)
         self.main_stat = main_stat
         self.substats = substats
         self.level = 25
@@ -17,336 +54,263 @@ class EchoData:
         self.rating = ""
         self.effective_stats_count = 0
 
-    def calculate_score(self, stat_weights: dict[str, float], substat_max_values: dict[str, float], main_stat_multiplier: float) -> float:
-        """Standard score calculation (normalization method).
+    # --- Scoring Methods ---
 
-        Args:
-            stat_weights: Dictionary of weights.
-            substat_max_values: Dictionary of max values for substats.
-            main_stat_multiplier: Multiplier for the main stat.
-        Returns:
-            The calculated score.
-        """
-        if stat_weights is None:
-            # Prevent crash if weights missing, though caller should provide
-            return 0.0 
-        
+    def calculate_score_normalized(
+        self,
+        stat_weights: Dict[str, float],
+        substat_max_values: Dict[str, float],
+        main_stat_multiplier: float
+    ) -> float:
+        """Method 1: Normalized Score (0-100 points) based on max possible rolls."""
         main_score = main_stat_multiplier
         sub_score = 0.0
-        
-        for stat_name, stat_value in self.substats.items():
-            if stat_name in substat_max_values and stat_name in stat_weights:
-                max_value = substat_max_values[stat_name]
-                weight = stat_weights[stat_name]
-                normalized = (stat_value / max_value / 5)
-                sub_score += weight * normalized * 100
-        
-        self.score = (self.level / 25) * (main_score + sub_score)
-        return self.score
 
-    def calculate_score_normalized(self, stat_weights, substat_max_values, main_stat_multiplier):
-        """Method 1: Normalized Score (GameWith style) - 0-100 points"""
-        main_score = main_stat_multiplier
-        sub_score = 0.0
-        
         for stat_name, stat_value in self.substats.items():
-            max_val = substat_max_values.get(stat_name, 1)
-            weight = stat_weights.get(stat_name, 0)
-            normalized = (stat_value / max_val / 5) * weight * 100
+            max_val = substat_max_values.get(stat_name, 1.0)
+            weight = stat_weights.get(stat_name, 0.0)
+            normalized = (stat_value / max_val / 5.0) * weight * 100.0
             sub_score += normalized
-        
-        total = (self.level / 25) * (main_score + sub_score)
+
+        total = (self.level / 25.0) * (main_score + sub_score)
         return total
 
-    def calculate_score_ratio_based(self, importance_weights, substat_max_values):
-        """Method 2: Ratio-Based Method (Keisan style)"""
-        score = 0.0
-        
-        for stat_name, stat_value in self.substats.items():
-            max_val = substat_max_values.get(stat_name, 1)
-            importance = importance_weights.get(stat_name, 0)
-            ratio = (stat_value / max_val / 5) * importance
-            score += ratio
-        
-        final_score = (100 * self.level / 25) * score
-        return final_score
+    def calculate_score_ratio_based(
+        self,
+        importance_weights: Dict[str, float],
+        substat_max_values: Dict[str, float]
+    ) -> float:
+        """Method 2: Ratio-Based Method focusing on stat importance."""
+        score_ratio = 0.0
 
-    def calculate_score_roll_quality(self, stat_weights, roll_quality_config):
-        """Method 3: Roll Quality Method"""
+        for stat_name, stat_value in self.substats.items():
+            max_val = substat_max_values.get(stat_name, 1.0)
+            importance = importance_weights.get(stat_name, 0.0)
+            ratio = (stat_value / max_val / 5.0) * importance
+            score_ratio += ratio
+
+        return (100.0 * self.level / 25.0) * score_ratio
+
+    def calculate_score_roll_quality(
+        self,
+        stat_weights: Dict[str, float],
+        roll_quality_config: Dict[str, Any]
+    ) -> float:
+        """Method 3: Roll Quality Method based on value ranges (Low to Max)."""
         if not roll_quality_config:
             return 0.0
-            
-        ranges_config = roll_quality_config.get("ranges", {})
-        points_config = roll_quality_config.get("points", {})
-        
-        quality_points = 0
+
+        ranges_cfg = roll_quality_config.get("ranges", {})
+        points_cfg = roll_quality_config.get("points", {})
+
+        quality_points = 0.0
         count = 0
-        
+
         for stat_name, stat_value in self.substats.items():
-            if stat_name not in ranges_config:
+            if stat_name not in ranges_cfg:
                 continue
-                
-            ranges = ranges_config[stat_name]
+
+            ranges = ranges_cfg[stat_name]
             weight = stat_weights.get(stat_name, 0.5)
-            
-            if stat_value >= ranges.get("Max", 999):
-                quality_points += points_config.get("Max", 3) * weight
-            elif stat_value >= ranges.get("Good", 999):
-                quality_points += points_config.get("Good", 2) * weight
-            elif stat_value >= ranges.get("Low", 999):
-                quality_points += points_config.get("Low", 1) * weight
+
+            if stat_value >= ranges.get("Max", 999.0):
+                quality_points += points_cfg.get("Max", 3.0) * weight
+            elif stat_value >= ranges.get("Good", 999.0):
+                quality_points += points_cfg.get("Good", 2.0) * weight
+            elif stat_value >= ranges.get("Low", 999.0):
+                quality_points += points_cfg.get("Low", 1.0) * weight
             else:
-                quality_points += points_config.get("Default", 0.5) * weight
+                quality_points += points_cfg.get("Default", 0.5) * weight
             count += 1
-        
-        score = (quality_points / (count * 3)) * 100 if count > 0 else 0
-        return score * (self.level / 25)
 
+        score = (quality_points / (count * 3.0)) * 100.0 if count > 0 else 0.0
+        return score * (self.level / 25.0)
 
-    def calculate_score_effective_stats(self, stat_weights, substat_max_values, effective_stats_config):
-        """Method 4: Effective Stats Count Method"""
+    def calculate_score_effective_stats(
+        self,
+        stat_weights: Dict[str, float],
+        substat_max_values: Dict[str, float],
+        effective_stats_config: Dict[str, Any]
+    ) -> float:
+        """Method 4: Effective Stats Count Method with bonus for multiple valid stats."""
         effective_count = 0
-        total_contribution = 0
-        
+        total_contribution = 0.0
+
         threshold = effective_stats_config.get("threshold", 0.5)
         eps = 1e-9
-        
-        # Substats only (Main stat is excluded as per user confirmation)
-        base_multiplier = effective_stats_config.get("base_multiplier", 20)
-        bonus_multipliers = effective_stats_config.get("bonus_multiplier", {})
-        
-        effective_details = []
+
+        base_mult = effective_stats_config.get("base_multiplier", 20.0)
+        bonus_mults = effective_stats_config.get("bonus_multiplier", {})
+
         for stat_name, stat_value in self.substats.items():
-            weight = stat_weights.get(stat_name, 0)
-            
-            is_effective = weight >= (threshold - eps)
-            if is_effective:
+            weight = stat_weights.get(stat_name, 0.0)
+            if weight >= (threshold - eps):
                 effective_count += 1
-                max_val = substat_max_values.get(stat_name, 1)
-                contribution = (stat_value / max_val) * weight * base_multiplier
-                total_contribution += contribution
-                effective_details.append(f"{stat_name}({weight})")
-            else:
-                effective_details.append(f"[{stat_name}({weight})]")
-        
-        # Log the breakdown of effective stats (names in [] are non-effective)
-        # This will help identify if a stat was misidentified or has 0 weight
-        # print(f"Effective stats detail: {', '.join(effective_details)}")
-        
-        bonus = bonus_multipliers.get(str(effective_count), bonus_multipliers.get("default", 0.5))
-        
-        score = total_contribution * bonus * (self.level / 25)
+                max_val = substat_max_values.get(stat_name, 1.0)
+                total_contribution += (stat_value / max_val) * weight * base_mult
+
+        bonus = bonus_mults.get(str(effective_count), bonus_mults.get("default", 0.5))
+        score = total_contribution * bonus * (self.level / 25.0)
         self.effective_stats_count = effective_count
         return score
 
-    def calculate_score_cv_based(self, stat_weights, cv_weights, stat_offsets=None):
-        """Method 5: CV (Crit Value) Based Method - Community Standard"""
-        if stat_offsets is None: stat_offsets = {}
+    def calculate_score_cv_based(
+        self,
+        stat_weights: Dict[str, float],
+        cv_weights: Dict[str, float],
+        stat_offsets: Optional[Dict[str, float]] = None
+    ) -> float:
+        """Method 5: CV (Crit Value) Based Method (Community Standard)."""
         cv_score = 0.0
-        
-        # Basic CV calculation (most important)
-        crit_rate = self.substats.get(STAT_CRIT_RATE, 0)
-        crit_dmg = self.substats.get(STAT_CRIT_DMG, 0)
-        
-        # Apply offset (e.g. from weapon or base stats)
-        total_crit_rate = crit_rate + stat_offsets.get(STAT_CRIT_RATE, 0.0)
-        
-        cv_score += (crit_rate * cv_weights.get(CV_KEY_CRIT_RATE, 2.0)) + \
-                    (crit_dmg * cv_weights.get(CV_KEY_CRIT_DMG, 1.0))
-        
-        # Extended scoring with other valuable stats
-        # We use the raw substat values for the "Echo Score", 
-        # but the offsets could be used to weight their importance if we wanted to.
-        atk_pct = self.substats.get(STAT_ATK_PERCENT, 0)
-        flat_atk = self.substats.get(STAT_ATK_FLAT, 0)
-        er = self.substats.get(STAT_ER, 0)
-        
-        cv_score += (atk_pct * cv_weights.get(CV_KEY_ATK_PERCENT, 1.1))
-        cv_score += (flat_atk / cv_weights.get(CV_KEY_ATK_FLAT_DIVISOR, 10.0) * cv_weights.get(CV_KEY_ATK_FLAT_MULTIPLIER, 1.2))
-        cv_score += (er * cv_weights.get(CV_KEY_ER, 0.5))
-        
-        # Character-specific damage bonuses (weighted by character preference)
-        dmg_bonus_weight = cv_weights.get(CV_KEY_DMG_BONUS, 1.1)
 
+        # Crit Value Calculation
+        crit_rate = self.substats.get(STAT_CRIT_RATE, 0.0)
+        crit_dmg = self.substats.get(STAT_CRIT_DMG, 0.0)
+        cv_score += (crit_rate * cv_weights.get(CV_KEY_CRIT_RATE, 2.0))
+        cv_score += (crit_dmg * cv_weights.get(CV_KEY_CRIT_DMG, 1.0))
+
+        # Core ATK and ER scoring
+        atk_pct = self.substats.get(STAT_ATK_PERCENT, 0.0)
+        flat_atk = self.substats.get(STAT_ATK_FLAT, 0.0)
+        er = self.substats.get(STAT_ER, 0.0)
+
+        cv_score += atk_pct * cv_weights.get(CV_KEY_ATK_PERCENT, 1.1)
+        
+        flat_atk_div = cv_weights.get(CV_KEY_ATK_FLAT_DIVISOR, 10.0)
+        flat_atk_mult = cv_weights.get(CV_KEY_ATK_FLAT_MULTIPLIER, 1.2)
+        cv_score += (flat_atk / flat_atk_div * flat_atk_mult)
+        
+        cv_score += er * cv_weights.get(CV_KEY_ER, 0.5)
+
+        # Damage bonuses weighted by character preference
+        dmg_bonus_weight = cv_weights.get(CV_KEY_DMG_BONUS, 1.1)
         for stat_name in DAMAGE_BONUS_STATS:
             if stat_name in self.substats:
-                stat_value = self.substats[stat_name]
+                val = self.substats[stat_name]
                 weight = stat_weights.get(stat_name, 0.5)
-                # Damage bonuses are weighted by character preference and multiplied by weight
-                cv_score += (stat_value * dmg_bonus_weight * weight)
-        
-        # Level scaling
-        final_score = cv_score * (self.level / 25)
-        return final_score
+                cv_score += val * dmg_bonus_weight * weight
 
-    def calculate_theoretical_max_sub_score(self, stat_weights, substat_max_values):
-        """
-        Calculates the theoretical maximum score for 5 substat slots
-        based on the highest weighted stats for this character.
-        """
+        return cv_score * (self.level / 25.0)
+
+    def calculate_theoretical_max_sub_score(
+        self,
+        stat_weights: Dict[str, float],
+        substat_max_values: Dict[str, float]
+    ) -> float:
+        """Calculate the theoretical maximum score for 5 ideal substat rolls."""
         if not stat_weights:
-            return 100.0 # Fallback
-            
-        # Get all stats that have a weight, sorted by weight descending
-        weighted_stats = sorted(
-            [(name, weight) for name, weight in stat_weights.items() if weight > 0],
+            return 100.0
+
+        # Sort weights to find the 5 best possible stats for this character
+        weighted = sorted(
+            [(n, w) for n, w in stat_weights.items() if w > 0],
             key=lambda x: x[1], reverse=True
         )
-        
-        # Take the top 5 weighted stats
-        top_5 = weighted_stats[:5]
-        
-        max_sub_score = 0.0
-        for name, weight in top_5:
-            max_val = substat_max_values.get(name, 1.0)
-            # 1 slot maximum normalized score: (max_val / max_val / 5) * weight * 100 = 20 * weight
-            max_sub_score += 20.0 * weight
-            
-        return max_sub_score if max_sub_score > 0 else 100.0
+        top_5 = weighted[:5]
 
-    def evaluate_comprehensive(self, character_weights, config_bundle, enabled_methods=None, 
-                               stat_offsets=None, base_stats=None, ideal_stats=None, scaling_stat="攻撃力"):
-        """Comprehensive evaluation using provided configuration.
-        
-        Args:
-            character_weights: Dictionary of stat weights for the character
-            config_bundle: Dictionary containing all configuration data (max_values, multipliers, etc.)
-            enabled_methods: Dictionary of {method_name: bool} indicating which methods to use.
-            stat_offsets: Dictionary of offsets for base/weapon stats.
-            base_stats: Dictionary of base values (Char + Weapon).
-            ideal_stats: Dictionary of target values.
-            scaling_stat: Name of the primary stat for calculation (ATK, DEF, HP).
-        """
-        if stat_offsets is None: stat_offsets = {}
-        if base_stats is None: base_stats = {}
-        if ideal_stats is None: ideal_stats = {}
-        
-        # Default to all methods enabled if not specified
-        if enabled_methods is None:
-            enabled_methods = {
-                "normalized": True,
-                "ratio": True,
-                "roll": True,
-                "effective": True,
-                "cv": True
-            }
-        
-        substat_max_values = config_bundle.get("substat_max_values", {})
-        main_stat_multiplier = config_bundle.get("main_stat_multiplier", 15.0)
-        
-        # Calculate scores for enabled methods only
+        max_score = 0.0
+        for name, weight in top_5:
+            # Maximum normalized score for 1 slot is 20 * weight
+            max_score += 20.0 * weight
+
+        return max_score if max_score > 0 else 100.0
+
+    def evaluate_comprehensive(
+        self,
+        character_weights: Dict[str, float],
+        config_bundle: Dict[str, Any],
+        enabled_methods: Optional[Dict[str, bool]] = None,
+        stat_offsets: Optional[Dict[str, float]] = None,
+        base_stats: Optional[Dict[str, float]] = None,
+        ideal_stats: Optional[Dict[str, float]] = None,
+        scaling_stat: str = "攻撃力",
+    ) -> EvaluationResult:
+        """Perform a full evaluation using multiple methodologies and stat estimations."""
+        stat_offsets = stat_offsets or {}
+        base_stats = base_stats or {}
+        ideal_stats = ideal_stats or {}
+        enabled_methods = enabled_methods or {
+            "normalized": True, "ratio": True, "roll": True, "effective": True, "cv": True
+        }
+
+        max_vals = config_bundle.get("substat_max_values", {})
+        main_mult = config_bundle.get("main_stat_multiplier", 15.0)
+
+        # 1. Individual Method Scores
         results = {}
-        if enabled_methods.get("normalized", False):
+        if enabled_methods.get("normalized"):
             results["normalized"] = self.calculate_score_normalized(
-                character_weights, substat_max_values, main_stat_multiplier
+                character_weights, max_vals, main_mult
             )
-        if enabled_methods.get("ratio", False):
-            results["ratio"] = self.calculate_score_ratio_based(
-                character_weights, substat_max_values
-            )
-        if enabled_methods.get("roll", False):
+        if enabled_methods.get("ratio"):
+            results["ratio"] = self.calculate_score_ratio_based(character_weights, max_vals)
+        if enabled_methods.get("roll"):
             results["roll"] = self.calculate_score_roll_quality(
                 character_weights, config_bundle.get("roll_quality", {})
             )
-        if enabled_methods.get("effective", False):
+        if enabled_methods.get("effective"):
             results["effective"] = self.calculate_score_effective_stats(
-                character_weights, substat_max_values, config_bundle.get("effective_stats", {})
+                character_weights, max_vals, config_bundle.get("effective_stats", {})
             )
-        if enabled_methods.get("cv", False):
-            # Pass CRIT offset specifically if present in stat_offsets
+        if enabled_methods.get("cv"):
             results["cv"] = self.calculate_score_cv_based(
-                character_weights, config_bundle.get("cv_weights", {}), stat_offsets=stat_offsets
+                character_weights, config_bundle.get("cv_weights", {}),
+                stat_offsets=stat_offsets
             )
-        
-        # New Achievement Rate calculation
-        theoretical_max = self.calculate_theoretical_max_sub_score(character_weights, substat_max_values)
-        
+
+        # 2. Achievement Rate (Main Metric)
+        theo_max = self.calculate_theoretical_max_sub_score(character_weights, max_vals)
         current_sub_score = 0.0
         for stat_name, stat_value in self.substats.items():
-            max_val = substat_max_values.get(stat_name, 1)
-            weight = character_weights.get(stat_name, 0)
-            current_sub_score += (stat_value / max_val / 5) * weight * 100
-            
-        achievement_rate = (current_sub_score / theoretical_max) * 100 if theoretical_max > 0 else 0
-        results["achievement"] = achievement_rate
+            m_val = max_vals.get(stat_name, 1.0)
+            weight = character_weights.get(stat_name, 0.0)
+            current_sub_score += (stat_value / m_val / 5.0) * weight * 100.0
 
-        if results:
-            avg_score = sum(v for k, v in results.items() if k != "achievement") / (len(results) - 1 if len(results) > 1 else 1)
-        else:
-            avg_score = 0.0
-        
+        achievement_rate = (current_sub_score / theo_max * 100.0) if theo_max > 0 else 0.0
+        results["achievement"] = achievement_rate
         rating_key = self.get_rating_by_achievement(achievement_rate, self.cost)
 
-        # Calculate estimated total stats and achievement towards IDEAL
-        estimated_stats = {}
-        all_stat_names = set(self.substats.keys()) | set(stat_offsets.keys())
-        for sname in all_stat_names:
-            estimated_stats[sname] = self.substats.get(sname, 0.0) + stat_offsets.get(sname, 0.0)
+        # 3. Estimated Total Stats and Goal Tracking
+        estimated = {
+            name: self.substats.get(name, 0.0) + stat_offsets.get(name, 0.0)
+            for name in (set(self.substats.keys()) | set(stat_offsets.keys()))
+        }
 
-        # Special logic for Final Stat Calculation (e.g. Total ATK)
-        # Final = (Base * (1 + PercentSum/100)) + FlatSum
-        from utils.constants import STAT_ATK_PERCENT, STAT_ATK_FLAT, STAT_DEF_PERCENT, STAT_DEF_FLAT, STAT_HP_PERCENT, STAT_HP_FLAT
-        
-        # Map scaling stat to its percent counterpart
-        percent_map = {
-            STAT_ATK_FLAT: STAT_ATK_PERCENT,
+        p_map = {
+            STAT_ATK_FLAT: STAT_ATK_PERCENT, 
             STAT_DEF_FLAT: STAT_DEF_PERCENT,
             STAT_HP_FLAT: STAT_HP_PERCENT
         }
-        
-        final_stat_val = 0.0
-        target_stat_val = ideal_stats.get(scaling_stat, 0.0)
-        
+
         if scaling_stat in base_stats:
             base_val = base_stats[scaling_stat]
-            p_stat = percent_map.get(scaling_stat)
-            
-            # Sum up percentages (Echo substat + Offset)
-            p_sum = estimated_stats.get(p_stat, 0.0)
-            
-            # Add Main Stat if it matches the primary stat
-            if self.main_stat == p_stat:
-                # Main stat value is not directly in substats, need to get it.
-                # Usually Main Stat for Cost 4/3/1 is fixed at max level.
-                # For now, we use a heuristic or let user include it in offsets.
-                pass 
-            
-            f_sum = estimated_stats.get(scaling_stat, 0.0)
-            
-            final_stat_val = (base_val * (1 + p_sum / 100)) + f_sum
-            estimated_stats[f"Total {scaling_stat}"] = final_stat_val
-            
-            if target_stat_val > 0:
-                estimated_stats[f"Goal {scaling_stat} %"] = (final_stat_val / target_stat_val) * 100
+            p_stat = p_map.get(scaling_stat)
+            p_sum = estimated.get(p_stat, 0.0)
+            f_sum = estimated.get(scaling_stat, 0.0)
+
+            final_val = (base_val * (1.0 + p_sum / 100.0)) + f_sum
+            estimated[f"Total {scaling_stat}"] = final_val
+
+            target = ideal_stats.get(scaling_stat, 0.0)
+            if target > 0:
+                estimated[f"Goal {scaling_stat} %"] = (final_val / target) * 100.0
 
         return EvaluationResult(
-            total_score=achievement_rate, 
+            total_score=achievement_rate,
             effective_count=self.effective_stats_count,
-            recommendation="rec_continue" if achievement_rate < 30 else "rec_use",
+            recommendation="rec_continue" if achievement_rate < 30.0 else "rec_use",
             rating=rating_key,
             individual_scores=results,
-            estimated_stats=estimated_stats
+            estimated_stats=estimated,
         )
 
-    def get_rating_by_achievement(self, rate, cost):
-        """
-        New rating logic based on achievement rate (relative to theoretical max).
-        Adjusts thresholds based on cost difficulty.
-        """
-        # Determine cost difficulty factor
-        # Cost 3 is hardest (9 main stats), Cost 4 is medium (5 main stats), Cost 1 is easiest (3 main stats)
-        # Note: self.cost might be string like "3" or "4", normalize it.
+    # --- Rating Logic ---
+
+    def get_rating_by_achievement(self, rate: float, cost: str | int) -> str:
+        """Determine rating key based on achievement rate and echo cost difficulty."""
         c = str(cost)
-        
-        # Thresholds (Achievement Rate %)
-        # Higher achievement is harder for high cost echoes due to farming difficulty.
-        # But wait, substats are independent of cost difficulty. 
-        # The difficulty is in getting the item. 
-        # Once you have the item, a 80% substat roll is just as good on Cost 1 or Cost 3.
-        # However, to avoid "げんなり", we can lower the bar for SSS for Cost 3.
-        
         if c == "3":
-            # Cost 3 is notoriously hard to farm. Give them a break.
+            # Cost 3 is harder to optimize
             if rate >= 80: return "rating_sss_single"
             if rate >= 65: return "rating_ss_single"
             if rate >= 45: return "rating_s_single"
@@ -361,113 +325,55 @@ class EchoData:
             if rate >= 75: return "rating_ss_single"
             if rate >= 55: return "rating_s_single"
             if rate >= 35: return "rating_a_single"
-            
-        if rate >= 15: return "rating_b_single"
-        return "rating_c_single"
 
-    def get_rating(self, score):
-        """Score evaluation (Community standard)."""
-        if score >= 85:
-            return "rating_sss_single"
-        elif score >= 70:
-            return "rating_ss_single"
-        elif score >= 50:
-            return "rating_s_single"
-        elif score >= 30:
-            return "rating_a_single"
-        elif score >= 20:
-            return "rating_b_single"
-        else:
-            return "rating_c_single"
+        return "rating_b_single" if rate >= 15 else "rating_c_single"
 
-    def get_rating_normalized(self, score):
-        """Normalized score evaluation (0-100 points)."""
-        if score >= 70:
-            return "rating_sss_norm"
-        elif score >= 50:
-            return "rating_ss_norm"
-        elif score >= 30:
-            return "rating_s_norm"
-        else:
-            return "rating_b_norm"
+    def get_rating_normalized(self, score: float) -> str:
+        """Evaluation for normalized score (Method 1)."""
+        if score >= 70: return "rating_sss_norm"
+        if score >= 50: return "rating_ss_norm"
+        return "rating_s_norm" if score >= 30 else "rating_b_norm"
 
-    def get_rating_ratio(self, score):
-        """Ratio score evaluation."""
-        if score >= 75:
-            return "rating_perf_ratio"
-        elif score >= 60:
-            return "rating_exc_ratio"
-        elif score >= 45:
-            return "rating_good_ratio"
-        elif score >= 30:
-            return "rating_avg_ratio"
-        else:
-            return "rating_weak_ratio"
+    def get_rating_ratio(self, score: float) -> str:
+        """Evaluation for ratio score (Method 2)."""
+        if score >= 75: return "rating_perf_ratio"
+        if score >= 60: return "rating_exc_ratio"
+        if score >= 45: return "rating_good_ratio"
+        return "rating_avg_ratio" if score >= 30 else "rating_weak_ratio"
 
-    def get_rating_roll(self, score):
-        """Roll quality evaluation."""
-        if score >= 80:
-            return "rating_god_roll"
-        elif score >= 65:
-            return "rating_win_roll"
-        elif score >= 45:
-            return "rating_avg_roll"
-        else:
-            return "rating_bad_roll"
+    def get_rating_roll(self, score: float) -> str:
+        """Evaluation for roll quality (Method 3)."""
+        if score >= 80: return "rating_god_roll"
+        if score >= 65: return "rating_win_roll"
+        return "rating_avg_roll" if score >= 45 else "rating_bad_roll"
 
-    def get_rating_effective(self, score, eff_count):
-        """Effective stats count evaluation."""
-        if eff_count >= 5 and score >= 70:
-            return ("rating_perf_eff", score)
-        elif eff_count >= 4 and score >= 50:
-            return ("rating_exc_eff", score)
-        elif eff_count >= 3 and score >= 30:
-            return ("rating_good_eff", score)
-        else:
-            return ("rating_bad_eff", eff_count, score)
+    def get_rating_effective(self, score: float, eff_count: int) -> str | Tuple[str, ...]:
+        """Evaluation for effective stats (Method 4)."""
+        if eff_count >= 5 and score >= 70: return ("rating_perf_eff", score)
+        if eff_count >= 4 and score >= 50: return ("rating_exc_eff", score)
+        if eff_count >= 3 and score >= 30: return ("rating_good_eff", score)
+        return ("rating_bad_eff", eff_count, score)
 
-    def get_rating_cv(self, score):
-        """CV (Crit Value) score evaluation - Community Standard."""
-        if score >= 45:
-            return "rating_outstanding_cv"
-        elif score >= 38:
-            return "rating_excellent_cv"
-        elif score >= 30:
-            return "rating_good_cv"
-        elif score >= 25:
-            return "rating_acceptable_cv"
-        else:
-            return "rating_weak_cv"
-
-    def to_dict(self):
-        """Convert to dictionary format."""
-        return {
-            "cost": self.cost,
-            "main_stat": self.main_stat,
-            "substats": self.substats,
-            "level": self.level,
-            "score": self.score,
-            "rating": self.rating,
-            "effective_stats_count": self.effective_stats_count
-        }
+    def get_rating_cv(self, score: float) -> str:
+        """Evaluation for Crit Value (Method 5)."""
+        if score >= 45: return "rating_outstanding_cv"
+        if score >= 38: return "rating_excellent_cv"
+        if score >= 30: return "rating_good_cv"
+        return "rating_acceptable_cv" if score >= 25 else "rating_weak_cv"
 
     def get_fingerprint(self) -> str:
-        """Generates a unique MD5 fingerprint based on all echo stats."""
-        import hashlib
-        # Sort substats to ensure consistent hashing
-        substats_str = "|".join(f"{k}:{v}" for k, v in sorted(self.substats.items()))
-        raw_data = f"{self.cost}|{self.main_stat}|{substats_str}"
-        return hashlib.md5(raw_data.encode('utf-8')).hexdigest()
+        """Generate a unique MD5 hash based on echo statistics."""
+        # Sort substats for consistent hashing
+        subs_str = "|".join([f"{k}:{v}" for k, v in sorted(self.substats.items())])
+        raw = f"{self.cost}|{self.main_stat}|{subs_str}"
+        return hashlib.md5(raw.encode("utf-8")).hexdigest()
 
-    def __str__(self):
-        """String representation."""
-        substats_str = "\n".join([
-            f"  {name}: {value}" for name, value in self.substats.items()
-        ])
+    def __str__(self) -> str:
+        """Return a string representation of the Echo."""
+        subs = "\n".join([f"  {n}: {v}" for n, v in self.substats.items()])
         return (
             f"Cost {self.cost} - Level {self.level}\n"
             f"Main: {self.main_stat}\n"
-            f"Substats:\n{substats_str}\n"
-            f"Score: {self.score:.2f}\n"
-            f"Rating: {self.rating}"
+            f"Substats:\n{subs}\n"
+            f"Achievement: {self.score:.2f}%"
         )

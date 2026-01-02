@@ -1,317 +1,222 @@
-from utils.languages import TRANSLATIONS
+"""
+Html Renderer Module
+
+Responsible for generating visual HTML reports for echo evaluations, 
+ensuring clean and readable presentation.
+"""
+
+from __future__ import annotations
+
+from typing import Dict, Any, Optional, Tuple, TYPE_CHECKING
+
 from core.data_contracts import EvaluationResult, EchoEntry
 from utils.constants import STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ER
 
+if TYPE_CHECKING:
+    from core.echo_data import EchoData
+
+
 class HtmlRenderer:
-    """Class responsible for generating HTML for score results."""
-    
-    def __init__(self, tr_func, lang: str, show_shadow: bool = True, shadow_color: str = "#000000", text_color: str = "#333333", 
-                 shadow_ox: float = 2.0, shadow_oy: float = 2.0, shadow_blur: float = 5.0, shadow_spread: float = 0.0):
-        """
-        Initialization
-        
-        Args:
-            tr_func: Translation function (app.tr).
-            lang: Current application language.
-            show_shadow: Whether to show text shadows.
-            shadow_color: Hex color string for the shadow.
-            text_color: Hex color string for the main text.
-            shadow_ox: Offset X.
-            shadow_oy: Offset Y.
-            shadow_blur: Blur radius.
-            shadow_spread: Spread radius (simulated).
-        """
+    """Generates styled HTML for displaying score results."""
+
+    def __init__(self, tr_func, lang: str, text_color: str = "#333333"):
+        """Initialize the renderer with basic style settings."""
         self.tr = tr_func
         self.language = lang
-        self.show_shadow = show_shadow
-        self.shadow_color = shadow_color
         self.text_color = text_color
-        self.shadow_ox = shadow_ox
-        self.shadow_oy = shadow_oy
-        self.shadow_blur = shadow_blur
-        self.shadow_spread = shadow_spread
+        self.common_style = ""
         self._update_common_style()
 
-    def set_shadow_params(self, ox: float, oy: float, blur: float, spread: float):
-        """Update shadow parameters and refresh style."""
-        self.shadow_ox = ox
-        self.shadow_oy = oy
-        self.shadow_blur = blur
-        self.shadow_spread = spread
-        self._update_common_style()
-
-    def set_show_shadow(self, show: bool):
-        """Update the shadow setting and refresh common style."""
-        self.show_shadow = show
-        self._update_common_style()
-
-    def set_shadow_color(self, color: str):
-        """Update the shadow color and refresh common style."""
-        self.shadow_color = color
-        self._update_common_style()
-
-    def set_text_color(self, color: str):
-        """Update the text color and refresh common style."""
+    def set_text_color(self, color: str) -> None:
+        """Update the base text color and refresh the stylesheet."""
         self.text_color = color
         self._update_common_style()
 
-    def _update_common_style(self):
-        """Updates the internal CSS style based on current settings."""
-        
-        def hex_to_rgba(hex_color, alpha):
-            hex_color = hex_color.lstrip('#')
-            try:
-                r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
-                return f"rgba({r}, {g}, {b}, {alpha})"
-            except ValueError:
-                return "rgba(0,0,0,0.5)"
-
-        if self.show_shadow:
-            bg_color = hex_to_rgba(self.shadow_color, 0.5)
-            border_px = max(1, int(self.shadow_spread))
-            border_style = f"{border_px}px solid {hex_to_rgba(self.shadow_color, 0.3)}"
-        else:
-            bg_color = "rgba(255, 255, 255, 0.15)"
-            border_style = "1px solid rgba(128, 128, 128, 0.2)"
+    def _update_common_style(self) -> None:
+        """Update the internal CSS style based on current settings."""
+        # Simple background for score blocks without shadows
+        bg_color = "rgba(128, 128, 128, 0.1)"
+        border_style = "1px solid rgba(128, 128, 128, 0.2)"
 
         self.common_style = f"""
         <!-- STYLE_START -->
         <style>
             body {{ 
-                font-family: 'Segoe UI', sans-serif; 
+                font-family: 'Segoe UI', 'Meiryo', sans-serif; 
                 line-height: 1.4; 
                 color: {self.text_color};
             }}
             h3 {{ color: {self.text_color}; margin-bottom: 5px; }}
-            hr {{ border: 0; border-top: 1px solid #ccc; margin: 10px 0; }}
+            hr {{ border: 0; border-top: 1px solid rgba(128, 128, 128, 0.3); margin: 10px 0; }}
             .score-block {{
                 margin-bottom: 12px; 
-                padding: 8px;
+                padding: 10px;
                 border-radius: 6px;
                 background-color: {bg_color};
                 border: {border_style};
             }}
-            .outline, .dark-outline {{
-                font-weight: bold;
-                background-color: {bg_color};
-                border-radius: 3px;
-                padding: 0 2px;
+            .progress-container {{
+                width: 100%;
+                background-color: rgba(128, 128, 128, 0.2);
+                border-radius: 4px;
+                height: 8px;
+                margin: 4px 0 8px 0;
+                overflow: hidden;
+            }}
+            .progress-bar {{
+                height: 100%;
+                border-radius: 4px;
             }}
         </style>
         <!-- STYLE_END -->
         """
 
-    def _get_rating_color(self, rating_text: str) -> str:
-        """Get the appropriate color from the rating text."""
-        if any(keyword in rating_text for keyword in ["SSS", "Perfect", "God"]):
-            return "#FF4500" # OrangeRed
-        elif any(keyword in rating_text for keyword in ["SS", "Top", "Excellent"]):
-            return "#E67E22" # Carrot
-        elif any(keyword in rating_text for keyword in ["S", "Win"]):
-            return "#2980B9" # Belize Hole
-        elif any(keyword in rating_text for keyword in ["A", "Good", "Practical"]):
-            return "#27AE60" # Nephritis
-        return "#7F8C8D" # Asbestos
+    def refresh_html_style(self, html_content: str) -> str:
+        """Update the style section of an existing HTML string."""
+        import re
+        if not html_content:
+            return ""
+        style_pattern = re.compile(r"<!-- STYLE_START -->.*?<!-- STYLE_END -->", re.DOTALL)
+        if "<!-- STYLE_START -->" in html_content:
+            return style_pattern.sub(self.common_style.strip(), html_content)
+        return html_content
 
-    def format_score_block(self, label, score, rating_info, desc):
-        """Helper to format a single method score block."""
+    def _get_progress_bar(self, percentage: float, color: str = None) -> str:
+        """Generate HTML for a visual progress bar."""
+        if color is None:
+            if percentage >= 85: color = "#FF4500"
+            elif percentage >= 70: color = "#E67E22"
+            elif percentage >= 50: color = "#2980B9"
+            elif percentage >= 30: color = "#27AE60"
+            else: color = "#7F8C8D"
+        
+        display_pct = min(100.0, max(0.0, percentage))
+        return f"""
+        <div class="progress-container">
+            <div class="progress-bar" style="width: {display_pct}%; background-color: {color};"></div>
+        </div>
+        """
+
+    def _get_rating_color(self, rating_text: str) -> str:
+        """Map rating levels to distinct colors."""
+        if any(kw in rating_text for kw in ["SSS", "Perfect", "God"]): return "#FF4500"
+        if any(kw in rating_text for kw in ["SS", "Top", "Excellent"]): return "#E67E22"
+        if any(kw in rating_text for kw in ["S", "Win"]): return "#2980B9"
+        if any(kw in rating_text for kw in ["A", "Good"]): return "#27AE60"
+        return "#7F8C8D"
+
+    def format_score_block(self, label: str, score: float, rating_info: Any, desc: str) -> str:
+        """Format a single scoring methodology result block."""
         if isinstance(rating_info, tuple):
-            rating_key = rating_info[0]
-            rating_args = rating_info[1:]
-            rating_text = self.tr(rating_key, *rating_args)
+            rating_text = self.tr(rating_info[0], *rating_info[1:])
         else:
             rating_text = self.tr(rating_info)
 
         color = self._get_rating_color(rating_text)
-        
-        block = f"<div class='score-block'>"
-        block += f"<b>[{label}]</b><br>"
-        block += f"<b>Score: {score:.2f}</b><br>"
-        block += f"<span style='color:{color}; font-weight: bold;'>Rating: {rating_text}</span><br>"
-        block += f"<small><i>{desc}</i></small>"
-        block += f"</div>"
-        return block
+        return f"""
+        <div class='score-block'>
+            <b>[{label}]</b><br>
+            <b>Score: {score:.2f}</b><br>
+            <span style='color:{color}; font-weight: bold;'>Rating: {rating_text}</span><br>
+            <small><i>{desc}</i></small>
+        </div>
+        """
 
-    def render_single_score(self, character: str, tab_name: str, entry: EchoEntry, main_stat: str, echo: any, evaluation: EvaluationResult) -> str:
-        """Generate HTML for single score result."""
-        title = self.tr('individual_score_title', character, tab_name).replace('\n', '')
+    def render_single_score(
+        self,
+        character: str,
+        tab_name: str,
+        entry: EchoEntry,
+        main_stat: str,
+        echo: EchoData,
+        evaluation: EvaluationResult,
+    ) -> str:
+        """Generate comprehensive HTML report for a single Echo."""
+        title = self.tr("individual_score_title", character, tab_name).replace("\n", "")
         html = self.common_style
-        html += f"<h3><u>{title}</u></h3>"
-        html += f"<hr>"
-        
-        html += f"<b>{self.tr('echo_info').replace('\n', '')}</b><br>"
+        html += f"<h3><u>{title}</u></h3><hr>"
+
+        html += f"<b>{self.tr('echo_info')}</b><br>"
         html += f"&nbsp;&nbsp;• {self.tr('cost')}: {entry.cost}<br>"
         html += f"&nbsp;&nbsp;• {self.tr('main_stat')}: {self.tr(main_stat)}<br>"
-        html += f"&nbsp;&nbsp;• {self.tr('level', echo.level).replace('\n', '')}<br>"
-        html += f"&nbsp;&nbsp;• {self.tr('effective_substat_count', evaluation.effective_count).replace('\n', '')}<br>"
-        
-        html += f"<br><b>{self.tr('substats').replace('\n', '')}</b><br>"
-        substats = echo.substats
-        if substats:
-            for name, value in substats.items():
-                html += f"&nbsp;&nbsp;&nbsp;&nbsp;{self.tr(name)}: {value}<br>"
+        html += f"&nbsp;&nbsp;• {self.tr('level', echo.level)}<br>"
+        html += f"&nbsp;&nbsp;• {self.tr('effective_substat_count', evaluation.effective_count)}<br>"
+
+        html += f"<br><b>{self.tr('substats')}</b><br>"
+        if echo.substats:
+            for name, val in echo.substats.items():
+                html += f"&nbsp;&nbsp;&nbsp;&nbsp;{self.tr(name)}: {val}<br>"
         else:
-            html += f"&nbsp;&nbsp;{self.tr('none').replace('\n', '')}<br>"
-        html += f"<hr>"
-        
-        html += f"<b>{self.tr('score_by_method').replace('\n', '')}</b><br>"
-        
-        # Method information
-        method_info = {
-            "achievement": {
-                "label": self.tr("achievement_rate_label"),
-                "desc": self.tr("achievement_rate_desc"),
-                "rating_func": lambda s: evaluation.rating
-            },
-            "normalized": {
-                "label": self.tr("method_normalized"),
-                "desc": self.tr("normalized_score_desc"),
-                "rating_func": lambda s: echo.get_rating_normalized(s)
-            },
-            "ratio": {
-                "label": self.tr("method_ratio"),
-                "desc": self.tr("ratio_score_desc"),
-                "rating_func": lambda s: echo.get_rating_ratio(s)
-            },
-            "roll": {
-                "label": self.tr("method_roll"),
-                "desc": self.tr("roll_quality_desc"),
-                "rating_func": lambda s: echo.get_rating_roll(s)
-            },
-            "effective": {
-                "label": self.tr("method_effective"),
-                "desc": self.tr("effective_stat_desc"),
-                "rating_func": lambda s: echo.get_rating_effective(s, evaluation.effective_count)
-            },
-            "cv": {
-                "label": self.tr("method_cv"),
-                "desc": self.tr("cv_score_desc"),
-                "rating_func": lambda s: echo.get_rating_cv(s)
-            }
-        }
-        
-        methods_to_show = list(evaluation.individual_scores.keys())
-        if "achievement" in methods_to_show:
-            methods_to_show.remove("achievement")
-            methods_to_show.insert(0, "achievement")
+            html += f"&nbsp;&nbsp;{self.tr('none')}<br>"
+        html += "<hr>"
 
-        for method in methods_to_show:
-            if method in method_info:
-                score = evaluation.individual_scores[method]
-                info = method_info[method]
-                rating = info["rating_func"](score)
-                html += self.format_score_block(info["label"], score, rating, info["desc"])
+        # Methods breakdown
+        method_map = {{
+            "achievement": (self.tr("achievement_rate_label"), self.tr("achievement_rate_desc")),
+            "normalized": (self.tr("method_normalized"), self.tr("normalized_score_desc")),
+            "ratio": (self.tr("method_ratio"), self.tr("ratio_score_desc")),
+            "roll": (self.tr("method_roll"), self.tr("roll_quality_desc")),
+            "effective": (self.tr("method_effective"), self.tr("effective_stat_desc")),
+            "cv": (self.tr("method_cv"), self.tr("cv_score_desc")),
+        }}
 
-        html += f"<hr>"
-        
-        if evaluation.estimated_stats:
-            html += f"<b>{self.tr('estimated_total_stats').replace('\n', '')}</b><br>"
-            priority = [STAT_CRIT_RATE, STAT_CRIT_DMG, STAT_ATK_PERCENT, STAT_ER]
-            
-            for sname in priority:
-                if sname in evaluation.estimated_stats:
-                    val = evaluation.estimated_stats[sname]
-                    html += f"&nbsp;&nbsp;• {self.tr(sname)}: {val:.1f}<br>"
-            
-            for sname, val in sorted(evaluation.estimated_stats.items()):
-                if sname not in priority and val > 0 and not sname.startswith(("Total ", "Goal ")):
-                    html += f"&nbsp;&nbsp;• {self.tr(sname)}: {val:.1f}<br>"
-            
-            for sname, val in evaluation.estimated_stats.items():
-                if sname.startswith("Total "):
-                    html += f"<br><b>&nbsp;&nbsp;{sname}: {val:.1f}</b><br>"
-                if sname.startswith("Goal "):
-                    html += f"<b>&nbsp;&nbsp;{sname}: {val:.1f}%</b><br>"
-            
-            html += f"<hr>"
+        eval_scores = evaluation.individual_scores
+        for m_id in ["achievement", "normalized", "ratio", "roll", "effective", "cv"]:
+            if m_id in eval_scores and m_id in method_map:
+                score = eval_scores[m_id]
+                label, desc = method_map[m_id]
+                rating = evaluation.rating if m_id == "achievement" else m_id
+                html += self.format_score_block(label, score, rating, desc)
 
-        html += f"<b>{self.tr('overall_eval').replace('\n', '')}</b><br>"
+        html += "<hr>"
+
+        # Overall summary
+        html += f"<b>{self.tr('overall_eval')}</b><br>"
         html += f"<b>{self.tr('achievement_rate_label')}: {evaluation.total_score:.2f}%</b><br>"
-        
+        html += self._get_progress_bar(evaluation.total_score)
+
         final_rating = self.tr(evaluation.rating)
         final_color = self._get_rating_color(final_rating)
-        
         html += f"<span style='color:{final_color}; font-size: 1.2em;'><b>{self.tr('overall_rating')}: {final_rating}</b></span><br>"
-        
+
+        if evaluation.estimated_stats:
+            for sname, val in evaluation.estimated_stats.items():
+                if sname.startswith("Goal "):
+                    html += self._get_progress_bar(val, "#FFD700")
+
         if evaluation.comparison_diff is not None:
             diff = evaluation.comparison_diff
-            diff_color = "#32CD32" if diff >= 0 else "#FF4500"
-            sign = "+" if diff >= 0 else ""
-            html += f"<b class='outline' style='color:{diff_color}; font-size: 1.1em;'>{self.tr('vs_equipped')}: {sign}{diff:.2f}%</b><br>"
+            d_color = "#32CD32" if diff >= 0 else "#FF4500"
+            html += f"<b style='color:{d_color};'>{self.tr('vs_equipped')}: {{'+' if diff >= 0 else ''}}{diff:.2f}%</b><br>"
 
         html += f"{self.tr('recommendation')}: {self.tr(evaluation.recommendation)}<br>"
-        
         return html
 
-    def render_batch_score(self, character: str, calculated_count: int, total_count: int, all_evaluations: list, total_scores: dict, enabled_methods: dict) -> str:
-        """Generate HTML for batch score result."""
-        batch_title = self.tr('batch_score_title', character).replace('\n', '')
+    def render_batch_score(
+        self,
+        character: str,
+        calculated_count: int,
+        total_count: int,
+        all_evaluations: list,
+        total_scores: dict,
+        enabled_methods: dict,
+    ) -> str:
+        """Generate summary HTML report for multiple Echos."""
+        batch_title = self.tr("batch_score_title", character).replace("\n", "")
         html = self.common_style
         html += f"<h3><u>{batch_title}</u></h3>"
-        html += f"<b>{self.tr('calculated', calculated_count, total_count).replace('\n', '')}</b><br>"
-        html += f"<hr>"
-        
-        method_labels = {
-            "normalized": self.tr("method_normalized"),
-            "ratio": self.tr("method_ratio"),
-            "roll": self.tr("method_roll"),
-            "effective": self.tr("method_effective"),
-            "cv": self.tr("method_cv")
-        }
-        
-        for i, eval_data in enumerate(all_evaluations, 1):
-            html += f"<b>--- {self.tr('echo_n_header', i, eval_data['tab_name']).strip()} ---</b><br>"
-            
-            for method in ["normalized", "ratio", "roll", "effective", "cv"]:
-                if enabled_methods.get(method, False) and method in eval_data:
-                    score = eval_data[method]
-                    label = method_labels.get(method, method)
-                    if method == "effective":
-                        html += f"&nbsp;&nbsp;├ {label}: {score:.2f} ({eval_data['effective_count']} stats)<br>"
-                    else:
-                        html += f"&nbsp;&nbsp;├ {label}: {score:.2f}<br>"
-            
-            score_color = "#666666" 
-            if eval_data['total'] >= 85: score_color = "#FF4500" 
-            elif eval_data['total'] >= 70: score_color = "#E67E22" 
-            elif eval_data['total'] >= 50: score_color = "#2980B9" 
-            elif eval_data['total'] >= 30: score_color = "#27AE60" 
-            
-            html += f"&nbsp;&nbsp;└ <b><span style='color:{score_color}'>{self.tr('total_score')}: {eval_data['total']:.2f}</span></b><br>"
-            html += f"&nbsp;&nbsp;&nbsp;&nbsp;<small>{self.tr('recommendation')}: {eval_data['recommendation']}</small><br><br>"
-        
-        html += f"<hr>"
-        html += f"<b>{self.tr('avg_scores_title', calculated_count).replace('\n', '')}</b><br>"
-        
-        for method in ["normalized", "ratio", "roll", "effective", "cv"]:
-            if enabled_methods.get(method, False) and method in total_scores:
-                avg = total_scores[method] / calculated_count
-                label = method_labels.get(method, method)
-                html += f"&nbsp;&nbsp;├ {label} {self.tr('average')}: {avg:.2f}<br>"
-        
-        total_sum = total_scores["total"]
-        avg_total = total_sum / calculated_count
-        avg_rating_key = self._get_score_rating_key(avg_total)
-        avg_rating_text = self.tr(avg_rating_key)
-        avg_color = self._get_rating_color(avg_rating_text)
-        
-        html += f"&nbsp;&nbsp;├ {self.tr('total_sum')}: {total_sum:.2f}<br>"
-        html += f"&nbsp;&nbsp;├ <b><span style='color:{avg_color}'>{self.tr('total_average')}: {avg_total:.2f}</span></b><br>"
-        html += f"&nbsp;&nbsp;└ <span style='color:{avg_color}; font-size: 1.1em;'><b>{self.tr('overall_rating')}: {avg_rating_text}</b></span><br>"
-        
-        return html
+        html += f"<b>{self.tr('calculated', calculated_count, total_count)}</b><br><hr>"
 
-    def _get_score_rating_key(self, avg_score: float) -> str:
-        """Get the rating key for the average score (matches 20/30/50/70/85 standard)."""
-        if avg_score >= 85:
-            return "rating_sss_global"
-        elif avg_score >= 70:
-            return "rating_ss_global"
-        elif avg_score >= 50:
-            return "rating_s_global"
-        elif avg_score >= 30:
-            return "rating_a_global"
-        elif avg_score >= 20:
-            return "rating_b_global"
-        else:
-            return "rating_c_global"
+        for eval_data in all_evaluations:
+            html += f"<b>--- {eval_data['tab_name']} ---</b><br>"
+            score = eval_data["total"]
+            color = "#FF4500" if score >= 85 else "#E67E22" if score >= 70 else "#2980B9" if score >= 50 else "#27AE60"
+            html += f"<b>{self.tr('total_score')}: <span style='color:{color}'>{score:.2f}%</span></b><br>"
+            html += self._get_progress_bar(score, color)
+            html += f"<small>{self.tr('recommendation')}: {eval_data['recommendation']}</small><br><br>"
+
+        html += "<hr><b>Summary Averages</b><br>"
+        avg_total = total_scores["total"] / calculated_count
+        html += f"<b>Average Achievement: {avg_total:.2f}%</b><br>"
+        html += self._get_progress_bar(avg_total)
+        return html

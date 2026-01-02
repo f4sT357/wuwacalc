@@ -5,50 +5,43 @@ Provides core application logic including OCR, data loading/saving, and characte
 """
 
 import os
-import logging
 import re
 import shutil
 import time
-from typing import Optional, Any, Dict, List, Tuple, Callable, Union
-from core.data_contracts import SubStat, OCRResult
+from typing import Optional, Any, Callable
+from core.data_contracts import OCRResult
 from core.ocr_parser import OcrParser
 from pytesseract import Output
 
-from PySide6.QtCore import Qt, QObject, Signal
+from PySide6.QtCore import QObject, Signal
 from utils.constants import OCR_ENGINE_OPENCV
 
 try:
     from PIL import Image, ImageOps, ImageEnhance, ImageQt
+
     is_pil_installed = True
 except ImportError:
     is_pil_installed = False
 
 try:
     import pytesseract
+
     is_pytesseract_installed = True
 except ImportError:
     is_pytesseract_installed = False
 try:
     import numpy as np
     import cv2
+
     is_opencv_installed = True
 except ImportError:
     is_opencv_installed = False
 
-from utils.constants import (
-    DEFAULT_COST_CONFIG,
-    KEY_CHARACTER, KEY_CHARACTER_JP, KEY_CONFIG, KEY_AUTO_APPLY, 
-    KEY_SCORE_MODE, KEY_ECHOES, KEY_MAIN_STAT, KEY_SUBSTATS, 
-    KEY_STAT, KEY_VALUE, KEY_CHARACTER_WEIGHTS, KEY_CHARACTER_MAINSTATS,
-)
-from utils.utils import get_app_path
 
 class AppLogic(QObject):
     log_message = Signal(str)
     ocr_error = Signal(str, str)
     info_message = Signal(str, str)
-    
-
 
     def __init__(self, tr_func: Callable, data_manager: Any, config_manager: Any) -> None:
         super().__init__()
@@ -56,44 +49,56 @@ class AppLogic(QObject):
         self.data_manager = data_manager
         self.config_manager = config_manager
         self.ocr_parser = OcrParser(data_manager, tr_func)
+        self._setup_tesseract_path()
 
-    def _perform_ocr(self, image: 'Image.Image', language: str = "ja") -> Optional[str]:
-        start_time = time.time()
+    def _setup_tesseract_path(self) -> None:
+        """Resolves and sets the Tesseract executable path once."""
         if not is_pytesseract_installed:
-            self.log_message.emit(self.tr("pytesseract_not_installed"))
-            return None
+            return
 
-        # Try to use the path set in pytesseract or find it via shutil if not set
-        if not getattr(pytesseract.pytesseract, "tesseract_cmd", None) or \
-           not os.path.isfile(str(pytesseract.pytesseract.tesseract_cmd)):
+        if not getattr(pytesseract.pytesseract, "tesseract_cmd", None) or not os.path.isfile(
+            str(pytesseract.pytesseract.tesseract_cmd)
+        ):
             found = shutil.which("tesseract")
             if found:
                 pytesseract.pytesseract.tesseract_cmd = found
                 self.log_message.emit(self.tr("tesseract_found_path", found))
             else:
                 self.log_message.emit(self.tr("tesseract_not_found_sys"))
+
+    def _perform_ocr(self, image: "Image.Image", language: str = "ja") -> Optional[str]:
+        start_time = time.time()
+        if not is_pytesseract_installed:
+            self.log_message.emit(self.tr("pytesseract_not_installed"))
+            return None
+        
+        if not pytesseract.pytesseract.tesseract_cmd:
+            self._setup_tesseract_path()
+            if not pytesseract.pytesseract.tesseract_cmd:
                 return None
 
         try:
             processed = self._preprocess_for_ocr(image)
             self.log_message.emit(f"Image for Tesseract OCR - size: {processed.size}, mode: {processed.mode}")
-            custom_config = "--oem 3 --psm 6" # に戻す
-            
+            custom_config = "--oem 3 --psm 6"  # に戻す
+
             # Use both jpn and eng to support Japanese screenshots regardless of UI language
             tess_lang = "jpn+eng"
 
             # Tesseractの出力を生バイト列として取得
-            output_bytes = pytesseract.image_to_string(processed, lang=tess_lang, config=custom_config, output_type=Output.BYTES)
-            
+            output_bytes = pytesseract.image_to_string(
+                processed, lang=tess_lang, config=custom_config, output_type=Output.BYTES
+            )
+
             # 生バイト列をUTF-8でデコード。デコードエラーは無視する。
-            ocr_text = output_bytes.decode('utf-8', errors='ignore') 
-            
+            ocr_text = output_bytes.decode("utf-8", errors="ignore")
+
             # クリーンアップ: 記号や不要な空白を除去してマッピング精度を上げる
-            ocr_text = re.sub(r'[|｜・°º«»〝〟"\'‘] ', '', ocr_text)
-            
+            ocr_text = re.sub(r'[|｜・°º«»〝〟"\'‘] ', "", ocr_text)
+
             end_time = time.time()
             self.log_message.emit(f"OCR process took {end_time - start_time:.2f} seconds. Language: {tess_lang}")
-            self.log_message.emit(f"OCR Raw Text:\n{ocr_text.strip()}") # ここで生テキストを出力
+            self.log_message.emit(f"OCR Raw Text:\n{ocr_text.strip()}")  # ここで生テキストを出力
             return ocr_text
         except pytesseract.TesseractError as te:
             self.ocr_error.emit(self.tr("ocr_error_title"), self.tr("ocr_lang_data_error", te))
@@ -113,13 +118,13 @@ class AppLogic(QObject):
         app_config = self.config_manager.get_app_config()
         return self.ocr_parser.parse(ocr_text, app_config.language)
 
-    def _preprocess_for_ocr(self, image: 'Image.Image') -> 'Image.Image':
+    def _preprocess_for_ocr(self, image: "Image.Image") -> "Image.Image":
         if not is_pil_installed or image is None:
             return image
-        
+
         # Determine which engine to use
         engine = self.config_manager.get_app_config().ocr_engine
-        
+
         # If OpenCV is selected and available, use it
         if engine == OCR_ENGINE_OPENCV:
             if is_opencv_installed:
@@ -130,16 +135,15 @@ class AppLogic(QObject):
                 if max_side < 1600:
                     scale = 2
                     processed_pil = processed_pil.resize(
-                        (processed_pil.width * scale, processed_pil.height * scale),
-                        Image.Resampling.LANCZOS
+                        (processed_pil.width * scale, processed_pil.height * scale), Image.Resampling.LANCZOS
                     )
-                
+
                 # 2. Convert Pillow image to OpenCV format (NumPy array)
                 open_cv_image = np.array(processed_pil)
-                
+
                 # 3. Apply noise reduction (Median Blur)
-                open_cv_image = cv2.medianBlur(open_cv_image, 3) # Kernel size 3
-                
+                open_cv_image = cv2.medianBlur(open_cv_image, 3)  # Kernel size 3
+
                 # 4. Apply adaptive thresholding
                 processed_cv = cv2.adaptiveThreshold(
                     open_cv_image,
@@ -147,25 +151,22 @@ class AppLogic(QObject):
                     adaptiveMethod=cv2.ADAPTIVE_THRESH_MEAN_C,
                     thresholdType=cv2.THRESH_BINARY,
                     blockSize=21,
-                    C=4
+                    C=4,
                 )
-                
+
                 # 5. Convert back to Pillow image for Tesseract
                 final_image = Image.fromarray(processed_cv)
                 return final_image
             else:
-                 self.log_message.emit("OpenCV engine selected but not installed/available. Fallback to Pillow.")
-        
+                self.log_message.emit("OpenCV engine selected but not installed/available. Fallback to Pillow.")
+
         # --- Default Pillow-based preprocessing ---
         self.log_message.emit("Using standard Pillow image preprocessing.")
         processed = image.convert("L")
         max_side = max(processed.size)
         if max_side < 1600:
             scale = 2
-            processed = processed.resize(
-                (processed.width * scale, processed.height * scale),
-                Image.Resampling.LANCZOS
-            )
+            processed = processed.resize((processed.width * scale, processed.height * scale), Image.Resampling.LANCZOS)
         processed = ImageOps.autocontrast(processed)
         processed = ImageEnhance.Contrast(processed).enhance(2.0)
         processed = ImageEnhance.Sharpness(processed).enhance(1.5)
@@ -173,11 +174,10 @@ class AppLogic(QObject):
         processed = processed.point(lambda p: 255 if p > threshold else 0)
         return processed
 
-    def perform_ocr_workflow(self, image: 'Image.Image', language: str) -> OCRResult:
+    def perform_ocr_workflow(self, image: "Image.Image", language: str) -> OCRResult:
         """
         Performs the full OCR workflow: image processing, text recognition,
         and parsing of substats and cost.
         """
         raw_text = self._perform_ocr(image, language)
         return self.ocr_parser.parse(raw_text, language)
-

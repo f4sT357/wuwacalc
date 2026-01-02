@@ -21,10 +21,16 @@ STAT_HAVOC_DMG_BONUS = "消滅ダメージアップ"
 STAT_HEALING_BONUS = "HP回復効果アップ"
 
 DAMAGE_BONUS_STATS = [
-    STAT_BASIC_DMG_BONUS, STAT_HEAVY_DMG_BONUS, 
-    STAT_SKILL_DMG_BONUS, STAT_LIBERATION_DMG_BONUS,
-    STAT_FUSION_DMG_BONUS, STAT_GLACIO_DMG_BONUS, STAT_ELECTRO_DMG_BONUS,
-    STAT_AERO_DMG_BONUS, STAT_SPECTRO_DMG_BONUS, STAT_HAVOC_DMG_BONUS
+    STAT_BASIC_DMG_BONUS,
+    STAT_HEAVY_DMG_BONUS,
+    STAT_SKILL_DMG_BONUS,
+    STAT_LIBERATION_DMG_BONUS,
+    STAT_FUSION_DMG_BONUS,
+    STAT_GLACIO_DMG_BONUS,
+    STAT_ELECTRO_DMG_BONUS,
+    STAT_AERO_DMG_BONUS,
+    STAT_SPECTRO_DMG_BONUS,
+    STAT_HAVOC_DMG_BONUS,
 ]
 
 # --- CV Weight Keys ---
@@ -37,18 +43,42 @@ CV_KEY_ER = "er"
 CV_KEY_DMG_BONUS = "dmg_bonus"
 
 SUBSTAT_MAX_VALUES = {
-    "クリティカル率": 10.5, "クリティカルダメージ": 21.0, "攻撃力%": 11.6, "攻撃力": 60,
-    "HP%": 11.6, "HP": 580, "防御力%": 11.6, "防御力": 60, "共鳴効率": 12.4,
-    "通常攻撃ダメージアップ": 11.6, "重撃ダメージアップ": 11.6, "共鳴スキルダメージアップ": 11.6, "共鳴解放ダメージアップ": 11.6
+    "クリティカル率": 10.5,
+    "クリティカルダメージ": 21.0,
+    "攻撃力%": 11.6,
+    "攻撃力": 60,
+    "HP%": 11.6,
+    "HP": 580,
+    "防御力%": 11.6,
+    "防御力": 60,
+    "共鳴効率": 12.4,
+    "通常攻撃ダメージアップ": 11.6,
+    "重撃ダメージアップ": 11.6,
+    "共鳴スキルダメージアップ": 11.6,
+    "共鳴解放ダメージアップ": 11.6,
 }
 
 MAIN_STAT_OPTIONS = {
-    "4": ["攻撃力%", "HP%", "防御力%", "クリティカル率", "クリティカルダメージ",
-          ],
-    "3": ["攻撃力%", "HP%", "防御力%", "焦熱ダメージアップ", "凝縮ダメージアップ",
-          "電導ダメージアップ", "気動ダメージアップ", "回折ダメージアップ", "消滅ダメージアップ",
-          "HP回復効果アップ"],
-    "1": ["HP", "攻撃力", "防御力"]
+    "4": [
+        "攻撃力%",
+        "HP%",
+        "防御力%",
+        "クリティカル率",
+        "クリティカルダメージ",
+    ],
+    "3": [
+        "攻撃力%",
+        "HP%",
+        "防御力%",
+        "焦熱ダメージアップ",
+        "凝縮ダメージアップ",
+        "電導ダメージアップ",
+        "気動ダメージアップ",
+        "回折ダメージアップ",
+        "消滅ダメージアップ",
+        "HP回復効果アップ",
+    ],
+    "1": ["HP", "攻撃力", "防御力"],
 }
 
 MAIN_STAT_MULTIPLIER = 15.0
@@ -64,19 +94,19 @@ SUBSTAT_TYPES = {
 
 CHARACTER_STAT_WEIGHTS = {
     "General": {
-    "クリティカル率": 1.0,
-    "クリティカルダメージ": 1.0,
-    "攻撃力%": 1.0,
-    "攻撃力": 0.5,
-    "HP%": 0.2,
-    "HP": 0.1,
-    "防御力%": 0.1,
-    "防御力": 0.1,
-    "共鳴効率": 0.5,
-    "重撃ダメージアップ": 0.5,
-    "通常攻撃ダメージアップ": 0.5,
-    "共鳴スキルダメージアップ": 0.5,
-    "共鳴解放ダメージアップ": 0.5,
+        "クリティカル率": 1.0,
+        "クリティカルダメージ": 1.0,
+        "攻撃力%": 1.0,
+        "攻撃力": 0.5,
+        "HP%": 0.2,
+        "HP": 0.1,
+        "防御力%": 0.1,
+        "防御力": 0.1,
+        "共鳴効率": 0.5,
+        "重撃ダメージアップ": 0.5,
+        "通常攻撃ダメージアップ": 0.5,
+        "共鳴スキルダメージアップ": 0.5,
+        "共鳴解放ダメージアップ": 0.5,
     }
 }
 
@@ -106,13 +136,12 @@ CHARACTER_STAT_WEIGHTS["スキル回転型"] = {
 }
 
 CHARACTER_MAIN_STATS = {
-    
     "General": {
         "cost4_echo": "クリティカル率",
         "cost3_echo_1": "攻撃力%",
-        "cost3_echo_2": "攻撃力%", 
+        "cost3_echo_2": "攻撃力%",
         "cost1_echo_1": "攻撃力%",
-        "cost1_echo_2": "攻撃力%"
+        "cost1_echo_2": "攻撃力%",
     }
 }
 
@@ -126,15 +155,37 @@ STAT_ALIASES = {
     "防御力%": ["防御力%", "防御力％", "防御%", "DEF (%)", "DEF%"],
     "防御力": ["防御力", "DEF"],
     "共鳴効率": ["共鳴効率", "効率", "エネルギー効率", "Energy Regen", "Resonance Efficiency"],
-    "通常攻撃ダメージアップ": ["通常攻撃ダメージアップ", "通常攻撃up", "通常攻撃ダメージ", "通常ダメージ", "Basic Attack DMG Bonus"],
+    "通常攻撃ダメージアップ": [
+        "通常攻撃ダメージアップ",
+        "通常攻撃up",
+        "通常攻撃ダメージ",
+        "通常ダメージ",
+        "Basic Attack DMG Bonus",
+    ],
     "重撃ダメージアップ": ["重撃ダメージアップ", "重撃up", "重撃ダメージ", "Heavy Attack DMG Bonus"],
-    "共鳴スキルダメージアップ": ["共鳴スキルダメージアップ", "共鳴スキルup", "スキルダメージ", "Resonance Skill DMG Bonus"],
-    "共鳴解放ダメージアップ": ["共鳴解放ダメージアップ", "共鳴解放up", "解放ダメージ", "Resonance Liberation DMG Bonus"],
+    "共鳴スキルダメージアップ": [
+        "共鳴スキルダメージアップ",
+        "共鳴スキルup",
+        "スキルダメージ",
+        "Resonance Skill DMG Bonus",
+    ],
+    "共鳴解放ダメージアップ": [
+        "共鳴解放ダメージアップ",
+        "共鳴解放up",
+        "解放ダメージ",
+        "Resonance Liberation DMG Bonus",
+    ],
 }
 
 TAB_CONFIGS = {
     "43311": ["cost4_echo", "cost3_echo_1", "cost3_echo_2", "cost1_echo_1", "cost1_echo_2"],
-    "44111": ["cost4_echo_1","cost4_echo_2","cost1_echo_1","cost1_echo_2","cost1_echo_3", ],
+    "44111": [
+        "cost4_echo_1",
+        "cost4_echo_2",
+        "cost1_echo_1",
+        "cost1_echo_2",
+        "cost1_echo_3",
+    ],
 }
 
 THEME_COLORS = {
@@ -150,7 +201,7 @@ THEME_COLORS = {
         "tab_bg": "#3e3e3e",
         "tab_text": "#ffffff",
         "tab_selected": "#4a90e2",
-        "group_border": "#5a5a5a"
+        "group_border": "#5a5a5a",
     },
     "light": {
         "background": "#f0f0f0",
@@ -164,44 +215,16 @@ THEME_COLORS = {
         "tab_bg": "#e0e0e0",
         "tab_text": "#000000",
         "tab_selected": "#a0c0e0",
-        "group_border": "#c0c0c0"
+        "group_border": "#c0c0c0",
     },
-    "clear": {
-        "background": "#eefeff",
-        "input_bg": "#ffffff",
-        "text": "#000000",
-        "shadow": "#ffffff",
-        "border": "#b0d0e0",
-        "button_bg": "#d0efff",
-        "button_text": "#000000",
-        "button_hover": "#b0e0ff",
-        "tab_bg": "#d0efff",
-        "tab_text": "#000000",
-        "tab_selected": "#80d0ff",
-        "group_border": "#b0d0e0"
-    },
-    "custom": {
-        "background": "#2e2e2e",
-        "input_bg": "#202020",
-        "text": "#ffffff",
-        "shadow": "#000000",
-        "border": "#5a5a5a",
-        "button_bg": "#5a5a5a",
-        "button_text": "#ffffff",
-        "button_hover": "#6a6a6a",
-        "tab_bg": "#3e3e3e",
-        "tab_text": "#ffffff",
-        "tab_selected": "#4a90e2",
-        "group_border": "#5a5a5a"
-    }
 }
 
 # --- File and Directory Constants ---
-LOG_FILENAME = 'wuwacalc.log'
-CONFIG_FILENAME = 'config.json'
-HISTORY_FILENAME = 'history.json'
-EQUIPPED_ECHOES_FILENAME = 'equipped_echoes.json'
-CROP_PRESETS_FILENAME = 'crop_presets.json'
+LOG_FILENAME = "wuwacalc.log"
+CONFIG_FILENAME = "config.json"
+HISTORY_FILENAME = "history.json"
+EQUIPPED_ECHOES_FILENAME = "equipped_echoes.json"
+CROP_PRESETS_FILENAME = "crop_presets.json"
 
 DIR_CHARACTER_SETTINGS = "character_settings_jsons"
 DIR_DATA = "data"

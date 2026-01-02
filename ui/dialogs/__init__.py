@@ -5,10 +5,10 @@ from .image_preprocessing import ImagePreprocessingSettingsDialog
 from .history import HistoryDialog
 
 __all__ = [
-    'CharSettingDialog',
-    'CropDialog',
-    'CropLabel',
-    'DisplaySettingsDialog',
-    'ImagePreprocessingSettingsDialog',
-    'HistoryDialog'
+    "CharSettingDialog",
+    "CropDialog",
+    "CropLabel",
+    "DisplaySettingsDialog",
+    "ImagePreprocessingSettingsDialog",
+    "HistoryDialog",
 ]

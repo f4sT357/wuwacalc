@@ -1,17 +1,19 @@
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QRubberBand, QMessageBox)
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QRubberBand, QMessageBox
 from PySide6.QtCore import Qt, QRect, QSize, QPoint
-from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtGui import QPixmap
 from utils.constants import DIALOG_CROP_WIDTH, DIALOG_CROP_HEIGHT
 
 try:
     from PIL import Image, ImageQt
+
     is_pil_installed = True
 except ImportError:
     is_pil_installed = False
 
+
 class CropLabel(QLabel):
     """QLabel with rubber band selection."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.rubberBand = QRubberBand(QRubberBand.Shape.Rectangle, self)
@@ -38,6 +40,7 @@ class CropLabel(QLabel):
     def get_selection(self):
         return self.current_rect
 
+
 class CropDialog(QDialog):
     """Dialog for selecting and inputting image crop method (interactive)."""
 
@@ -55,16 +58,15 @@ class CropDialog(QDialog):
         self.init_ui()
 
     def init_ui(self):
-        import json
         import os
         from PySide6.QtWidgets import QCheckBox, QComboBox, QLineEdit
 
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel(self.app.tr("crop_instruction")))
-        
+
         # 連携説明ラベルを追加
         sync_notice = QLabel(self.app.tr("crop_sync_notice"))
-        sync_notice.setStyleSheet("color: #FFB300; font-size: 10px;") # 目立つように少し色を変える
+        sync_notice.setStyleSheet("color: #FFB300; font-size: 10px;")  # 目立つように少し色を変える
         sync_notice.setWordWrap(True)
         layout.addWidget(sync_notice)
 
@@ -149,7 +151,9 @@ class CropDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def _load_presets(self):
-        import json, os
+        import json
+        import os
+
         self.presets = []
         try:
             preset_path = os.path.abspath(self._preset_file)
@@ -164,7 +168,9 @@ class CropDialog(QDialog):
             self.preset_combo.addItem(p.get("name", f"{p['w']}x{p['h']}"))
 
     def _save_presets_to_file(self):
-        import json, os
+        import json
+        import os
+
         try:
             preset_path = os.path.abspath(self._preset_file)
             with open(preset_path, "w", encoding="utf-8") as f:
@@ -178,7 +184,7 @@ class CropDialog(QDialog):
         if not name:
             QMessageBox.warning(self, self.app.tr("warning"), self.app.tr("preset_name_required"))
             return
-            
+
         # If input is empty, use the current selection (last_percent)
         if not text and self.last_percent:
             l, t, w, h = self.last_percent
@@ -186,8 +192,9 @@ class CropDialog(QDialog):
             try:
                 # Support both comma and 'x' separators for flexibility
                 import re
-                vals = [float(v.strip().replace("%", "")) for v in re.split(r'[,x]', text)]
-                
+
+                vals = [float(v.strip().replace("%", "")) for v in re.split(r"[,x]", text)]
+
                 if len(vals) == 4:
                     l, t, w, h = vals
                 elif len(vals) == 2:
@@ -200,7 +207,7 @@ class CropDialog(QDialog):
             except Exception:
                 QMessageBox.warning(self, self.app.tr("warning"), self.app.tr("preset_format"))
                 return
-                
+
         self.presets.append({"name": name, "l": l, "t": t, "w": w, "h": h})
         self._save_presets_to_file()
         self._load_presets()
@@ -210,26 +217,26 @@ class CropDialog(QDialog):
         if idx < 0 or idx >= len(self.presets):
             return
         preset = self.presets[idx]
-        
+
         # Extract 4D data with legacy fallback
         w, h = preset["w"], preset["h"]
         l = preset.get("l", (100.0 - w) / 2)
         t = preset.get("t", (100.0 - h) / 2)
-        
+
         img_w, img_h = self.pil_image.size
-        
+
         # Convert percentages to original pixels
         orig_l = int(img_w * l / 100.0)
         orig_t = int(img_h * t / 100.0)
         orig_w = int(img_w * w / 100.0)
         orig_h = int(img_h * h / 100.0)
-        
+
         # Scale for display
         l_s = int(orig_l * self.scale_ratio)
         t_s = int(orig_t * self.scale_ratio)
         w_s = int(orig_w * self.scale_ratio)
         h_s = int(orig_h * self.scale_ratio)
-        
+
         self.image_label.rubberBand.setGeometry(QRect(l_s, t_s, w_s, h_s))
         self.image_label.rubberBand.show()
         self.image_label.current_rect = QRect(l_s, t_s, w_s, h_s)
@@ -247,19 +254,20 @@ class CropDialog(QDialog):
         if idx < 0 or idx >= len(self.presets):
             return
         preset = self.presets[idx]
-        
+
         # Get values with fallbacks for legacy presets
         w, h = preset["w"], preset["h"]
         l = preset.get("l", (100.0 - w) / 2)
         t = preset.get("t", (100.0 - h) / 2)
-        
-        self.preset_name_input.setText(preset['name'])
+
+        self.preset_name_input.setText(preset["name"])
         self.preset_input.setText(f"{l:.1f},{t:.1f},{w:.1f},{h:.1f}")
 
     def _wrap_mouse_release(self, orig_func):
         def wrapped(event):
             orig_func(event)
             self._update_percent_label()
+
         return wrapped
 
     def _update_percent_label(self):
@@ -270,7 +278,7 @@ class CropDialog(QDialog):
             return
 
         img_w, img_h = self.pil_image.size
-        
+
         # Calculate original coordinates (reversing display scale)
         orig_l = rect.x() / self.scale_ratio
         orig_t = rect.y() / self.scale_ratio
@@ -285,7 +293,7 @@ class CropDialog(QDialog):
 
         self.last_percent = (p_l, p_t, p_w, p_h)
         self.percent_label.setText(f"L:{p_l:.1f}% T:{p_t:.1f}% W:{p_w:.1f}% H:{p_h:.1f}%")
-        
+
         # Auto-update preset input field in L,T,W,H format
         if self.preset_input is not None:
             self.preset_input.setText(f"{p_l:.1f},{p_t:.1f},{p_w:.1f},{p_h:.1f}")
@@ -315,7 +323,7 @@ class CropDialog(QDialog):
         pixmap = QPixmap.fromImage(self.qim)
 
         self.image_label.setPixmap(pixmap)
-        self.image_label.setFixedSize(new_w, new_h) 
+        self.image_label.setFixedSize(new_w, new_h)
 
     def _apply_current_app_crop_settings(self):
         """Initialize the crop area from the main application's 4D percentage settings."""
@@ -327,7 +335,7 @@ class CropDialog(QDialog):
             height_p = float(self.app.crop_height_percent_var)
 
             img_w, img_h = self.pil_image.size
-            
+
             # Convert percentages to original pixels
             orig_l = int(img_w * left_p / 100.0)
             orig_t = int(img_h * top_p / 100.0)
@@ -343,10 +351,10 @@ class CropDialog(QDialog):
             self.image_label.rubberBand.setGeometry(QRect(l_s, t_s, w_s, h_s))
             self.image_label.rubberBand.show()
             self.image_label.current_rect = QRect(l_s, t_s, w_s, h_s)
-            
+
             # Update labels and input fields
             self._update_percent_label()
-            
+
         except Exception as e:
             # Fallback if values are invalid
             self.app.logger.debug(f"Failed to apply current crop settings to dialog: {e}")
@@ -357,47 +365,49 @@ class CropDialog(QDialog):
         self._update_percent_label()
 
     def _ok(self):
-        import json, os
+        import json
+        import os
 
         if self.confirm_checkbox and not self.confirm_checkbox.isChecked():
             QMessageBox.information(self, self.app.tr("info"), self.app.tr("crop_confirm_needed"))
             return
 
         rect = self.image_label.get_selection()
+
         # Helper to persist default crop (store as percentages)
         def _maybe_save_default(left_p, top_p, width_p, height_p):
             if not (self.save_as_default_checkbox and self.save_as_default_checkbox.isChecked()):
                 return
             try:
                 # 1. Update main application configuration
-                self.app.config_manager.update_app_setting('crop_left_percent', float(left_p))
-                self.app.config_manager.update_app_setting('crop_top_percent', float(top_p))
-                self.app.config_manager.update_app_setting('crop_width_percent', float(width_p))
-                self.app.config_manager.update_app_setting('crop_height_percent', float(height_p))
-                
+                self.app.config_manager.update_app_setting("crop_left_percent", float(left_p))
+                self.app.config_manager.update_app_setting("crop_top_percent", float(top_p))
+                self.app.config_manager.update_app_setting("crop_width_percent", float(width_p))
+                self.app.config_manager.update_app_setting("crop_height_percent", float(height_p))
+
                 # 2. Update application variables for immediate use
                 self.app.crop_left_percent_var = float(left_p)
                 self.app.crop_top_percent_var = float(top_p)
                 self.app.crop_width_percent_var = float(width_p)
                 self.app.crop_height_percent_var = float(height_p)
-                
+
                 # 3. Update main UI widgets (entries and sliders)
                 # Disable signals temporarily to avoid redundant processing
                 self.app.ui.entry_crop_l.blockSignals(True)
                 self.app.ui.entry_crop_t.blockSignals(True)
                 self.app.ui.entry_crop_w.blockSignals(True)
                 self.app.ui.entry_crop_h.blockSignals(True)
-                
+
                 self.app.ui.entry_crop_l.setText(f"{left_p:.1f}")
                 self.app.ui.entry_crop_t.setText(f"{top_p:.1f}")
                 self.app.ui.entry_crop_w.setText(f"{width_p:.1f}")
                 self.app.ui.entry_crop_h.setText(f"{height_p:.1f}")
-                
+
                 self.app.ui.slider_crop_l.setValue(int(left_p))
                 self.app.ui.slider_crop_t.setValue(int(top_p))
                 self.app.ui.slider_crop_w.setValue(int(width_p))
                 self.app.ui.slider_crop_h.setValue(int(height_p))
-                
+
                 self.app.ui.entry_crop_l.blockSignals(False)
                 self.app.ui.entry_crop_t.blockSignals(False)
                 self.app.ui.entry_crop_w.blockSignals(False)
@@ -410,16 +420,18 @@ class CropDialog(QDialog):
                 preset_path = os.path.abspath(self._preset_file)
                 data = {}
                 if os.path.exists(preset_path):
-                    with open(preset_path, 'r', encoding='utf-8') as f:
+                    with open(preset_path, "r", encoding="utf-8") as f:
                         try:
                             data = json.load(f)
                         except Exception:
                             data = {}
-                data['default_crop'] = {
-                    'left_p': float(left_p), 'top_p': float(top_p),
-                    'width_p': float(width_p), 'height_p': float(height_p)
+                data["default_crop"] = {
+                    "left_p": float(left_p),
+                    "top_p": float(top_p),
+                    "width_p": float(width_p),
+                    "height_p": float(height_p),
                 }
-                with open(preset_path, 'w', encoding='utf-8') as f:
+                with open(preset_path, "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
             except Exception:
                 # Fail silently; not critical
@@ -429,10 +441,10 @@ class CropDialog(QDialog):
             # Entire image
             if self.percent_apply_checkbox and self.percent_apply_checkbox.isChecked():
                 left_p, top_p, width_p, height_p = 0.0, 0.0, 100.0, 100.0
-                self.crop_result = ('percent', left_p, top_p, width_p, height_p)
+                self.crop_result = ("percent", left_p, top_p, width_p, height_p)
                 _maybe_save_default(left_p, top_p, width_p, height_p)
             else:
-                self.crop_result = ('coords', 0, 0, self.pil_image.size[0], self.pil_image.size[1])
+                self.crop_result = ("coords", 0, 0, self.pil_image.size[0], self.pil_image.size[1])
             self.accept()
             return
 
@@ -463,9 +475,9 @@ class CropDialog(QDialog):
             top_p = orig_top / img_h * 100.0
             width_p = (orig_right - orig_left) / img_w * 100.0
             height_p = (orig_bottom - orig_top) / img_h * 100.0
-            self.crop_result = ('percent', left_p, top_p, width_p, height_p)
+            self.crop_result = ("percent", left_p, top_p, width_p, height_p)
             _maybe_save_default(left_p, top_p, width_p, height_p)
         else:
-            self.crop_result = ('coords', orig_left, orig_top, orig_right, orig_bottom)
+            self.crop_result = ("coords", orig_left, orig_top, orig_right, orig_bottom)
 
         self.accept()

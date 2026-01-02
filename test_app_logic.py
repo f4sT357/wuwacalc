@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 from core.app_logic import AppLogic
-from core.data_contracts import SubStat
+
 
 class TestAppLogicParsing(unittest.TestCase):
     def setUp(self):
@@ -9,10 +9,10 @@ class TestAppLogicParsing(unittest.TestCase):
         self.mock_tr = MagicMock(return_value="translated")
         self.mock_dm = MagicMock()
         self.mock_cm = MagicMock()
-        
+
         # Instantiate AppLogic
         self.logic = AppLogic(self.mock_tr, self.mock_dm, self.mock_cm)
-        
+
         # Setup alias pairs (Stat, Alias)
         self.alias_pairs = [
             ("クリティカル率", "クリティカル率"),
@@ -34,13 +34,13 @@ class TestAppLogicParsing(unittest.TestCase):
 
     def test_parse_single_line_alias(self):
         # Alias match
-        line = "クリ率 10.5" # Missing % symbol but should parse number
+        line = "クリ率 10.5"  # Missing % symbol but should parse number
         result = self.logic._parse_single_line(line, self.alias_pairs)
         self.assertIsNotNone(result)
         substat, is_percent = result
         self.assertEqual(substat.stat, "クリティカル率")
         self.assertEqual(substat.value, "10.5")
-        self.assertFalse(is_percent) # No % found
+        self.assertFalse(is_percent)  # No % found
 
     def test_parse_single_line_fallback(self):
         # Fallback (no separation)
@@ -57,23 +57,21 @@ class TestAppLogicParsing(unittest.TestCase):
         result = self.logic._parse_single_line(line, self.alias_pairs)
         self.assertIsNone(result)
 
+
 class TestAppLogicMainStatDetection(unittest.TestCase):
     def setUp(self):
         self.mock_tr = MagicMock(side_effect=lambda x: x)
         self.mock_dm = MagicMock()
         self.mock_cm = MagicMock()
         self.logic = AppLogic(self.mock_tr, self.mock_dm, self.mock_cm)
-        
+
         # Setup mock game data
         self.mock_dm.main_stat_options = {
             "4": ["会心率", "会心ダメージ", "攻撃力%"],
             "3": ["属性ダメージ", "攻撃力%"],
-            "1": ["攻撃力%", "HP%", "防御力%"]
+            "1": ["攻撃力%", "HP%", "防御力%"],
         }
-        self.mock_dm.stat_aliases = {
-            "会心率": ["クリティカル率", "クリ率"],
-            "会心ダメージ": ["クリティカルダメージ"]
-        }
+        self.mock_dm.stat_aliases = {"会心率": ["クリティカル率", "クリ率"], "会心ダメージ": ["クリティカルダメージ"]}
 
     def test_detect_main_stat_direct_match(self):
         ocr_text = "COST 4\n会心率\n攻撃力"
@@ -96,5 +94,6 @@ class TestAppLogicMainStatDetection(unittest.TestCase):
         result = self.logic.detect_main_stat_from_ocr(ocr_text, "1")
         self.assertIsNone(result)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
