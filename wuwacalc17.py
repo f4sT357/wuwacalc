@@ -1,7 +1,7 @@
 """
 Main Application Entry Point (PySide6)
 
-Initializes the ScoreCalculatorApp, manages dependencies, 
+Initializes the ScoreCalculatorApp, manages dependencies,
 and coordinates UI updates and core logic.
 """
 
@@ -91,7 +91,7 @@ class ScoreCalculatorApp(QMainWindow):
         # 8. Final UI setup
         self.setWindowTitle("Wuthering Waves Echo Score Calculator")
         ui_config = self.config_manager.get_ui_config()
-        self.resize(ui_config.window_width or WINDOW_WIDTH, 
+        self.resize(ui_config.window_width or WINDOW_WIDTH,
                     ui_config.window_height or WINDOW_HEIGHT)
 
         self.status_bar = QStatusBar()
@@ -122,14 +122,17 @@ class ScoreCalculatorApp(QMainWindow):
 
     def tr(self, key: str, *args: Any) -> str:
         """Translate a string key using the current language."""
-        text = TRANSLATIONS.get(self.language, TRANSLATIONS["ja"]).get(key, key)
+        lang_dict = TRANSLATIONS.get(self.language, TRANSLATIONS["ja"])
+        text = lang_dict.get(key, key)
         return text.format(*args) if args else text
 
     def trigger_calculation(self) -> None:
         """Forward calculation trigger to event handlers."""
         self.events.trigger_calculation()
 
-    def on_single_calc_completed(self, html: str, tab_name: str, evaluation: Any) -> None:
+    def on_single_calc_completed(
+        self, html: str, tab_name: str, evaluation: Any
+    ) -> None:
         """Handle completion of a single echo score calculation."""
         self.ui.result_text.setHtml(html)
         self.tab_mgr.save_tab_result(tab_name, html)
@@ -161,7 +164,10 @@ class ScoreCalculatorApp(QMainWindow):
         """Verify if a character is selected; if not, prompt the user."""
         if not self.character_var:
             if not quiet:
-                msg = f"<h3 style='color: orange;'>{self.tr('waiting_for_character')}</h3>"
+                msg = (
+                    f"<h3 style='color: orange;'>"
+                    f"{self.tr('waiting_for_character')}</h3>"
+                )
                 self.ui.result_text.setHtml(msg)
             self._waiting_for_character = True
             return False
@@ -175,16 +181,25 @@ class ScoreCalculatorApp(QMainWindow):
         save_seq = QKeySequence("Ctrl+S")
         clear_seq = QKeySequence("Ctrl+R")
 
-        QShortcut(paste_seq, self).activated.connect(self.events.paste_from_clipboard)
-        QShortcut(calc_seq, self).activated.connect(self.events.trigger_calculation)
-        QShortcut(f5_seq, self).activated.connect(self.events.trigger_calculation)
-        QShortcut(save_seq, self).activated.connect(self.export_result_to_txt)
+        QShortcut(paste_seq, self).activated.connect(
+            self.events.paste_from_clipboard
+        )
+        QShortcut(calc_seq, self).activated.connect(
+            self.events.trigger_calculation
+        )
+        QShortcut(f5_seq, self).activated.connect(
+            self.events.trigger_calculation
+        )
+        QShortcut(save_seq, self).activated.connect(
+            self.export_result_to_txt
+        )
         QShortcut(clear_seq, self).activated.connect(self.clear_all)
 
     def set_current_as_equipped(self) -> None:
-        """Save the current tab's data as the equipped echo for this character."""
+        """Save current tab's data as equipped echo for this character."""
         if not self.character_var:
-            QMessageBox.warning(self, self.tr("warning"), self.tr("waiting_for_character"))
+            msg = self.tr("waiting_for_character")
+            QMessageBox.warning(self, self.tr("warning"), msg)
             return
 
         tab_name = self.tab_mgr.get_selected_tab_name()
@@ -193,12 +208,17 @@ class ScoreCalculatorApp(QMainWindow):
 
         entry = self.tab_mgr.extract_tab_data(tab_name)
         if not entry or not entry.main_stat:
-            QMessageBox.warning(self, self.tr("warning"), self.tr("main_stat_missing", tab_name))
+            error_msg = self.tr("main_stat_missing", tab_name)
+            QMessageBox.warning(self, self.tr("warning"), error_msg)
             return
 
-        self.character_manager.save_equipped_echo(self.character_var, tab_name, entry)
+        self.character_manager.save_equipped_echo(
+            self.character_var, tab_name, entry
+        )
         self.gui_log(f"Set as Equipped: {self.character_var} - {tab_name}")
-        QMessageBox.information(self, self.tr("info"), self.tr("save_msg", tab_name))
+        QMessageBox.information(
+            self, self.tr("info"), self.tr("save_msg", tab_name)
+        )
 
         # Re-trigger calculation to show the updated comparison
         self.trigger_calculation()
@@ -244,7 +264,6 @@ class ScoreCalculatorApp(QMainWindow):
 
     def _post_init_setup(self) -> None:
         """Late-stage initialization after UI is shown."""
-        self.events.setup_connections()
         self.tab_mgr.update_tabs()
         self.events.on_profiles_updated()
         check_and_alert_environment(self.gui_log)
@@ -269,25 +288,32 @@ class ScoreCalculatorApp(QMainWindow):
         QMessageBox.information(self, title, message)
 
     def refresh_results_display(self) -> None:
-        """Refreshes the current HTML display and all stored tab results with latest styles."""
+        """Refreshes the current display and all stored tab results."""
         current_html = self.ui.result_text.toHtml()
-        
+
         # Update current display
         updated_current = self.html_renderer.refresh_html_style(current_html)
         if updated_current != current_html:
             self.ui.result_text.setHtml(updated_current)
-            
+
         # Update cached results for all tabs
         for tab_name in list(self.tab_mgr._tab_results.keys()):
             data = self.tab_mgr._tab_results[tab_name]
             content = getattr(data, "content", None)
             if content:
-                updated_content = self.html_renderer.refresh_html_style(content)
-                self.tab_mgr.save_tab_result(tab_name, updated_content)
+                updated = self.html_renderer.refresh_html_style(content)
+                self.tab_mgr.save_tab_result(tab_name, updated)
+
+        # Ensure current tab's specific data (image/result) is also synced
+        tab_name = self.tab_mgr.get_selected_tab_name()
+        if tab_name:
+            self.show_tab_result(tab_name)
+            self.show_tab_image(tab_name)
 
     def _open_readme(self) -> None:
         """Opens the help HTML file in the default web browser."""
-        help_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "help.html")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        help_path = os.path.join(base_dir, "help.html")
         if os.path.exists(help_path):
             webbrowser.open(f"file:///{help_path}")
         else:
@@ -305,14 +331,8 @@ class ScoreCalculatorApp(QMainWindow):
         self.html_renderer.set_text_color(self.app_config.text_color)
         self._refresh_ui_styles()
 
-    def refresh_results_display(self) -> None:
-        """Refreshes the current tab's result and image preview."""
-        tab_name = self.tab_mgr.get_selected_tab_name()
-        if tab_name:
-            self.show_tab_result(tab_name)
-            self.show_tab_image(tab_name)
-
     def _refresh_ui_styles(self) -> None:
+        """Refreshes UI shadows and updates the main results display."""
         self.theme_manager.refresh_global_shadows()
         self.refresh_results_display()
 
