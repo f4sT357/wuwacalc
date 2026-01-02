@@ -271,9 +271,13 @@ class EchoData:
         rating_key = self.get_rating_by_achievement(achievement_rate, self.cost)
 
         # 3. Estimated Total Stats and Goal Tracking
+        # Defensive key collection to prevent unhashable type errors
+        sub_keys = {str(k) for k in self.substats.keys()}
+        offset_keys = {str(k) for k in stat_offsets.keys()}
+        
         estimated = {
             name: self.substats.get(name, 0.0) + stat_offsets.get(name, 0.0)
-            for name in (set(self.substats.keys()) | set(stat_offsets.keys()))
+            for name in (sub_keys | offset_keys)
         }
 
         p_map = {

@@ -164,14 +164,14 @@ class HtmlRenderer:
         html += "<hr>"
 
         # Methods breakdown
-        method_map = {{
+        method_map = {
             "achievement": (self.tr("achievement_rate_label"), self.tr("achievement_rate_desc")),
             "normalized": (self.tr("method_normalized"), self.tr("normalized_score_desc")),
             "ratio": (self.tr("method_ratio"), self.tr("ratio_score_desc")),
             "roll": (self.tr("method_roll"), self.tr("roll_quality_desc")),
             "effective": (self.tr("method_effective"), self.tr("effective_stat_desc")),
             "cv": (self.tr("method_cv"), self.tr("cv_score_desc")),
-        }}
+        }
 
         eval_scores = evaluation.individual_scores
         for m_id in ["achievement", "normalized", "ratio", "roll", "effective", "cv"]:
@@ -223,7 +223,7 @@ class HtmlRenderer:
         if evaluation.comparison_diff is not None:
             diff = evaluation.comparison_diff
             d_color = "#32CD32" if diff >= 0 else "#FF4500"
-            html += f"<b style='color:{d_color};'>{self.tr('vs_equipped')}: {{'+' if diff >= 0 else ''}}{diff:.2f}%</b><br>"
+            html += f"<b style='color:{d_color};'>{self.tr('vs_equipped')}: {'+' if diff >= 0 else ''}{diff:.2f}%</b><br>"
 
         html += f"{self.tr('recommendation')}: {self.tr(evaluation.recommendation)}<br>"
         return html
