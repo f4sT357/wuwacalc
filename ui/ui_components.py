@@ -282,7 +282,7 @@ class UIComponents:
 
         self.lbl_language.setText(self.app.tr("language"))
         grid.addWidget(self.lbl_language, 1, 0)
-        self.lang_combo.addItems(["ja", "en", "zh"])
+        self.lang_combo.addItems(["ja", "en", "zh-CN"])
         self.lang_combo.setCurrentText(self.app.language)
         grid.addWidget(self.lang_combo, 1, 1)
 

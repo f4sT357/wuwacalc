@@ -144,17 +144,15 @@ class EchoTabWidget(QWidget):
     def is_empty(self) -> bool:
         """Returns True if no data is entered."""
         if self.main_combo.currentIndex() > 0:
-            return False  # >0 assumes 0 is not valid selection or check Data
-        # Actually TabManager logic was: currentIndex > 0 means something selected.
-        # But here we didn't add empty item to main combo in _populate_main_combo unless opts has it.
-        # Let's align with TabManager: TabManager adds "---" sometimes.
-        # We will refine `update_main_options` to handle this.
+            return False
+        return not self.has_substats()
 
-        # For substats
+    def has_substats(self) -> bool:
+        """Returns True if at least one substat has both a type and a value."""
         for cb, le in self.sub_entries:
-            if cb.currentIndex() > 0 or le.text().strip():
-                return False
-        return True
+            if cb.currentIndex() > 0 and le.text().strip():
+                return True
+        return False
 
     def block_signals(self, block: bool):
         self.main_combo.blockSignals(block)

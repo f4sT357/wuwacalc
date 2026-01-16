@@ -87,7 +87,7 @@ class AppConfig:
             True: All settings are valid, False: There are invalid settings.
         """
         # Validate language setting
-        if self.language not in ["ja", "en"]:
+        if self.language not in ["ja", "en", "zh-CN"]:
             logger.warning(f"Invalid language: {self.language}, using 'en'")
             self.language = "en"
 

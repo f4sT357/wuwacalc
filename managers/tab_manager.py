@@ -365,11 +365,18 @@ class TabManager(QObject):
         return self.tabs_content[tab_name]["widget"].is_empty()
 
     def has_calculatable_data(self, mode: str = "batch") -> bool:
-        """Check if there is enough data to trigger a calculation."""
+        """Check if there is enough data (at least one substat) to trigger a calculation."""
         if mode == "single":
             name = self.get_selected_tab_name()
-            return name and not self.is_tab_empty(name)
-        return any(not self.is_tab_empty(n) for n in self.tabs_content)
+            return name and self.has_substats(name)
+        
+        return any(self.has_substats(n) for n in self.tabs_content)
+
+    def has_substats(self, tab_name: str) -> bool:
+        """Check if a specific tab has any substat data entered."""
+        if tab_name not in self.tabs_content:
+            return False
+        return self.tabs_content[tab_name]["widget"].has_substats()
 
     def load_entry_into_tab(self, tab_name: str, entry: EchoEntry) -> None:
         """Load an EchoEntry object into a specific tab widget."""

@@ -1,9 +1,8 @@
 {
-  "_copyright_notice": "このファイルに含まれるゲームデータは「鳴潮（Wuthering Waves）」の公開情報に基づいています。全ての権利は KURO GAMES に帰属します。 / The game data in this file is based on publicly available information from 'Wuthering Waves'.  All rights belong to KURO GAMES.",
-  "_data_source": "Community-verified data from Wuthering Waves",
-  "_last_updated": "2025-12-20",
-  
-  "substat_max_values": {
+    "_copyright_notice": "このファイルに含まれるゲームデータは「鳴潮（Wuthering Waves）」の公開情報に基づいています。全ての権利は KURO GAMES に帰属します。 / The game data in this file is based on publicly available information from 'Wuthering Waves'.  All rights belong to KURO GAMES.",
+    "_data_source": "Community-verified data from Wuthering Waves",
+    "_last_updated": "2025-12-20",
+    "substat_max_values": {
         "クリティカル率": 10.5,
         "クリティカルダメージ": 21.0,
         "攻撃力%": 11.6,
@@ -25,7 +24,7 @@
             "攻撃力%",
             "HP%",
             "防御力%",
-            "治療効果アップ"
+            "HP回復効果アップ"
         ],
         "3": [
             "共鳴効率",
@@ -63,7 +62,7 @@
         },
         "General-Healer": {
             "HP%": 0.8,
-            "治療効果アップ": 1.0,
+            "HP回復効果アップ": 1.0,
             "共鳴効率": 0.9,
             "攻撃力%": 0.5,
             "HP": 0.4
@@ -89,7 +88,9 @@
             "クリティカル",
             "Critical Rate",
             "Crit Rate",
-            "Crit.Rate"
+            "Crit.Rate",
+            "暴击率",
+            "暴击"
         ],
         "クリティカルダメージ": [
             "クリティカルダメージ",
@@ -97,7 +98,8 @@
             "クリダメージ",
             "Critical DMG",
             "Crit DMG",
-            "Crit.DMG"
+            "Crit.DMG",
+            "暴击伤害"
         ],
         "攻撃力%": [
             "攻撃力%",
@@ -105,38 +107,53 @@
             "攻撃力(%)",
             "攻撃%",
             "ATK%",
-            "Atk%"
+            "Atk%",
+            "攻击力%",
+            "攻击力％",
+            "攻击%"
         ],
         "攻撃力": [
             "攻撃力",
             "ATK",
             "こうげき",
             "Atk",
-            "Flat ATK"
+            "Flat ATK",
+            "攻击力",
+            "攻击"
         ],
         "HP%": [
             "HP%",
             "HP％",
             "HP(%)",
-            "体力%"
+            "体力%",
+            "生命值%",
+            "生命值％",
+            "生命%"
         ],
         "HP": [
             "HP",
             "体力",
-            "Flat HP"
+            "Flat HP",
+            "生命值",
+            "生命"
         ],
         "防御力%": [
             "防御力%",
             "防御力％",
             "防御%",
             "DEF%",
-            "Def%"
+            "Def%",
+            "防御力%",
+            "防御力％",
+            "防御%"
         ],
         "防御力": [
             "防御力",
             "DEF",
             "Def",
-            "Flat DEF"
+            "Flat DEF",
+            "防御力",
+            "防御"
         ],
         "共鳴効率": [
             "共鳴効率",
@@ -145,7 +162,10 @@
             "共鳴効率アップ",
             "共鳴効率UP",
             "Energy Regen",
-            "ER"
+            "ER",
+            "共鸣效率",
+            "共鸣效率提升",
+            "共鸣效率UP"
         ],
         "通常攻撃ダメージアップ": [
             "通常攻撃ダメージアップ",
@@ -153,14 +173,18 @@
             "通常攻撃ダメージ",
             "通常ダメージ",
             "通常攻撃",
-            "Basic Attack DMG Bonus"
+            "Basic Attack DMG Bonus",
+            "普攻伤害加成",
+            "普攻伤害"
         ],
         "重撃ダメージアップ": [
             "重撃ダメージアップ",
             "重撃up",
             "重撃ダメージ",
             "重撃",
-            "Heavy Attack DMG Bonus"
+            "Heavy Attack DMG Bonus",
+            "重击伤害加成",
+            "重击伤害"
         ],
         "共鳴スキルダメージアップ": [
             "共鳴スキルダメージアップ",
@@ -168,7 +192,10 @@
             "スキルダメージ",
             "共鳴スキル",
             "共鳴スキルダメージ",
-            "Resonance Skill DMG Bonus"
+            "Resonance Skill DMG Bonus",
+            "共鸣技能伤害加成",
+            "共鸣技能伤害",
+            "共鸣技能"
         ],
         "共鳴解放ダメージアップ": [
             "共鳴解放ダメージアップ",
@@ -176,36 +203,47 @@
             "解放ダメージ",
             "解放",
             "共鳴解放ダメージ",
-            "Resonance Liberation DMG Bonus"
+            "Resonance Liberation DMG Bonus",
+            "共鸣解放伤害加成",
+            "共鸣解放伤害",
+            "共鸣解放"
         ],
-        "治療効果アップ": [
-            "治療効果アップ",
+        "HP回復効果アップ": [
+            "HP回復効果アップ",
             "治療",
-            "Healing Bonus"
+            "Healing Bonus",
+            "治疗效果加成",
+            "治疗"
         ],
         "焦熱ダメージアップ": [
             "焦熱ダメージアップ",
-            "Fusion DMG Bonus"
+            "Fusion DMG Bonus",
+            "焦热伤害加成"
         ],
         "凝縮ダメージアップ": [
             "凝縮ダメージアップ",
-            "Glacio DMG Bonus"
+            "Glacio DMG Bonus",
+            "凝缩伤害加成"
         ],
         "電導ダメージアップ": [
             "電導ダメージアップ",
-            "Electro DMG Bonus"
+            "Electro DMG Bonus",
+            "电导伤害加成"
         ],
         "気動ダメージアップ": [
             "気動ダメージアップ",
-            "Aero DMG Bonus"
+            "Aero DMG Bonus",
+            "气动伤害加成"
         ],
         "回折ダメージアップ": [
             "回折ダメージアップ",
-            "Spectro DMG Bonus"
+            "Spectro DMG Bonus",
+            "回折伤害加成"
         ],
         "消滅ダメージアップ": [
             "消滅ダメージアップ",
-            "Havoc DMG Bonus"
+            "Havoc DMG Bonus",
+            "消灭伤害加成"
         ]
     },
     "tab_configs": {

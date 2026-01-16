@@ -1,5 +1,17 @@
 [
   {
+    "timestamp": "2026-01-17 00:01:36",
+    "character": "Shorekeeper",
+    "cost": "4",
+    "action": "Single Evaluation",
+    "result": "Score: 0.00 (rating_c_single)",
+    "fingerprint": "b9906bad9d1ad1f8036d5ca2e22799d8",
+    "details": {
+      "score": 0.0,
+      "rating_key": "rating_c_single"
+    }
+  },
+  {
     "timestamp": "2025-12-25 19:42:38",
     "character": "Changli",
     "cost": "4",
