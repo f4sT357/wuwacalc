@@ -206,14 +206,14 @@ class ScoreCalculator(QObject):
                 # Safeguard against unreasonable values
                 if not (0 <= val < 1000000):
                      self.log_requested.emit(
-                         f"Value out of range for '{sub.stat}': '{val}'"
+                         f"Value out of range for '{self.renderer.tr(sub.stat)}': '{val}'"
                      )
                      continue
 
                 substats[sub.stat] = val
             except (ValueError, TypeError):
                 self.log_requested.emit(
-                    f"Invalid numeric value for substat '{sub.stat}': '{sub.value}'"
+                    f"Invalid numeric value for '{self.renderer.tr(sub.stat)}': '{sub.value}'"
                 )
                 continue
         return substats

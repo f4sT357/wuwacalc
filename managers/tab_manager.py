@@ -48,13 +48,14 @@ class TabManager(QObject):
 
     # Signals for UI notifications
     log_requested = Signal(str)
-    tabs_updated = Signal()
+    tabs_rebuild_requested = Signal(str, list)  # config_key, tab_names
+    tab_label_update_requested = Signal(int, str)
     image_preview_requested = Signal(object)  # Image.Image
     calculation_requested = Signal()
+    tabs_updated = Signal()
 
     def __init__(
         self, 
-        notebook: QTabWidget, 
         data_manager: DataManager, 
         config_manager: ConfigManager, 
         tr_func: Callable, 
@@ -62,7 +63,6 @@ class TabManager(QObject):
     ):
         """Initialize the TabManager with required dependencies."""
         super().__init__()
-        self.notebook = notebook
         self.data_manager = data_manager
         self.config_manager = config_manager
         self.tr = tr_func
@@ -76,26 +76,22 @@ class TabManager(QObject):
         self._tab_images: Dict[str, TabImageData] = {}
         self._tab_results: Dict[str, TabResultData] = {}
 
-    def get_selected_tab_name(self) -> Optional[str]:
+    def get_selected_tab_name(self, current_index: int) -> Optional[str]:
         """Return the internal name of the currently selected tab."""
-        if self.notebook is None:
-            return None
-        index = self.notebook.currentIndex()
-        if index == -1:
+        if current_index == -1:
             return None
 
         config_key = self.config_manager.get_app_config().current_config_key
         tab_configs = self.data_manager.tab_configs
         if config_key in tab_configs:
             keys = tab_configs[config_key]
-            if index < len(keys):
-                return keys[index]
+            if current_index < len(keys):
+                return keys[current_index]
         return None
 
-    def clear_current_tab(self) -> None:
-        """Clear all data and images for the currently active tab."""
+    def clear_tab(self, tab_name: str) -> None:
+        """Clear all data and images for a specific tab."""
         try:
-            tab_name = self.get_selected_tab_name()
             if not tab_name or tab_name not in self.tabs_content:
                 return
 
@@ -126,9 +122,6 @@ class TabManager(QObject):
 
     def update_tabs(self) -> None:
         """Rebuild the UI tabs based on the current cost configuration."""
-        if self.notebook is None:
-            return
-
         self._updating_tabs = True
         try:
             config_key = self._validate_config_key()
@@ -137,47 +130,73 @@ class TabManager(QObject):
             # Save existing data to restore after rebuild
             old_data = self._save_current_tab_state()
 
-            self.notebook.clear()
             self.tabs_content = {}
+            self.tabs_rebuild_requested.emit(config_key, config_tab_names)
 
+            # Note: The UI layer is expected to call register_tab_widget during rebuild
             cost_counts = self._calculate_cost_counts(config_tab_names)
             current_cost_indices = {}
 
-            for tab_name in config_tab_names:
-                cost_num = next((ch for ch in tab_name if ch.isdigit()), "1")
-                total_for_cost = cost_counts[cost_num]
-                current_idx = current_cost_indices.get(cost_num, 0) + 1
-                current_cost_indices[cost_num] = current_idx
-
-                cost_key = (cost_num if total_for_cost == 1 
-                            else f"{cost_num}_{current_idx}")
-
-                self._create_and_add_tab_page(tab_name, cost_num, cost_key)
-
-                # Restore data if previously existed for this logical slot
-                state_key = (cost_num, current_idx)
-                if state_key in old_data:
-                    self._restore_tab_data(tab_name, old_data[state_key])
-
-            self.tabs_updated.emit()
+            # We need to wait for or ensure widgets are registered before restoring
+            # In this signal-driven approach, we might need a separate step for restoration
+            # if registration is asynchronous. For now, assume synchronous signal handling.
+            
+            # (Logic for restoration might need to be triggered after UI confirms rebuild)
+            self._temp_old_data = old_data # Store temporarily
+            
         except Exception as e:
             self.log_requested.emit(f"Tab update error: {e}")
             self.logger.exception("Tab update failed")
         finally:
             self._updating_tabs = False
 
+    def register_tab_widget(self, tab_name: str, widget: EchoTabWidget, cost_num: str, cost_key: str) -> None:
+        """Register a widget for a logical tab slot."""
+        self.tabs_content[tab_name] = {
+            "cost": cost_num,
+            "cost_key": cost_key,
+            "widget": widget
+        }
+        
+        # If we have pending data to restore for this tab, do it now
+        if hasattr(self, "_temp_old_data"):
+            cost_counts = self._calculate_cost_counts(self.tabs_content.keys())
+            # This is tricky because we need the index. 
+            # Re-evaluating: It's better if the UI calls a 'complete_rebuild' method.
+            pass
+
+    def finalize_rebuild(self) -> None:
+        """Called by UI after all tab widgets have been registered."""
+        if not hasattr(self, "_temp_old_data"):
+            self.tabs_updated.emit()
+            return
+            
+        config_key = self._validate_config_key()
+        tab_names = self.data_manager.tab_configs[config_key]
+        cost_counts = self._calculate_cost_counts(tab_names)
+        current_cost_indices = {}
+
+        for tab_name in tab_names:
+            cost_num = next((ch for ch in tab_name if ch.isdigit()), "1")
+            current_idx = current_cost_indices.get(cost_num, 0) + 1
+            current_cost_indices[cost_num] = current_idx
+            
+            state_key = (cost_num, current_idx)
+            if state_key in self._temp_old_data:
+                self._restore_tab_data(tab_name, self._temp_old_data[state_key])
+        
+        del self._temp_old_data
+        self.tabs_updated.emit()
+
     def retranslate_tabs(self, language: str) -> None:
         """Update tab labels and widget text for the specified language."""
-        if self.notebook is None:
-            return
-
         self._updating_tabs = True
         try:
             config_key = self._validate_config_key()
             tab_names = self.data_manager.tab_configs.get(config_key, [])
-            for i in range(min(self.notebook.count(), len(tab_names))):
-                new_label = self._generate_tab_label(tab_names[i])
-                self.notebook.setTabText(i, new_label)
+            for i, name in enumerate(tab_names):
+                new_label = self._generate_tab_label(name)
+                self.tab_label_update_requested.emit(i, new_label)
 
             for content in self.tabs_content.values():
                 content["widget"].retranslate()
@@ -279,6 +298,10 @@ class TabManager(QObject):
         seen = {}
         duplicates = []
         for idx, entry in enumerate(entries):
+            # Skip empty entries for duplicate detection
+            if not entry.main_stat and not entry.substats:
+                continue
+                
             substats_tuple = tuple((s.stat, s.value) for s in entry.substats)
             key = (entry.cost, entry.main_stat, substats_tuple)
             if key in seen:
@@ -364,11 +387,11 @@ class TabManager(QObject):
             return True
         return self.tabs_content[tab_name]["widget"].is_empty()
 
-    def has_calculatable_data(self, mode: str = "batch") -> bool:
+    def has_calculatable_data(self, mode: str = "batch", current_index: int = -1) -> bool:
         """Check if there is enough data (at least one substat) to trigger a calculation."""
         if mode == "single":
-            name = self.get_selected_tab_name()
-            return name and self.has_substats(name)
+            name = self.get_selected_tab_name(current_index)
+            return name is not None and self.has_substats(name)
         
         return any(self.has_substats(n) for n in self.tabs_content)
 

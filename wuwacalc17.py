@@ -1,13 +1,8 @@
-"""
-Main Application Entry Point (PySide6)
-
-Initializes the ScoreCalculatorApp, manages dependencies,
-and coordinates UI updates and core logic.
-"""
-
 import sys
 import os
 import webbrowser
+import traceback
+import logging
 from typing import Any, Optional
 
 from PySide6.QtWidgets import (
@@ -28,6 +23,7 @@ except ImportError:
 from utils.languages import TRANSLATIONS
 from utils.utils import setup_tesseract, check_and_alert_environment
 from ui.event_handlers import EventHandlers
+from ui.widgets.echo_tab import EchoTabWidget
 from core.app_setup import AppContext
 from ui.ui_constants import (
     WINDOW_WIDTH,
@@ -38,6 +34,28 @@ from ui.ui_constants import (
 
 # Initialize Tesseract executable path
 setup_tesseract()
+
+
+def exception_hook(exctype, value, tb):
+    """Global exception handler to catch unhandled errors."""
+    traceback_details = "".join(traceback.format_exception(exctype, value, tb))
+    logging.getLogger("ScoreCalculatorApp").critical(f"Unhandled exception: {traceback_details}")
+    
+    # Try to show a message box if QApplication exists
+    if QApplication.instance():
+        msg = (
+            f"予期せぬエラーが発生しました:\n{value}\n\n"
+            f"An unexpected error occurred.\n\n"
+            f"Details (first 500 chars):\n{traceback_details[:500]}..."
+        )
+        QMessageBox.critical(None, "Critical Error", msg)
+    else:
+        print(traceback_details)
+    
+    sys.__excepthook__(exctype, value, tb)
+
+
+sys.excepthook = exception_hook
 
 
 class ScoreCalculatorApp(QMainWindow):
@@ -75,6 +93,11 @@ class ScoreCalculatorApp(QMainWindow):
 
         # 4. Initialize Variables
         self._init_app_vars()
+        
+        # 5. Connect TabManager Signals
+        self.tab_mgr.tabs_rebuild_requested.connect(self._handle_tabs_rebuild)
+        self.tab_mgr.tab_label_update_requested.connect(self._handle_tab_label_update)
+        self.tab_mgr.tabs_updated.connect(self.on_tabs_updated)
 
         # 5. Event Handlers
         self.events = EventHandlers(self, self.ctx)
@@ -146,6 +169,57 @@ class ScoreCalculatorApp(QMainWindow):
         self.ui.update_ui_mode()
         self.tab_mgr.apply_character_main_stats(force=True)
 
+    def _handle_tabs_rebuild(self, config_key: str, tab_names: list) -> None:
+        """Called when TabManager requests a UI tab rebuild."""
+        self.notebook.clear()
+        
+        # Calculate cost counts to decide if we need suffixes like _1, _2
+        totals = {}
+        for name in tab_names:
+            first_digit = next((ch for ch in name if ch.isdigit()), None)
+            if first_digit:
+                totals[first_digit] = totals.get(first_digit, 0) + 1
+        
+        current_cost_indices = {}
+
+        for tab_name in tab_names:
+            cost_num = next((ch for ch in tab_name if ch.isdigit()), "1")
+            total_for_cost = totals.get(cost_num, 1)
+            current_idx = current_cost_indices.get(cost_num, 0) + 1
+            current_cost_indices[cost_num] = current_idx
+
+            cost_key = (cost_num if total_for_cost == 1 
+                        else f"{cost_num}_{current_idx}")
+
+            # Create the widget (UI responsibility)
+            main_opts = self.data_manager.main_stat_options.get(
+                cost_num, ["HP", "ATK", "DEF"]
+            )
+            sub_opts = list(self.data_manager.substat_max_values.keys())
+            tab_widget = EchoTabWidget(cost_num, main_opts, sub_opts, self.tr)
+            
+            # Label
+            label = self.tab_mgr._generate_tab_label(tab_name)
+            self.notebook.addTab(tab_widget, label)
+            
+            # Register back to manager
+            self.tab_mgr.register_tab_widget(tab_name, tab_widget, cost_num, cost_key)
+            
+        self.tab_mgr.finalize_rebuild()
+
+    def _handle_tab_label_update(self, index: int, label: str) -> None:
+        """Update a specific tab's label."""
+        if index < self.notebook.count():
+            self.notebook.setTabText(index, label)
+
+    def _switch_to_tab(self, tab_name: str) -> None:
+        """Switch the UI notebook to the specified tab name."""
+        config_key = self.app_config.current_config_key
+        tab_names = self.data_manager.tab_configs.get(config_key, [])
+        if tab_name in tab_names:
+            idx = tab_names.index(tab_name)
+            self.notebook.setCurrentIndex(idx)
+
     def show_tab_image(self, tab_name: str) -> None:
         """Display the cropped image associated with a specific tab."""
         data = self.tab_mgr.get_tab_image(tab_name)
@@ -202,7 +276,7 @@ class ScoreCalculatorApp(QMainWindow):
             QMessageBox.warning(self, self.tr("warning"), msg)
             return
 
-        tab_name = self.tab_mgr.get_selected_tab_name()
+        tab_name = self.get_selected_tab_name()
         if not tab_name:
             return
 
@@ -238,7 +312,9 @@ class ScoreCalculatorApp(QMainWindow):
     def clear_current_tab(self) -> None:
         """Clear data for the currently selected tab."""
         if self.tab_mgr:
-            self.tab_mgr.clear_current_tab()
+            tab_name = self.get_selected_tab_name()
+            if tab_name:
+                self.tab_mgr.clear_tab(tab_name)
             self.ui.result_text.clear()
 
     def update_image_preview(self, image: Optional["Image.Image"]) -> None:
@@ -267,6 +343,14 @@ class ScoreCalculatorApp(QMainWindow):
         self.tab_mgr.update_tabs()
         self.events.on_profiles_updated()
         check_and_alert_environment(self.gui_log)
+        
+        if not IS_PIL_INSTALLED:
+             QMessageBox.critical(
+                 self, 
+                 self.tr("error"), 
+                 "Pillow (PIL) is not installed. Image processing functions will not work.\n"
+                 "Please install it using: pip install Pillow"
+             )
 
     def show_duplicate_entries(self) -> None:
         """Check for and log duplicate echo entries."""
@@ -305,10 +389,14 @@ class ScoreCalculatorApp(QMainWindow):
                 self.tab_mgr.save_tab_result(tab_name, updated)
 
         # Ensure current tab's specific data (image/result) is also synced
-        tab_name = self.tab_mgr.get_selected_tab_name()
+        tab_name = self.get_selected_tab_name()
         if tab_name:
             self.show_tab_result(tab_name)
             self.show_tab_image(tab_name)
+
+    def get_selected_tab_name(self) -> Optional[str]:
+        """Proxy for tab_mgr.get_selected_tab_name using current notebook state."""
+        return self.tab_mgr.get_selected_tab_name(self.notebook.currentIndex())
 
     def _open_readme(self) -> None:
         """Opens the help HTML file in the default web browser."""

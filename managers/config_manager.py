@@ -229,8 +229,10 @@ class ConfigManager:
             return True
 
         except json.JSONDecodeError as e:
-            logger.error(f"JSON parsing error in configuration file: {e}")
-            return False
+            msg = f"JSON parsing error in configuration file: {e}"
+            logger.error(msg)
+            # Signal that the file exists but is corrupted
+            return "CORRUPTED"
         except Exception as e:
             logger.error(f"Error loading settings: {e}")
             return False

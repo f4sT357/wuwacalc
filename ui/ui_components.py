@@ -34,8 +34,9 @@ from core.data_contracts import OCRResult
 VALUE_ENTRY_WIDTH = 60
 
 class OCRImageLabel(QLabel):
-    """Custom label for drawing OCR bounding boxes and handling drag selection."""
+    """Custom label for drawing OCR bounding boxes and handling drag selection and file drops."""
     selection_completed = Signal(tuple)
+    files_dropped = Signal(list)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -54,6 +55,7 @@ class OCRImageLabel(QLabel):
         self.setText("No Image")
         # Enable mouse tracking if needed for hover, but drag works with press/move
         self.setMouseTracking(True)
+        self.setAcceptDrops(True)
 
     def set_ocr_result(self, result, original_size=None):
         self.ocr_result = result
@@ -120,6 +122,31 @@ class OCRImageLabel(QLabel):
             
         else:
             super().mouseReleaseEvent(event)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            # Check if any URL is a local image file
+            for url in event.mimeData().urls():
+                if url.isLocalFile():
+                    local_path = url.toLocalFile().lower()
+                    if local_path.endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
+                        event.acceptProposedAction()
+                        return
+        super().dragEnterEvent(event)
+
+    def dropEvent(self, event):
+        paths = []
+        for url in event.mimeData().urls():
+            if url.isLocalFile():
+                local_path = url.toLocalFile()
+                if local_path.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".gif")):
+                    paths.append(local_path)
+        
+        if paths:
+            self.files_dropped.emit(paths)
+            event.acceptProposedAction()
+        else:
+            super().dropEvent(event)
 
     def paintEvent(self, event):
         super().paintEvent(event)

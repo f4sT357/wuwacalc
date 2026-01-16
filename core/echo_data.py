@@ -30,6 +30,7 @@ from utils.constants import (
     DAMAGE_BONUS_STATS,
 )
 from core.data_contracts import EvaluationResult
+from core.scoring import SCORING_METHODS, get_scoring_method
 
 
 class EchoData:
@@ -63,17 +64,12 @@ class EchoData:
         main_stat_multiplier: float
     ) -> float:
         """Method 1: Normalized Score (0-100 points) based on max possible rolls."""
-        main_score = main_stat_multiplier
-        sub_score = 0.0
-
-        for stat_name, stat_value in self.substats.items():
-            max_val = substat_max_values.get(stat_name, 1.0)
-            weight = stat_weights.get(stat_name, 0.0)
-            normalized = (stat_value / max_val / 5.0) * weight * 100.0
-            sub_score += normalized
-
-        total = (self.level / 25.0) * (main_score + sub_score)
-        return total
+        strategy = get_scoring_method("normalized")
+        config = {
+            "substat_max_values": substat_max_values,
+            "main_stat_multiplier": main_stat_multiplier
+        }
+        return strategy.calculate(self, stat_weights, config)
 
     def calculate_score_ratio_based(
         self,
@@ -81,15 +77,9 @@ class EchoData:
         substat_max_values: Dict[str, float]
     ) -> float:
         """Method 2: Ratio-Based Method focusing on stat importance."""
-        score_ratio = 0.0
-
-        for stat_name, stat_value in self.substats.items():
-            max_val = substat_max_values.get(stat_name, 1.0)
-            importance = importance_weights.get(stat_name, 0.0)
-            ratio = (stat_value / max_val / 5.0) * importance
-            score_ratio += ratio
-
-        return (100.0 * self.level / 25.0) * score_ratio
+        strategy = get_scoring_method("ratio")
+        config = {"substat_max_values": substat_max_values}
+        return strategy.calculate(self, importance_weights, config)
 
     def calculate_score_roll_quality(
         self,
@@ -97,34 +87,9 @@ class EchoData:
         roll_quality_config: Dict[str, Any]
     ) -> float:
         """Method 3: Roll Quality Method based on value ranges (Low to Max)."""
-        if not roll_quality_config:
-            return 0.0
-
-        ranges_cfg = roll_quality_config.get("ranges", {})
-        points_cfg = roll_quality_config.get("points", {})
-
-        quality_points = 0.0
-        count = 0
-
-        for stat_name, stat_value in self.substats.items():
-            if stat_name not in ranges_cfg:
-                continue
-
-            ranges = ranges_cfg[stat_name]
-            weight = stat_weights.get(stat_name, 0.5)
-
-            if stat_value >= ranges.get("Max", 999.0):
-                quality_points += points_cfg.get("Max", 3.0) * weight
-            elif stat_value >= ranges.get("Good", 999.0):
-                quality_points += points_cfg.get("Good", 2.0) * weight
-            elif stat_value >= ranges.get("Low", 999.0):
-                quality_points += points_cfg.get("Low", 1.0) * weight
-            else:
-                quality_points += points_cfg.get("Default", 0.5) * weight
-            count += 1
-
-        score = (quality_points / (count * 3.0)) * 100.0 if count > 0 else 0.0
-        return score * (self.level / 25.0)
+        strategy = get_scoring_method("roll")
+        config = {"roll_quality": roll_quality_config}
+        return strategy.calculate(self, stat_weights, config)
 
     def calculate_score_effective_stats(
         self,
@@ -133,26 +98,12 @@ class EchoData:
         effective_stats_config: Dict[str, Any]
     ) -> float:
         """Method 4: Effective Stats Count Method with bonus for multiple valid stats."""
-        effective_count = 0
-        total_contribution = 0.0
-
-        threshold = effective_stats_config.get("threshold", 0.5)
-        eps = 1e-9
-
-        base_mult = effective_stats_config.get("base_multiplier", 20.0)
-        bonus_mults = effective_stats_config.get("bonus_multiplier", {})
-
-        for stat_name, stat_value in self.substats.items():
-            weight = stat_weights.get(stat_name, 0.0)
-            if weight >= (threshold - eps):
-                effective_count += 1
-                max_val = substat_max_values.get(stat_name, 1.0)
-                total_contribution += (stat_value / max_val) * weight * base_mult
-
-        bonus = bonus_mults.get(str(effective_count), bonus_mults.get("default", 0.5))
-        score = total_contribution * bonus * (self.level / 25.0)
-        self.effective_stats_count = effective_count
-        return score
+        strategy = get_scoring_method("effective")
+        config = {
+            "effective_stats": effective_stats_config,
+            "substat_max_values": substat_max_values
+        }
+        return strategy.calculate(self, stat_weights, config)
 
     def calculate_score_cv_based(
         self,
@@ -161,36 +112,9 @@ class EchoData:
         stat_offsets: Optional[Dict[str, float]] = None
     ) -> float:
         """Method 5: CV (Crit Value) Based Method (Community Standard)."""
-        cv_score = 0.0
-
-        # Crit Value Calculation
-        crit_rate = self.substats.get(STAT_CRIT_RATE, 0.0)
-        crit_dmg = self.substats.get(STAT_CRIT_DMG, 0.0)
-        cv_score += (crit_rate * cv_weights.get(CV_KEY_CRIT_RATE, 2.0))
-        cv_score += (crit_dmg * cv_weights.get(CV_KEY_CRIT_DMG, 1.0))
-
-        # Core ATK and ER scoring
-        atk_pct = self.substats.get(STAT_ATK_PERCENT, 0.0)
-        flat_atk = self.substats.get(STAT_ATK_FLAT, 0.0)
-        er = self.substats.get(STAT_ER, 0.0)
-
-        cv_score += atk_pct * cv_weights.get(CV_KEY_ATK_PERCENT, 1.1)
-        
-        flat_atk_div = cv_weights.get(CV_KEY_ATK_FLAT_DIVISOR, 10.0)
-        flat_atk_mult = cv_weights.get(CV_KEY_ATK_FLAT_MULTIPLIER, 1.2)
-        cv_score += (flat_atk / flat_atk_div * flat_atk_mult)
-        
-        cv_score += er * cv_weights.get(CV_KEY_ER, 0.5)
-
-        # Damage bonuses weighted by character preference
-        dmg_bonus_weight = cv_weights.get(CV_KEY_DMG_BONUS, 1.1)
-        for stat_name in DAMAGE_BONUS_STATS:
-            if stat_name in self.substats:
-                val = self.substats[stat_name]
-                weight = stat_weights.get(stat_name, 0.5)
-                cv_score += val * dmg_bonus_weight * weight
-
-        return cv_score * (self.level / 25.0)
+        strategy = get_scoring_method("cv")
+        config = {"cv_weights": cv_weights}
+        return strategy.calculate(self, stat_weights, config)
 
     def calculate_theoretical_max_sub_score(
         self,
@@ -238,25 +162,12 @@ class EchoData:
 
         # 1. Individual Method Scores
         results = {}
-        if enabled_methods.get("normalized"):
-            results["normalized"] = self.calculate_score_normalized(
-                character_weights, max_vals, main_mult
-            )
-        if enabled_methods.get("ratio"):
-            results["ratio"] = self.calculate_score_ratio_based(character_weights, max_vals)
-        if enabled_methods.get("roll"):
-            results["roll"] = self.calculate_score_roll_quality(
-                character_weights, config_bundle.get("roll_quality", {})
-            )
-        if enabled_methods.get("effective"):
-            results["effective"] = self.calculate_score_effective_stats(
-                character_weights, max_vals, config_bundle.get("effective_stats", {})
-            )
-        if enabled_methods.get("cv"):
-            results["cv"] = self.calculate_score_cv_based(
-                character_weights, config_bundle.get("cv_weights", {}),
-                stat_offsets=stat_offsets
-            )
+        for strategy in SCORING_METHODS:
+            method_name = strategy.name()
+            if enabled_methods.get(method_name):
+                results[method_name] = strategy.calculate(
+                    self, character_weights, config_bundle
+                )
 
         # 2. Achievement Rate (Main Metric)
         theo_max = self.calculate_theoretical_max_sub_score(character_weights, max_vals)

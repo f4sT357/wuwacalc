@@ -180,14 +180,14 @@ class OcrParser:
         num_found = ""
         is_percent = False
 
-        match = re.search(r"(.+?)\s+([\d\.]+(?:\s*[%％])?)", line)
+        match = re.search(r"(.+?)\s+([\d\.]*\d[\d\.]*(?:\s*[%％])?)", line)
         if match:
             stat_text_from_line = match.group(1).strip()
             num_text_from_line = match.group(2).strip()
             for stat, alias in alias_pairs:
                 if stat_text_from_line == stat or stat_text_from_line == alias:
                     stat_found = stat
-                    nums = re.findall(r"[\d\.]+", num_text_from_line.replace("％", "%"))
+                    nums = re.findall(r"[\d\.]*\d[\d\.]*", num_text_from_line.replace("％", "%"))
                     if nums:
                         num_found = nums[0]
                         if "%" in num_text_from_line or "％" in num_text_from_line:
@@ -198,7 +198,7 @@ class OcrParser:
             for stat, alias in alias_pairs:
                 if alias in line:
                     stat_found = stat
-                    nums = re.findall(r"[\d\.]+", line.replace("％", "%"))
+                    nums = re.findall(r"[\d\.]*\d[\d\.]*", line.replace("％", "%"))
                     if nums:
                         num_found = nums[0]
                         if "%" in line or "％" in line:

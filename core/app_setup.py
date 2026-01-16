@@ -43,7 +43,16 @@ class AppContext:
 
         config_path = os.path.join(get_app_path(), CONFIG_FILENAME)
         self.config_manager = ConfigManager(config_path)
-        self.config_manager.load()
+        load_status = self.config_manager.load()
+        if load_status == "CORRUPTED":
+            self.logger.warning("Config file is corrupted. Using default settings.")
+            QMessageBox.warning(
+                None,
+                "Config Load Warning",
+                f"The configuration file at {config_path} is corrupted and could not be loaded.\n"
+                "Standard settings will be used instead.",
+            )
+
         self.app_config = self.config_manager.get_app_config()
 
         # 2. Basic Managers
@@ -65,7 +74,7 @@ class AppContext:
             self.data_manager, self.character_manager, self.history_mgr, self.html_renderer, self.config_manager
         )
         self.tab_mgr = TabManager(
-            self.notebook, self.data_manager, self.config_manager, main_window.tr, self.character_manager
+            self.data_manager, self.config_manager, main_window.tr, self.character_manager
         )
         self.logic = AppLogic(main_window.tr, self.data_manager, self.config_manager)
         self.image_proc = ImageProcessor(self.logic, self.config_manager)
