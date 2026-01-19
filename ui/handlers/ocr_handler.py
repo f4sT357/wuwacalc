@@ -10,6 +10,7 @@ class OCRHandler(BaseHandler):
         super().__init__(app, ctx)
         self._ocr_trigger_character = None
         self._temp_ocr_result = None
+        self._batch_assigned_tabs = []
 
     def on_ocr_completed(self, result: Any) -> None:
         ocr_data = result if isinstance(result, OCRResult) else result.result
@@ -50,11 +51,21 @@ class OCRHandler(BaseHandler):
         target_tab = self.tab_mgr.find_best_tab_match(
             ocr_data.cost, ocr_data.main_stat, self.app.character_var
         )
+        
+        # If batch mode, prefer non-assigned tabs
+        if is_batch and target_tab in self._batch_assigned_tabs:
+            target_tab = self.tab_mgr.get_next_available_tab(exclude_tabs=self._batch_assigned_tabs)
+
         if not target_tab:
-            target_tab = self.app.get_selected_tab_name()
+            if is_batch:
+                target_tab = self.tab_mgr.get_next_available_tab(exclude_tabs=self._batch_assigned_tabs)
+            else:
+                target_tab = self.app.get_selected_tab_name()
 
         if target_tab:
-            if not is_batch:
+            if is_batch:
+                self._batch_assigned_tabs.append(target_tab)
+            else:
                 self.app._switch_to_tab(target_tab)
 
             self.app.gui_log(f"Applying result to tab: {target_tab}")
@@ -77,6 +88,14 @@ class OCRHandler(BaseHandler):
             f"{self.app.tr('all_files')} (*.*)"
         )
         if file_paths:
+            if len(file_paths) > 5:
+                QMessageBox.warning(
+                    self.app, self.app.tr("info"),
+                    self.app.tr("batch_processing_limit_reached")
+                )
+                file_paths = file_paths[:5]
+            
+            self._batch_assigned_tabs = []
             self.image_proc.process_images_from_paths(file_paths)
 
     def handle_dropped_files(self, paths: list) -> None:
@@ -85,6 +104,15 @@ class OCRHandler(BaseHandler):
             return
         self.app.check_character_selected(quiet=False)
         self._ocr_trigger_character = self.app.character_var
+        
+        if len(paths) > 5:
+            QMessageBox.warning(
+                self.app, self.app.tr("info"),
+                self.app.tr("batch_processing_limit_reached")
+            )
+            paths = paths[:5]
+            
+        self._batch_assigned_tabs = []
         self.image_proc.process_images_from_paths(paths)
 
     def paste_from_clipboard(self) -> None:

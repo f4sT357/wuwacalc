@@ -380,6 +380,25 @@ class TabManager(QObject):
                         return name
 
         return cost_matches[0]
+    
+    def get_next_available_tab(self, exclude_tabs: List[str] = None) -> Optional[str]:
+        """Find the first empty tab that is not in the excluded list."""
+        if exclude_tabs is None:
+            exclude_tabs = []
+            
+        config_key = self._validate_config_key()
+        tab_names = self.data_manager.tab_configs.get(config_key, [])
+        
+        for name in tab_names:
+            if name not in exclude_tabs and self.is_tab_empty(name):
+                return name
+        
+        # If no empty tabs, just return the first one not in exclusion if any
+        for name in tab_names:
+            if name not in exclude_tabs:
+                return name
+                
+        return None
 
     def is_tab_empty(self, tab_name: str) -> bool:
         """Check if a specific tab has no data entered."""
