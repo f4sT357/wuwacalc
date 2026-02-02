@@ -1092,3 +1092,4 @@ TRANSLATIONS = {
         "apply_selection": "应用选择范围",
         "tooltip_apply_selection": "将当前拖动选择的范围应用到主界面的百分比滑块中。"
     }
+}
