@@ -24,21 +24,23 @@ Supports automatic input via OCR, character-specific weighting presets, and mult
 
 ### 日本語 (JP)
 - **OCR自動入力**: スクリーンショットやクリップボードの画像からステータスを自動認識。
+- **インテリジェント配分**: OCR時にコスト(1/3/4)を判別し、適切な空きタブへ自動振り分け。
 - **5つの計算方式**: 正規化、比率重視、ロール品質、有効ステータス数、CV換算に対応。
-- **キャラクタープリセット**: 各キャラに合わせた有効ステータスと重み付けを保存可能。
+- **キャラクタープリセット**: 各キャラに合わせた有効ステータスと重み付け、参照ステータスを保存可能。
 - **装備自動ロード**: キャラクター切り替え時、空いているタブに「装備中」のエコーを自動で読み込みます。
-- **スコアボード生成**: 現在のビルド（5つのエコー）のステータスとスコアをまとめた画像を生成します。
-- **外観カスタマイズ**: テーマ変更や背景画像の個別設定が可能。
-- **安全なOCR**: 手動入力を保護するための「重複スキップ機能」や、操作ミスを防ぐ「競合検出機能」を搭載。
+- **5列スコアボード生成**: 現在のビルドを横一列にまとめた画像を生成。スコア評価から「%」を除いた正確な指標を表示。
+- **リアルタイム設定反映**: 言語設定や文字色が、再起動なしでUI全体に即座に反映されます。
+- **安全なOCR**: 重複防止機能や、高度な画像処理（OpenCV）エンジンを選択可能。
 
 ### English (EN)
 - **OCR Auto-Input**: Automatically recognize stats from screenshots or clipboard images.
+- **Intelligent Assignment**: Auto-assigns echoes to tabs based on identified cost (1/3/4).
 - **5 Calculation Methods**: Supports Normalization, Ratio, Roll Quality, Effective Stats Count, and Crit Value (CV).
-- **Character Presets**: Save effective stats and weighting settings for each character.
+- **Character Presets**: Save effective stats, weighting, and scaling stat (ATK/HP/DEF) for each character.
 - **Equipped Auto-Load**: Automatically loads equipped echoes into empty tabs when switching characters.
-- **Scoreboard Generation**: Create a summary image of your current 5-echo build.
-- **Appearance Customization**: Customize themes and background images.
-- **Safe OCR**: Features duplicate skipping to protect manual edits and conflict detection to prevent accidental overwrites.
+- **5-Column Scoreboard**: Creates a summary image in a clean single-row layout. Removes misleading "%" from scores.
+- **Real-time Updates**: Language and appearance settings are applied instantly to the entire UI.
+- **Advanced OCR**: Features duplicate skipping and optional OpenCV-based preprocessing.
 
 ---
 

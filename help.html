@@ -159,44 +159,43 @@
             
             <div class="step-box">
                 <span class="step-num">1</span> <b>キャラクターの設定</b><br>
-                「キャラ設定」ボタンから、育てたいキャラクターを登録します。各ステータスの重要度（重み）を設定することで、そのキャラにとっての最適な評価が可能になります。
+                「キャラ設定」ボタンからキャラクターを登録します。ステータスの重み、参照ステータス（ATK/HP/DEF）、基礎ステータス等を設定できます。設定した内容は、OCR配分や「厳選達成率」の計算に反映されます。
             </div>
 
             <div class="step-box">
                 <span class="step-num">2</span> <b>音骸データの入力</b><br>
                 <ul>
-                    <li><strong>OCR（自動）</strong>: ゲーム画面のスクリーンショットをクリップボードにコピー（<code>Win+Shift+S</code> 等）し、アプリで <span class="shortcut">Ctrl+V</span> を押すだけで自動入力されます。</li>
-                    <li><strong>手動</strong>: 各スロットのステータスと数値を直接入力します。</li>
-                    <li><strong>装備自動ロード</strong>: キャラクターを切り替えた際、タブが空（未入力）であれば、「装備中」として保存されたデータが自動的に読み込まれます。4-3-3-1-1から4-4-1-1-1への移行時なども、コストが一致する範囲で適切に配置されます。</li>
+                    <li><strong>OCR（自動）</strong>: <code>Win+Shift+S</code> 等で撮影し <span class="shortcut">Ctrl+V</span> で貼り付け。</li>
+                    <li><strong>インテリジェント配分</strong>: OCR時にコスト（1/3/4）を自動判別し、空いている最適なタブへ振り分けます。バッチ処理（最大5枚同時）にも対応しています。</li>
+                    <li><strong>装備自動ロード</strong>: キャラ切り替え時、未入力のタブには「装備中」として保存されたデータが自動的にロードされます。</li>
                 </ul>
             </div>
 
             <div class="step-box">
                 <span class="step-num">3</span> <b>スコア計算</b><br>
-                <span class="shortcut">F5</span> キーまたは <span class="shortcut">Ctrl+Enter</span> を押すと計算が実行されます。
-                「自動計算」にチェックを入れると、データ入力と同時に計算が行われます。
+                <span class="shortcut">F5</span> キーまたは <span class="shortcut">Ctrl+Enter</span> で実行。「自動計算」にチェックを入れると即座に結果が出ます。
             </div>
         </div>
 
         <div class="card">
             <h2>スコアボード機能</h2>
             <p>
-                「スコアボード」ボタンを押すと、現在選択中のキャラクターと、全5タブ（エコー）の情報をまとめた一枚の画像（PNG形式）を生成します。
-                SNS等でのビルド共有に最適です。
+                「スコアボード」ボタンでビルド全体画像を生成します。
+                <ul>
+                    <li><strong>5列レイアウト</strong>: 全5つのエコーを横一列に並べ、一目でステータスを確認可能。</li>
+                    <li><strong>正確な数値評価</strong>: スコアから「%」記号を削除し、純粋な加点評価としての数値を表示。</li>
+                    <li><strong>有効ステータス数</strong>: 各エコーに何個の有効なステータスがあるかを明記。</li>
+                </ul>
             </p>
         </div>
 
         <div class="card">
             <h2>便利な機能と設定</h2>
             <ul>
-                <li><strong>表示設定</strong>: 背景画像、不透明度、テーマ（ダーク/ライト/クリア）を自由に変更できます。</li>
-                <li><strong>計算履歴</strong>: 過去に計算した音骸のデータを自動保存します。厳選の進捗確認に役立ちます。</li>
-                <li><strong>OCR設定</strong>:
-                    <ul>
-                        <li><strong>重複データを無視</strong>: OCR結果が現在のタブと完全に一致する場合、画面更新をスキップします（手入力の修正を保護するため）。</li>
-                        <li><strong>キャラクター変更検知</strong>: OCR処理中にキャラクターを変更した場合、警告を表示して意図しないデータ上書きを防ぎます。</li>
-                    </ul>
-                </li>
+                <li><strong>表示設定・翻訳</strong>: 言語設定（日/英/中）は変更後、即座にUI全体に反映されます。</li>
+                <li><strong>OCR前処理エンジン</strong>: <code>Standard (Pillow)</code> と、より精度の高い <code>Advanced (OpenCV)</code> を切り替え可能。</li>
+                <li><strong>計算履歴</strong>: 計算したデータは自動保存され、「履歴」ボタンから過去の厳選進捗を確認できます。</li>
+                <li><strong>重複スキップ</strong>: 全く同じデータを二重にOCRしてしまい、手修正を台無しにするのを防ぎます。</li>
             </ul>
         </div>
 
@@ -204,9 +203,9 @@
             <h2>OCR精度向上のコツ</h2>
             <div class="warning-box">
                 <ul>
-                    <li>スクリーンショットは、音骸のステータス部分が隠れないように撮影してください。</li>
-                    <li><strong>実数値と%の誤認防止</strong>: 攻撃力などが「.」を含み、かつ20未満の場合は自動的に「%」として扱う補正機能が働きます。</li>
-                    <li>文字化けが発生する場合は、「前処理設定」から <b>OpenCV</b> モードを試してみてください（別途 <code>pip install opencv-python</code> が必要です）。</li>
+                    <li><strong>クロップ設定</strong>: 音骸名や数値が端で切れないよう、「クロップ設定」タブで範囲を調整してください。</li>
+                    <li><strong>実数値と%の自動補正</strong>: OCRが「.」を読み飛ばしても、理論値に基づき「%」か「固定値」かを自動で推論し補正します。</li>
+                    <li><strong>バッチ計算</strong>: 複数枚をまとめて読み込んだ際は、ログの見やすさを優先して最終計算のみを詳細に出力します。</li>
                 </ul>
             </div>
         </div>
