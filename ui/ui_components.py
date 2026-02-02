@@ -397,8 +397,8 @@ class UIComponents:
 
     def _setup_settings_tab(self, layout: QVBoxLayout) -> None:
         # 1. General & Language
-        gen_group = QGroupBox(self.app.tr("general_settings"))
-        gen_grid = QGridLayout(gen_group)
+        self.gen_group = QGroupBox(self.app.tr("general_settings"))
+        gen_grid = QGridLayout(self.gen_group)
         
         gen_grid.addWidget(self.lbl_language, 0, 0)
         self.lang_combo.clear()
@@ -414,11 +414,11 @@ class UIComponents:
         self.cb_auto_calculate.setChecked(self.app.app_config.auto_calculate)
         gen_grid.addWidget(self.cb_auto_calculate, 2, 0, 1, 2)
 
-        layout.addWidget(gen_group)
+        layout.addWidget(self.gen_group)
 
         # 2. Calculation Methods
-        calc_group = QGroupBox(self.app.tr("calculation_settings"))
-        calc_vbox = QVBoxLayout(calc_group)
+        self.calc_group = QGroupBox(self.app.tr("calculation_settings"))
+        calc_vbox = QVBoxLayout(self.calc_group)
         
         # Calc Mode (Batch vs Single)
         mode_h = QHBoxLayout()
@@ -450,11 +450,11 @@ class UIComponents:
             methods_h.addWidget(cb)
         calc_vbox.addLayout(methods_h)
         
-        layout.addWidget(calc_group)
+        layout.addWidget(self.calc_group)
 
         # 3. OCR & Crop Settings
-        ocr_group = QGroupBox(self.app.tr("ocr_settings"))
-        ocr_vbox = QVBoxLayout(ocr_group)
+        self.ocr_group = QGroupBox(self.app.tr("ocr_settings"))
+        ocr_vbox = QVBoxLayout(self.ocr_group)
 
         # Input Mode
         input_h = QHBoxLayout()
@@ -513,33 +513,35 @@ class UIComponents:
         self.crop_labels["H"] = lbl_h
         ocr_vbox.addLayout(crop_sliders_h)
 
-        layout.addWidget(ocr_group)
+        layout.addWidget(self.ocr_group)
 
         # 4. Dialog Buttons
         diag_h = QHBoxLayout()
         
-        btn_char_set = QPushButton(self.app.tr("char_setting"))
-        menu = QMenu(btn_char_set)
-        menu.addAction(self.app.tr("new")).triggered.connect(self.app.events.open_char_settings_new)
-        menu.addAction(self.app.tr("edit")).triggered.connect(self.app.events.open_char_settings_edit)
-        btn_char_set.setMenu(menu)
-        diag_h.addWidget(btn_char_set)
+        self.btn_char_set = QPushButton(self.app.tr("char_setting"))
+        self.menu_char_set = QMenu(self.btn_char_set)
+        self.act_char_new = self.menu_char_set.addAction(self.app.tr("new"))
+        self.act_char_new.triggered.connect(self.app.events.open_char_settings_new)
+        self.act_char_edit = self.menu_char_set.addAction(self.app.tr("edit"))
+        self.act_char_edit.triggered.connect(self.app.events.open_char_settings_edit)
+        self.btn_char_set.setMenu(self.menu_char_set)
+        diag_h.addWidget(self.btn_char_set)
 
-        btn_hist = QPushButton(self.app.tr("history"))
-        btn_hist.clicked.connect(self.app.events.open_history)
-        diag_h.addWidget(btn_hist)
+        self.btn_hist = QPushButton(self.app.tr("history"))
+        self.btn_hist.clicked.connect(self.app.events.open_history)
+        diag_h.addWidget(self.btn_hist)
 
-        btn_disp = QPushButton(self.app.tr("display_settings"))
-        btn_disp.clicked.connect(self.app.events.open_display_settings)
-        diag_h.addWidget(btn_disp)
+        self.btn_disp = QPushButton(self.app.tr("display_settings"))
+        self.btn_disp.clicked.connect(self.app.events.open_display_settings)
+        diag_h.addWidget(self.btn_disp)
 
-        btn_pre = QPushButton(self.app.tr("preprocess_settings"))
-        btn_pre.clicked.connect(self.app.events.open_image_preprocessing_settings)
-        diag_h.addWidget(btn_pre)
+        self.btn_pre = QPushButton(self.app.tr("preprocess_settings"))
+        self.btn_pre.clicked.connect(self.app.events.open_image_preprocessing_settings)
+        diag_h.addWidget(self.btn_pre)
 
-        btn_h = QPushButton(self.app.tr("help"))
-        btn_h.clicked.connect(self.app._open_readme)
-        diag_h.addWidget(btn_h)
+        self.btn_help = QPushButton(self.app.tr("help"))
+        self.btn_help.clicked.connect(self.app._open_readme)
+        diag_h.addWidget(self.btn_help)
 
         layout.addLayout(diag_h)
         layout.addStretch()
@@ -626,6 +628,21 @@ class UIComponents:
         self.crop_labels["T"].setText(self.app.tr("top_percent"))
         self.crop_labels["W"].setText(self.app.tr("width_percent"))
         self.crop_labels["H"].setText(self.app.tr("height_percent"))
+
+        # Missing Settings groups and buttons
+        if hasattr(self, "gen_group"): self.gen_group.setTitle(self.app.tr("general_settings"))
+        if hasattr(self, "calc_group"): self.calc_group.setTitle(self.app.tr("calculation_settings"))
+        if hasattr(self, "ocr_group"): self.ocr_group.setTitle(self.app.tr("ocr_settings"))
+        
+        if hasattr(self, "btn_char_set"): 
+            self.btn_char_set.setText(self.app.tr("char_setting"))
+            if hasattr(self, "act_char_new"): self.act_char_new.setText(self.app.tr("new"))
+            if hasattr(self, "act_char_edit"): self.act_char_edit.setText(self.app.tr("edit"))
+            
+        if hasattr(self, "btn_hist"): self.btn_hist.setText(self.app.tr("history"))
+        if hasattr(self, "btn_disp"): self.btn_disp.setText(self.app.tr("display_settings"))
+        if hasattr(self, "btn_pre"): self.btn_pre.setText(self.app.tr("preprocess_settings"))
+        if hasattr(self, "btn_help"): self.btn_help.setText(self.app.tr("help"))
 
         # Update character combo first item (placeholder)
         self.character_combo.setItemText(0, f"-- {self.app.tr('character')} --")

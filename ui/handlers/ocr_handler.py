@@ -52,13 +52,17 @@ class OCRHandler(BaseHandler):
             ocr_data.cost, ocr_data.main_stat, self.app.character_var
         )
         
-        # If batch mode, prefer non-assigned tabs
+        # If batch mode, prefer non-assigned tabs matching cost
         if is_batch and target_tab in self._batch_assigned_tabs:
-            target_tab = self.tab_mgr.get_next_available_tab(exclude_tabs=self._batch_assigned_tabs)
+            target_tab = self.tab_mgr.get_next_available_tab(
+                exclude_tabs=self._batch_assigned_tabs, cost=ocr_data.cost
+            )
 
         if not target_tab:
             if is_batch:
-                target_tab = self.tab_mgr.get_next_available_tab(exclude_tabs=self._batch_assigned_tabs)
+                target_tab = self.tab_mgr.get_next_available_tab(
+                    exclude_tabs=self._batch_assigned_tabs, cost=ocr_data.cost
+                )
             else:
                 target_tab = self.app.get_selected_tab_name()
 
@@ -75,7 +79,7 @@ class OCRHandler(BaseHandler):
             if not is_batch:
                 self.ui.display_ocr_overlay(ocr_data)
 
-            if self.app.app_config.auto_calculate:
+            if not is_batch and self.app.app_config.auto_calculate:
                 from PySide6.QtCore import QTimer
                 QTimer.singleShot(100, self.app.trigger_calculation)
 

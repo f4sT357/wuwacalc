@@ -28,10 +28,15 @@ class CalculationHandler(BaseHandler):
                         self.app.character_var, tab_name, entry, enabled_methods
                     )
             else:
-                tabs_data = {
-                    n: self.tab_mgr.extract_tab_data(n)
-                    for n in self.tab_mgr.tabs_content.keys()
-                }
+                tabs_data = {}
+                for n in self.tab_mgr.tabs_content.keys():
+                    if self.tab_mgr.has_substats(n):
+                        tabs_data[n] = self.tab_mgr.extract_tab_data(n)
+                
+                if not tabs_data:
+                    self.app.gui_log("No calculatable data found in any tab.")
+                    return
+
                 self.score_calc.calculate_batch(
                     self.app.character_var, tabs_data, enabled_methods, self.app.language
                 )

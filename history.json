@@ -1,5 +1,29 @@
 [
   {
+    "timestamp": "2026-02-02 17:45:36",
+    "character": "Changli",
+    "cost": "1",
+    "action": "Single Evaluation",
+    "result": "Score: 50.78 (rating_a_single)",
+    "fingerprint": "0d619aee7409ffb27244d8899089cfc1",
+    "details": {
+      "score": 50.77981651376147,
+      "rating_key": "rating_a_single"
+    }
+  },
+  {
+    "timestamp": "2026-02-02 17:45:30",
+    "character": "Changli",
+    "cost": "3",
+    "action": "Single Evaluation",
+    "result": "Score: 41.43 (rating_a_single)",
+    "fingerprint": "cdafe71dba9e588b4a97c0c192f202e6",
+    "details": {
+      "score": 41.42857142857142,
+      "rating_key": "rating_a_single"
+    }
+  },
+  {
     "timestamp": "2026-01-17 00:01:36",
     "character": "Shorekeeper",
     "cost": "4",
