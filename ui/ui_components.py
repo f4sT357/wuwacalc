@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QGridLayout,
     QButtonGroup,
+    QTabWidget,
 )
 from PySide6.QtGui import QPixmap, QPainter, QPen, QColor
 from PySide6.QtCore import Qt, Signal, QRect
@@ -265,100 +266,180 @@ class UIComponents:
     def create_main_layout(self) -> None:
         self.main_widget = QWidget()
         layout = QVBoxLayout(self.main_widget)
+        layout.setContentsMargins(2, 2, 2, 2)
 
+        self.main_tabs = QTabWidget()
+        layout.addWidget(self.main_tabs)
+
+        # 1. Calculator Tab
+        calc_tab = QWidget()
+        calc_layout = QVBoxLayout(calc_tab)
+        self._setup_calculator_tab(calc_layout)
+        self.main_tabs.addTab(calc_tab, self.app.tr("calculator") if hasattr(self.app, "tr") else "Calculator")
+
+        # 2. Settings Tab
+        settings_tab = QWidget()
+        settings_layout = QVBoxLayout(settings_tab)
+        self._setup_settings_tab(settings_layout)
+        self.main_tabs.addTab(settings_tab, self.app.tr("settings") if hasattr(self.app, "tr") else "Settings")
+
+        # 3. Log Tab
+        log_tab = QWidget()
+        log_layout = QVBoxLayout(log_tab)
+        self._setup_log_tab(log_layout)
+        self.main_tabs.addTab(log_tab, self.app.tr("log") if hasattr(self.app, "tr") else "Log")
+
+    def _setup_calculator_tab(self, layout: QVBoxLayout) -> None:
+        # Top Bar: Character, Config, Calculate
+        top_h = QHBoxLayout()
+        
+        self.lbl_character.setText(self.app.tr("character"))
+        top_h.addWidget(self.lbl_character)
+        top_h.addWidget(self.character_combo, 1)
+
+        self.lbl_cost_config.setText(self.app.tr("cost_config"))
+        top_h.addWidget(self.lbl_cost_config)
+        self.config_combo.clear() # Clear it as it's populated in setup_settings_ui normally
+        self.config_combo.addItems(list(self.app.data_manager.tab_configs.keys()))
+        self.config_combo.setCurrentText(self.app.current_config_key)
+        top_h.addWidget(self.config_combo, 1)
+
+        btn_calc = QPushButton(self.app.tr("calculate"))
+        btn_calc.setObjectName("btn_main_calculate")
+        btn_calc.clicked.connect(self.app.events.trigger_calculation)
+        btn_calc.setMinimumHeight(40)
+        btn_calc.setStyleSheet("font-weight: bold; font-size: 14px;")
+        top_h.addWidget(btn_calc, 1)
+        
+        layout.addLayout(top_h)
+
+        # Main Area: Splitter
         splitter = QSplitter(Qt.Orientation.Horizontal)
         layout.addWidget(splitter)
 
-        # Left
+        # Left: Echo Tabs & Results
         left_w = QWidget()
         left_l = QVBoxLayout(left_w)
-        self._setup_settings_ui(left_l)
-
-        # Use existing notebook instance from app
-        left_l.addWidget(self.app.notebook)
-
-        self._setup_result_ui(left_l)
+        left_l.setContentsMargins(0, 5, 0, 0)
+        
+        # Add notebook
+        left_l.addWidget(self.app.notebook, 2)
+        
+        # Results area
+        self.result_group = QGroupBox(self.app.tr("calc_result"))
+        res_l = QVBoxLayout(self.result_group)
+        self.result_text = QTextEdit()
+        self.result_text.setReadOnly(True)
+        res_l.addWidget(self.result_text)
+        left_l.addWidget(self.result_group, 3)
+        
         splitter.addWidget(left_w)
 
-        # Right
+        # Right: Image Preview & Control
         right_w = QWidget()
         right_l = QVBoxLayout(right_w)
-        self._setup_image_ui(right_l)
-        self._setup_log_ui(right_l)
-        splitter.addWidget(right_w)
+        right_l.setContentsMargins(0, 5, 0, 0)
 
+        # Image Groupbox
+        self.image_group = QGroupBox(self.app.tr("ocr_image"))
+        img_vbox = QVBoxLayout(self.image_group)
+        
+        # Image Control Buttons
+        btn_h = QHBoxLayout()
+        self.btn_load.setText(self.app.tr("load_image"))
+        self.btn_load.clicked.connect(self.app.events.import_image)
+        btn_h.addWidget(self.btn_load)
+
+        self.btn_paste.setText(self.app.tr("paste_clipboard"))
+        self.btn_paste.clicked.connect(self.app.events.paste_from_clipboard)
+        btn_h.addWidget(self.btn_paste)
+
+        self.btn_crop.setText(self.app.tr("perform_crop"))
+        self.btn_crop.clicked.connect(self.app.image_proc.perform_crop)
+        btn_h.addWidget(self.btn_crop)
+        
+        img_vbox.addLayout(btn_h)
+
+        self.image_label = OCRImageLabel()
+        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setMinimumHeight(IMAGE_PREVIEW_MAX_HEIGHT)
+        self.image_label.set_drag_enabled(self.app.crop_mode_var == "drag")
+        img_vbox.addWidget(self.image_label)
+        
+        right_l.addWidget(self.image_group)
+
+        # Extra Actions Group
+        act_group = QGroupBox(self.app.tr("actions"))
+        act_l = QGridLayout(act_group)
+        
+        # Row 1
+        self.btn_equip = QPushButton(self.app.tr("set_equipped"))
+        self.btn_equip.clicked.connect(self.app.set_current_as_equipped)
+        act_l.addWidget(self.btn_equip, 0, 0)
+
+        self.btn_score = QPushButton(self.app.tr("scoreboard"))
+        self.btn_score.clicked.connect(self.app.events.generate_scoreboard)
+        act_l.addWidget(self.btn_score, 0, 1)
+
+        # Row 2
+        self.btn_export = QPushButton(self.app.tr("export_txt"))
+        self.btn_export.clicked.connect(self.app.export_result_to_txt)
+        act_l.addWidget(self.btn_export, 1, 0)
+
+        self.btn_clear = QPushButton(self.app.tr("clear_all"))
+        self.btn_clear.clicked.connect(self.app.clear_all)
+        act_l.addWidget(self.btn_clear, 1, 1)
+
+        right_l.addWidget(act_group)
+        
+        splitter.addWidget(right_w)
         splitter.setSizes([WINDOW_WIDTH // 2, WINDOW_WIDTH // 2])
 
-    def _setup_settings_ui(self, layout: QVBoxLayout) -> None:
-        self.settings_group = QGroupBox(self.app.tr("basic_settings"))
-        vbox = QVBoxLayout(self.settings_group)
-        layout.addWidget(self.settings_group)
-
-        grid = QGridLayout()
-        vbox.addLayout(grid)
-
-        self.lbl_cost_config.setText(self.app.tr("cost_config"))
-        grid.addWidget(self.lbl_cost_config, 0, 0)
-        self.config_combo.addItems(list(self.app.data_manager.tab_configs.keys()))
-        self.config_combo.setCurrentText(self.app.current_config_key)
-        grid.addWidget(self.config_combo, 0, 1)
-
-        self.lbl_character.setText(self.app.tr("character"))
-        grid.addWidget(self.lbl_character, 0, 2)
-        grid.addWidget(self.character_combo, 0, 3)
-
-        self.lbl_language.setText(self.app.tr("language"))
-        grid.addWidget(self.lbl_language, 1, 0)
+    def _setup_settings_tab(self, layout: QVBoxLayout) -> None:
+        # 1. General & Language
+        gen_group = QGroupBox(self.app.tr("general_settings"))
+        gen_grid = QGridLayout(gen_group)
+        
+        gen_grid.addWidget(self.lbl_language, 0, 0)
+        self.lang_combo.clear()
         self.lang_combo.addItems(["ja", "en", "zh-CN"])
         self.lang_combo.setCurrentText(self.app.language)
-        grid.addWidget(self.lang_combo, 1, 1)
-
-        self.lbl_input_mode.setText(self.app.tr("input_mode"))
-        grid.addWidget(self.lbl_input_mode, 1, 2)
-        mode_h = QHBoxLayout()
-        self.rb_manual.setText(self.app.tr("manual"))
-        self.rb_manual.setToolTip(self.app.tr("tooltip_manual_mode"))
-        self.rb_ocr.setText(self.app.tr("ocr"))
-        self.rb_ocr.setToolTip(self.app.tr("tooltip_ocr_mode"))
-
-        # Group Input Mode Radio Buttons
-        self.grp_input_mode = QButtonGroup(self.main_widget)
-        self.grp_input_mode.addButton(self.rb_manual)
-        self.grp_input_mode.addButton(self.rb_ocr)
-
-        if self.app.mode_var == "ocr":
-            self.rb_ocr.setChecked(True)
-        else:
-            self.rb_manual.setChecked(True)
-        mode_h.addWidget(self.rb_manual)
-        mode_h.addWidget(self.rb_ocr)
-        grid.addLayout(mode_h, 1, 3)
+        gen_grid.addWidget(self.lang_combo, 0, 1)
 
         self.cb_auto_main.setText(self.app.tr("auto_main"))
         self.cb_auto_main.setChecked(self.app.auto_apply_main_stats)
-        grid.addWidget(self.cb_auto_main, 2, 0, 1, 2)
+        gen_grid.addWidget(self.cb_auto_main, 1, 0, 1, 2)
 
+        self.cb_auto_calculate.setText(self.app.tr("auto_calculate"))
+        self.cb_auto_calculate.setChecked(self.app.app_config.auto_calculate)
+        gen_grid.addWidget(self.cb_auto_calculate, 2, 0, 1, 2)
+
+        layout.addWidget(gen_group)
+
+        # 2. Calculation Methods
+        calc_group = QGroupBox(self.app.tr("calculation_settings"))
+        calc_vbox = QVBoxLayout(calc_group)
+        
+        # Calc Mode (Batch vs Single)
+        mode_h = QHBoxLayout()
         self.lbl_calc_mode.setText(self.app.tr("calc_mode"))
-        grid.addWidget(self.lbl_calc_mode, 2, 2)
-        calc_h = QHBoxLayout()
+        mode_h.addWidget(self.lbl_calc_mode)
         self.rb_batch.setText(self.app.tr("batch"))
         self.rb_single.setText(self.app.tr("single_only"))
-        self.rb_batch.setToolTip(self.app.tr("tooltip_batch_mode"))
-        self.rb_single.setToolTip(self.app.tr("tooltip_single_mode"))
-
-        # Group Calc Mode Radio Buttons
+        
         self.grp_calc_mode = QButtonGroup(self.main_widget)
         self.grp_calc_mode.addButton(self.rb_batch)
         self.grp_calc_mode.addButton(self.rb_single)
-
+        
         if self.app.score_mode_var == "batch":
             self.rb_batch.setChecked(True)
         else:
             self.rb_single.setChecked(True)
-        calc_h.addWidget(self.rb_batch)
-        calc_h.addWidget(self.rb_single)
-        grid.addLayout(calc_h, 2, 3)
+        mode_h.addWidget(self.rb_batch)
+        mode_h.addWidget(self.rb_single)
+        calc_vbox.addLayout(mode_h)
 
+        # Methods Checkboxes
         methods_h = QHBoxLayout()
         self.lbl_methods.setText(self.app.tr("methods_label"))
         methods_h.addWidget(self.lbl_methods)
@@ -367,133 +448,106 @@ class UIComponents:
             cb.setText(self.app.tr(f"method_{m}"))
             cb.setChecked(enabled.get(m, True))
             methods_h.addWidget(cb)
-        vbox.addLayout(methods_h)
+        calc_vbox.addLayout(methods_h)
+        
+        layout.addWidget(calc_group)
 
-        btn_h = QHBoxLayout()
-        self._setup_action_buttons(btn_h)
-        vbox.addLayout(btn_h)
+        # 3. OCR & Crop Settings
+        ocr_group = QGroupBox(self.app.tr("ocr_settings"))
+        ocr_vbox = QVBoxLayout(ocr_group)
 
-    def _setup_action_buttons(self, layout: QHBoxLayout) -> None:
-        self.action_buttons = {}
-        # key, slot, tooltip_key
-        buttons = [
-            ("calculate", self.app.events.trigger_calculation, "tooltip_calculate"),
-            ("set_equipped", self.app.set_current_as_equipped, "tooltip_set_equipped"),
-            ("export_txt", self.app.export_result_to_txt, "tooltip_export_txt"),
-            ("scoreboard", self.app.events.generate_scoreboard, "tooltip_scoreboard"),
-            ("clear_all", self.app.clear_all, "tooltip_clear_all"),
-            ("clear_tab", self.app.clear_current_tab, "tooltip_clear_tab"),
-        ]
-        for k, cmd, tooltip_key in buttons:
-            btn = QPushButton(self.app.tr(k))
-            btn.clicked.connect(cmd)
-            btn.setToolTip(self.app.tr(tooltip_key))
-            layout.addWidget(btn)
-            self.action_buttons[k] = (btn, tooltip_key)
+        # Input Mode
+        input_h = QHBoxLayout()
+        self.lbl_input_mode.setText(self.app.tr("input_mode"))
+        input_h.addWidget(self.lbl_input_mode)
+        self.rb_manual.setText(self.app.tr("manual"))
+        self.rb_ocr.setText(self.app.tr("ocr"))
+        
+        self.grp_input_mode = QButtonGroup(self.main_widget)
+        self.grp_input_mode.addButton(self.rb_manual)
+        self.grp_input_mode.addButton(self.rb_ocr)
+        
+        if self.app.mode_var == "ocr":
+            self.rb_ocr.setChecked(True)
+        else:
+            self.rb_manual.setChecked(True)
+        input_h.addWidget(self.rb_manual)
+        input_h.addWidget(self.rb_ocr)
+        ocr_vbox.addLayout(input_h)
 
-        self.btn_char_setting = QPushButton(self.app.tr("char_setting"))
-        self.btn_char_setting.setToolTip(self.app.tr("tooltip_char_setting"))
-        menu = QMenu(self.btn_char_setting)
-        menu.addAction(self.app.tr("new")).triggered.connect(self.app.events.open_char_settings_new)
-        menu.addAction(self.app.tr("edit")).triggered.connect(self.app.events.open_char_settings_edit)
-        self.btn_char_setting.setMenu(menu)
-        layout.addWidget(self.btn_char_setting)
-
-        self.btn_display_settings = QPushButton(self.app.tr("display_settings"))
-        self.btn_display_settings.setToolTip(self.app.tr("tooltip_display_settings"))
-        self.btn_display_settings.clicked.connect(self.app.events.open_display_settings)
-        layout.addWidget(self.btn_display_settings)
-
-        self.btn_history = QPushButton(self.app.tr("history"))
-        self.btn_history.setToolTip(self.app.tr("tooltip_history"))
-        self.btn_history.clicked.connect(self.app.events.open_history)
-        layout.addWidget(self.btn_history)
-
-        self.btn_preprocess_settings = QPushButton(self.app.tr("preprocess_settings"))
-        self.btn_preprocess_settings.setToolTip(self.app.tr("tooltip_preprocess"))
-        self.btn_preprocess_settings.clicked.connect(self.app.events.open_image_preprocessing_settings)
-        layout.addWidget(self.btn_preprocess_settings)
-
-        self.btn_help = QPushButton(self.app.tr("help"))
-        self.btn_help.setToolTip(self.app.tr("tooltip_help"))
-        self.btn_help.setFixedWidth(60)
-        self.btn_help.clicked.connect(self.app._open_readme)
-        layout.addWidget(self.btn_help)
-        layout.addStretch()
-
-    def _setup_image_ui(self, layout: QVBoxLayout) -> None:
-        self.image_group = QGroupBox(self.app.tr("ocr_image"))
-        vbox = QVBoxLayout(self.image_group)
-        layout.addWidget(self.image_group)
-
-        btn_h = QHBoxLayout()
-        self.btn_load.setText(self.app.tr("load_image"))
-        self.btn_load.setToolTip(self.app.tr("tooltip_load_image"))
-        self.btn_load.clicked.connect(self.app.events.import_image)
-
-        self.btn_paste.setText(self.app.tr("paste_clipboard"))
-        self.btn_paste.setToolTip(self.app.tr("tooltip_paste"))
-        self.btn_paste.clicked.connect(self.app.events.paste_from_clipboard)
-
-        self.btn_crop.setText(self.app.tr("perform_crop"))
-        self.btn_crop.setToolTip(self.app.tr("tooltip_crop"))
-        self.btn_crop.clicked.connect(self.app.image_proc.perform_crop)
-
-        self.cb_auto_calculate.setText(self.app.tr("auto_calculate"))
-        self.cb_auto_calculate.setToolTip(self.app.tr("tooltip_auto_calculate"))
-        self.cb_auto_calculate.setChecked(self.app.app_config.auto_calculate)
-        self.cb_auto_calculate.toggled.connect(self.app.events.on_auto_calculate_change)
-
-        btn_h.addWidget(self.btn_load)
-        btn_h.addWidget(self.btn_paste)
-        btn_h.addWidget(self.btn_crop)
-        btn_h.addWidget(self.cb_auto_calculate)
-        vbox.addLayout(btn_h)
-
-        crop_h = QHBoxLayout()
+        # Crop Mode & Sliders
+        crop_main_h = QHBoxLayout()
         self.lbl_crop_mode.setText(self.app.tr("crop_mode"))
-        crop_h.addWidget(self.lbl_crop_mode)
+        crop_main_h.addWidget(self.lbl_crop_mode)
         self.rb_crop_drag.setText(self.app.tr("drag"))
         self.rb_crop_percent.setText(self.app.tr("percent"))
-
-        # Group Crop Mode Radio Buttons
-        self.grp_crop_mode = QButtonGroup(self.image_group)
+        
+        self.grp_crop_mode = QButtonGroup(self.main_widget)
         self.grp_crop_mode.addButton(self.rb_crop_drag)
         self.grp_crop_mode.addButton(self.rb_crop_percent)
-
+        
         if self.app.crop_mode_var == "drag":
             self.rb_crop_drag.setChecked(True)
         else:
             self.rb_crop_percent.setChecked(True)
-        self.rb_crop_drag.toggled.connect(lambda c: self.app.events.on_crop_mode_change("drag") if c else None)
-        self.rb_crop_percent.toggled.connect(lambda c: self.app.events.on_crop_mode_change("percent") if c else None)
-        crop_h.addWidget(self.rb_crop_drag)
-        crop_h.addWidget(self.rb_crop_percent)
+        crop_main_h.addWidget(self.rb_crop_drag)
+        crop_main_h.addWidget(self.rb_crop_percent)
+        ocr_vbox.addLayout(crop_main_h)
 
+        crop_sliders_h = QHBoxLayout()
         self.entry_crop_l, self.slider_crop_l, lbl_l = self._create_crop_item(
-            crop_h, self.app.tr("left_percent"), self.app.app_config.crop_left_percent, "slider_crop_l"
+            crop_sliders_h, self.app.tr("left_percent"), self.app.app_config.crop_left_percent, "slider_crop_l"
         )
         self.entry_crop_t, self.slider_crop_t, lbl_t = self._create_crop_item(
-            crop_h, self.app.tr("top_percent"), self.app.app_config.crop_top_percent, "slider_crop_t"
+            crop_sliders_h, self.app.tr("top_percent"), self.app.app_config.crop_top_percent, "slider_crop_t"
         )
         self.entry_crop_w, self.slider_crop_w, lbl_w = self._create_crop_item(
-            crop_h, self.app.tr("width_percent"), self.app.app_config.crop_width_percent, "slider_crop_w"
+            crop_sliders_h, self.app.tr("width_percent"), self.app.app_config.crop_width_percent, "slider_crop_w"
         )
         self.entry_crop_h, self.slider_crop_h, lbl_h = self._create_crop_item(
-            crop_h, self.app.tr("height_percent"), self.app.app_config.crop_height_percent, "slider_crop_h"
+            crop_sliders_h, self.app.tr("height_percent"), self.app.app_config.crop_height_percent, "slider_crop_h"
         )
         self.crop_labels["L"] = lbl_l
         self.crop_labels["T"] = lbl_t
         self.crop_labels["W"] = lbl_w
         self.crop_labels["H"] = lbl_h
+        ocr_vbox.addLayout(crop_sliders_h)
 
-        vbox.addLayout(crop_h)
+        layout.addWidget(ocr_group)
+
+        # 4. Dialog Buttons
+        diag_h = QHBoxLayout()
         
-        self.image_label = OCRImageLabel()
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_label.setMinimumHeight(IMAGE_PREVIEW_MAX_HEIGHT)
-        self.image_label.set_drag_enabled(self.app.crop_mode_var == "drag")
-        vbox.addWidget(self.image_label)
+        btn_char_set = QPushButton(self.app.tr("char_setting"))
+        menu = QMenu(btn_char_set)
+        menu.addAction(self.app.tr("new")).triggered.connect(self.app.events.open_char_settings_new)
+        menu.addAction(self.app.tr("edit")).triggered.connect(self.app.events.open_char_settings_edit)
+        btn_char_set.setMenu(menu)
+        diag_h.addWidget(btn_char_set)
+
+        btn_hist = QPushButton(self.app.tr("history"))
+        btn_hist.clicked.connect(self.app.events.open_history)
+        diag_h.addWidget(btn_hist)
+
+        btn_disp = QPushButton(self.app.tr("display_settings"))
+        btn_disp.clicked.connect(self.app.events.open_display_settings)
+        diag_h.addWidget(btn_disp)
+
+        btn_pre = QPushButton(self.app.tr("preprocess_settings"))
+        btn_pre.clicked.connect(self.app.events.open_image_preprocessing_settings)
+        diag_h.addWidget(btn_pre)
+
+        btn_h = QPushButton(self.app.tr("help"))
+        btn_h.clicked.connect(self.app._open_readme)
+        diag_h.addWidget(btn_h)
+
+        layout.addLayout(diag_h)
+        layout.addStretch()
+
+    def _setup_log_tab(self, layout: QVBoxLayout) -> None:
+        self.log_text = QTextEdit()
+        self.log_text.setReadOnly(True)
+        layout.addWidget(self.log_text)
 
     def _create_crop_item(
         self, layout: QHBoxLayout, label_text: str, val: float, name: str
@@ -514,62 +568,21 @@ class UIComponents:
         layout.addLayout(vbox)
         return e, s, lbl
 
-    def _setup_result_ui(self, layout: QVBoxLayout) -> None:
-        self.result_group = QGroupBox(self.app.tr("calc_result"))
-        l = QVBoxLayout(self.result_group)
-        self.result_text = QTextEdit()
-        self.result_text.setReadOnly(True)
-        l.addWidget(self.result_text)
-        layout.addWidget(self.result_group)
-
-    def _setup_log_ui(self, layout: QVBoxLayout) -> None:
-        self.log_group = QGroupBox(self.app.tr("log"))
-        l = QVBoxLayout(self.log_group)
-        self.log_text = QTextEdit()
-        self.log_text.setReadOnly(True)
-        l.addWidget(self.log_text)
-        layout.addWidget(self.log_group)
-
     def retranslate_ui(self) -> None:
-        self.settings_group.setTitle(self.app.tr("basic_settings"))
-        self.lbl_cost_config.setText(self.app.tr("cost_config"))
+        # Tab names
+        self.main_tabs.setTabText(0, self.app.tr("calculator"))
+        self.main_tabs.setTabText(1, self.app.tr("settings"))
+        self.main_tabs.setTabText(2, self.app.tr("log"))
+
+        # Calculator Tab
         self.lbl_character.setText(self.app.tr("character"))
-        self.lbl_language.setText(self.app.tr("language"))
-        self.lbl_input_mode.setText(self.app.tr("input_mode"))
-        self.rb_manual.setText(self.app.tr("manual"))
-        self.rb_ocr.setText(self.app.tr("ocr"))
-        self.rb_manual.setToolTip(self.app.tr("tooltip_manual_mode"))
-        self.rb_ocr.setToolTip(self.app.tr("tooltip_ocr_mode"))
-        self.cb_auto_main.setText(self.app.tr("auto_main"))
-        self.lbl_calc_mode.setText(self.app.tr("calc_mode"))
-        self.rb_batch.setText(self.app.tr("batch"))
-        self.rb_single.setText(self.app.tr("single_only"))
-        self.rb_batch.setToolTip(self.app.tr("tooltip_batch_mode"))
-        self.rb_single.setToolTip(self.app.tr("tooltip_single_mode"))
-        self.lbl_methods.setText(self.app.tr("methods_label"))
-        for m, cb in self.method_checkboxes.items():
-            cb.setText(self.app.tr(f"method_{m}"))
-        for k, (btn, tooltip_key) in self.action_buttons.items():
-            btn.setText(self.app.tr(k))
-            btn.setToolTip(self.app.tr(tooltip_key))
-
-        self.btn_char_setting.setText(self.app.tr("char_setting"))
-        self.btn_char_setting.setToolTip(self.app.tr("tooltip_char_setting"))
-        self.btn_display_settings.setText(self.app.tr("display_settings"))
-        self.btn_display_settings.setToolTip(self.app.tr("tooltip_display_settings"))
-        self.btn_history.setText(self.app.tr("history"))
-        self.btn_history.setToolTip(self.app.tr("tooltip_history"))
-        self.btn_preprocess_settings.setText(self.app.tr("preprocess_settings"))
-        self.btn_preprocess_settings.setToolTip(self.app.tr("tooltip_preprocess"))
-        self.btn_help.setText(self.app.tr("help"))
-        self.btn_help.setToolTip(self.app.tr("tooltip_help"))
-
-        # Update character combo first item (placeholder)
-        self.character_combo.setItemText(0, f"-- {self.app.tr('character')} --")
+        self.lbl_cost_config.setText(self.app.tr("cost_config"))
+        # Find the calculate button by object name if not stored
+        btn_calc = self.main_tabs.widget(0).findChild(QPushButton, "btn_main_calculate")
+        if btn_calc:
+            btn_calc.setText(self.app.tr("calculate"))
 
         self.result_group.setTitle(self.app.tr("calc_result"))
-        self.log_group.setTitle(self.app.tr("log"))
-
         self.image_group.setTitle(self.app.tr("ocr_image"))
         self.btn_load.setText(self.app.tr("load_image"))
         self.btn_load.setToolTip(self.app.tr("tooltip_load_image"))
@@ -577,8 +590,34 @@ class UIComponents:
         self.btn_paste.setToolTip(self.app.tr("tooltip_paste"))
         self.btn_crop.setText(self.app.tr("perform_crop"))
         self.btn_crop.setToolTip(self.app.tr("tooltip_crop"))
+
+        self.btn_equip.setText(self.app.tr("set_equipped"))
+        self.btn_score.setText(self.app.tr("scoreboard"))
+        self.btn_export.setText(self.app.tr("export_txt"))
+        self.btn_clear.setText(self.app.tr("clear_all"))
+
+        # Settings Tab
+        # (Assuming these labels/combos are stored as self.attributes)
+        self.lbl_language.setText(self.app.tr("language"))
+        self.lbl_input_mode.setText(self.app.tr("input_mode"))
+        self.rb_manual.setText(self.app.tr("manual"))
+        self.rb_ocr.setText(self.app.tr("ocr"))
+        self.rb_manual.setToolTip(self.app.tr("tooltip_manual_mode"))
+        self.rb_ocr.setToolTip(self.app.tr("tooltip_ocr_mode"))
+        self.cb_auto_main.setText(self.app.tr("auto_main"))
         self.cb_auto_calculate.setText(self.app.tr("auto_calculate"))
         self.cb_auto_calculate.setToolTip(self.app.tr("tooltip_auto_calculate"))
+
+        self.lbl_calc_mode.setText(self.app.tr("calc_mode"))
+        self.rb_batch.setText(self.app.tr("batch"))
+        self.rb_single.setText(self.app.tr("single_only"))
+        self.rb_batch.setToolTip(self.app.tr("tooltip_batch_mode"))
+        self.rb_single.setToolTip(self.app.tr("tooltip_single_mode"))
+
+        self.lbl_methods.setText(self.app.tr("methods_label"))
+        for m, cb in self.method_checkboxes.items():
+            cb.setText(self.app.tr(f"method_{m}"))
+
         self.lbl_crop_mode.setText(self.app.tr("crop_mode"))
         self.rb_crop_drag.setText(self.app.tr("drag"))
         self.rb_crop_percent.setText(self.app.tr("percent"))
@@ -587,6 +626,9 @@ class UIComponents:
         self.crop_labels["T"].setText(self.app.tr("top_percent"))
         self.crop_labels["W"].setText(self.app.tr("width_percent"))
         self.crop_labels["H"].setText(self.app.tr("height_percent"))
+
+        # Update character combo first item (placeholder)
+        self.character_combo.setItemText(0, f"-- {self.app.tr('character')} --")
 
         if not self.app.image_proc.loaded_image:
             self.image_label.setText(self.app.tr("no_image"))
