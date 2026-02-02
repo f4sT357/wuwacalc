@@ -98,20 +98,20 @@ class ScoreboardGenerator:
                 if valid_scores:
                     avg_score = sum(valid_scores) / len(valid_scores)
 
-            info_font = self._get_font(40)
-            avg_text = f"{tr('average_score_label', 'Average Score')}: {avg_score:.1f}%"
+            avg_text = f"{tr('average_score_label', 'Average Score')}: {avg_score:.1f}"
             draw.text((50, 150), avg_text, font=info_font, fill=accent_color)
 
-            # Grid layout settings
-            card_w, card_h = 500, 650
-            margin_x, margin_y = 80, 50
-            row1_x_start = (WIDTH - (card_w * 3 + margin_x * 2)) // 2
-            row2_x_start = (WIDTH - (card_w * 2 + margin_x * 1)) // 2
+            # Grid layout settings: 5 columns in 1 row
+            card_w, card_h = 360, 720
+            margin_x = 20
+            row_y = 250
+            total_grid_w = (card_w * 5) + (margin_x * 4)
+            x_start = (WIDTH - total_grid_w) // 2
 
             for i, entry in enumerate(echo_entries):
                 if i >= 5: break
-                x = row1_x_start + i * (card_w + margin_x) if i < 3 else row2_x_start + (i - 3) * (card_w + margin_x)
-                y = 250 if i < 3 else 250 + card_h + margin_y
+                x = x_start + i * (card_w + margin_x)
+                y = row_y
                 self._draw_card(img, x, y, card_w, card_h, entry, scores[i] if i < len(scores) else None, i, echo_images, tr, accent_color)
 
             img.save(output_path)
@@ -127,40 +127,40 @@ class ScoreboardGenerator:
         cx, cy = x + px, y + py
         cw = w - px * 2
 
-        header_font = self._get_font(36)
+        header_font = self._get_font(32)
         draw.text((cx, cy), f"{tr('cost_label_short', 'Cost')} {entry.cost or '?'}", font=header_font, fill=accent_color)
 
         if score:
             color = {"sss": SCORE_COLOR_S, "ss": SCORE_COLOR_S, "s_": SCORE_COLOR_A, "a_": SCORE_COLOR_A, "b_": SCORE_COLOR_B}.get(score.rating[:2], SCORE_COLOR_C)
-            score_text = f"{score.total_score:.1f}% ({self._format_rating(score.rating)})"
+            score_text = f"{score.total_score:.1f} ({self._format_rating(score.rating)})"
             bbox = draw.textbbox((0, 0), score_text, font=header_font)
             draw.text((x + w - px - (bbox[2] - bbox[0]), cy), score_text, font=header_font, fill=color)
 
         cy += 50
         if index in image_map and image_map[index]:
             thumb = image_map[index].copy()
-            thumb.thumbnail((cw, 150))
+            thumb.thumbnail((cw, 180)) # Slightly taller thumbnail area
             canvas.paste(thumb, (x + (w - thumb.width) // 2, cy))
             cy += thumb.height + 20
         else: cy += 20
 
-        main_font = self._get_font(32)
+        main_font = self._get_font(28)
         if entry.main_stat:
             draw.text((cx, cy), f"{tr('main_stat', 'Main')}: {tr(entry.main_stat, entry.main_stat)}", font=main_font, fill=TEXT_COLOR)
-        cy += 45
+        cy += 40
         draw.line([cx, cy, x + w - px, cy], fill=(150, 150, 150), width=1)
         cy += 15
 
-        sub_font = self._get_font(28)
+        sub_font = self._get_font(24)
         for sub in entry.substats:
             draw.text((cx, cy), tr(sub.stat, sub.stat), font=sub_font, fill=(200, 200, 200))
             val_str = sub.value
             bbox = draw.textbbox((0, 0), val_str, font=sub_font)
             draw.text((x + w - px - (bbox[2] - bbox[0]), cy), val_str, font=sub_font, fill=TEXT_COLOR)
-            cy += 35
+            cy += 32
 
         if score:
-            draw.text((cx, y + h - 60), f"{tr('effective_count_label', 'Effective Stats')}: {score.effective_count}", font=self._get_font(24), fill=(180, 180, 180))
+            draw.text((cx, y + h - 50), f"{tr('effective_count_label', 'Effective Stats')}: {score.effective_count}", font=self._get_font(22), fill=(180, 180, 180))
 
     def _format_rating(self, rating_key: str) -> str:
         for r in ["SSS", "SS", "S", "A", "B", "C"]:

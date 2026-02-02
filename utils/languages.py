@@ -157,7 +157,7 @@ TRANSLATIONS = {
         "ratio_label": "比率",
         "roll_label": "ロール",
         "effective_label": "有効ステ",
-        "effective_count_label": "有効数",
+        "effective_count_label": "有効ステータス数",
         "recommend_label": "推奨",
         "warning": "警告",
         "no_data": "計算可能な音骸データがありません",
