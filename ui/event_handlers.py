@@ -94,6 +94,7 @@ class EventHandlers:
 
         self.ui.image_label.selection_completed.connect(self.image_proc.set_manual_crop_rect)
         self.ui.image_label.files_dropped.connect(self.ocr_handler.handle_dropped_files)
+        self.ui.image_label.box_clicked.connect(self.on_ocr_box_clicked)
 
         for method, cb in self.ui.method_checkboxes.items():
             cb.toggled.connect(self.config_handler.on_calc_method_changed)
@@ -144,6 +145,50 @@ class EventHandlers:
     def on_crop_mode_change(self, mode: str) -> None:
         self.config_handler.on_crop_mode_change(mode)
 
+    def apply_selection_to_crop(self) -> None:
+        """Apply the drag-selected area from the image label to the percentage crop settings."""
+        pct = self.ui.image_label.last_selection_pct
+        if not pct:
+            return
+        
+        l, t, r, b = pct
+        w = r - l
+        h = b - t
+        
+        # Convert to 0-100%
+        lp, tp, wp, hp = l * 100.0, t * 100.0, w * 100.0, h * 100.0
+        
+        # Disable signals temporarily to avoid multiple crop previews
+        self.ui.entry_crop_l.blockSignals(True)
+        self.ui.entry_crop_t.blockSignals(True)
+        self.ui.entry_crop_w.blockSignals(True)
+        self.ui.entry_crop_h.blockSignals(True)
+        
+        self.ui.entry_crop_l.setText(f"{lp:.1f}")
+        self.ui.entry_crop_t.setText(f"{tp:.1f}")
+        self.ui.entry_crop_w.setText(f"{wp:.1f}")
+        self.ui.entry_crop_h.setText(f"{hp:.1f}")
+        
+        # Also update sliders
+        self.ui.slider_crop_l.setValue(int(lp))
+        self.ui.slider_crop_t.setValue(int(tp))
+        self.ui.slider_crop_w.setValue(int(wp))
+        self.ui.slider_crop_h.setValue(int(hp))
+
+        self.ui.entry_crop_l.blockSignals(False)
+        self.ui.entry_crop_t.blockSignals(False)
+        self.ui.entry_crop_w.blockSignals(False)
+        self.ui.entry_crop_h.blockSignals(False)
+        
+        # Manually update config and trigger preview once
+        self.config_manager.update_app_setting('crop_left_percent', lp)
+        self.config_manager.update_app_setting('crop_top_percent', tp)
+        self.config_manager.update_app_setting('crop_width_percent', wp)
+        self.config_manager.update_app_setting('crop_height_percent', hp)
+        self.save_config()
+        self.ui.image_label.set_crop_preview(lp, tp, wp, hp)
+        self.logger.info(f"Applied drag selection to crop settings: L={lp:.1f}% T={tp:.1f}% W={wp:.1f}% H={hp:.1f}%")
+
     def on_crop_percent_change(self, text: str) -> None:
         self.config_handler.on_crop_percent_change(text)
 
@@ -186,3 +231,19 @@ class EventHandlers:
     def open_image_preprocessing_settings(self) -> None:
         from ui.dialogs import ImagePreprocessingSettingsDialog
         ImagePreprocessingSettingsDialog(self.app).exec()
+
+    def on_ocr_box_clicked(self, typeinfo: str, key_idx: Any) -> None:
+        """Handle click on an OCR bounding box to focus the corresponding UI field."""
+        if typeinfo == "sub":
+            tab_name = self.app.get_selected_tab_name()
+            tab_widget = self.tab_mgr.get_tab_widget(tab_name)
+            if tab_widget and isinstance(key_idx, int) and key_idx < len(tab_widget.sub_entries):
+                _, le = tab_widget.sub_entries[key_idx]
+                le.setFocus()
+                le.selectAll()
+        elif typeinfo == "main":
+            tab_name = self.app.get_selected_tab_name()
+            tab_widget = self.tab_mgr.get_tab_widget(tab_name)
+            if tab_widget:
+                if key_idx == "main_stat":
+                    tab_widget.main_combo.setFocus()

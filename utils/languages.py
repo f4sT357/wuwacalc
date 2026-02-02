@@ -361,6 +361,8 @@ TRANSLATIONS = {
         "tooltip_ocr_mode": "画像から数値を自動認識して計算するモードです。",
         "tooltip_batch_mode": "5つの音骸をセットとして総合評価します。",
         "tooltip_single_mode": "選択中の音骸単体の性能を詳細評価します。",
+        "apply_selection": "選択範囲を適用",
+        "tooltip_apply_selection": "現在ドラッグして選択している範囲をメイン画面の％指定スライダーに同期・保存します。",
     },
     "en": {
         "app_title": "Wuthering Waves Echo Score Calculator",
@@ -720,6 +722,8 @@ TRANSLATIONS = {
         "tooltip_ocr_mode": "Automatically extract stats from images.",
         "tooltip_batch_mode": "Evaluate the entire 5-echo set.",
         "tooltip_single_mode": "Evaluate only the currently selected echo.",
+        "apply_selection": "Apply Selection",
+        "tooltip_apply_selection": "Applies the current drag-selected area to the main UI percentage sliders.",
     },
     "zh-CN": {
         "app_title": "鸣潮 音骸评分计算器",
@@ -1083,7 +1087,8 @@ TRANSLATIONS = {
         "tooltip_clear_tab": "仅清除当前显示的标签页内容。",
         "tooltip_manual_mode": "手动输入数值进行计算的模式。",
         "tooltip_ocr_mode": "从图像自动识别数值进行计算的模式。",
-        "tooltip_batch_mode": "将5个音骸作为套装进行综合评估。",
-        "tooltip_single_mode": "对当前选择的单个音骸进行详细评估。",
+        "tooltip_batch_mode": "评估整个5音骸组合。",
+        "tooltip_single_mode": "仅评估当前选择的单个音骸。",
+        "apply_selection": "应用选择范围",
+        "tooltip_apply_selection": "将当前拖动选择的范围应用到主界面的百分比滑块中。"
     }
-}

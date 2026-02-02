@@ -67,6 +67,17 @@ class ConfigHandler(BaseHandler):
         self.config_manager.update_app_setting('crop_mode', mode)
         self.save_config()
         self.ui.image_label.set_drag_enabled(mode == "drag")
+        self.ui.btn_apply_crop.setVisible(mode == "drag")
+        
+        # In percent mode, show the preview box
+        if mode == "percent":
+            c = self.config_manager.get_app_config()
+            self.ui.image_label.set_crop_preview(
+                c.crop_left_percent, c.crop_top_percent, 
+                c.crop_width_percent, c.crop_height_percent
+            )
+        else:
+            self.ui.image_label.set_crop_preview(0, 0, 0, 0)
 
     def on_crop_percent_change(self, text: str) -> None:
         try:
@@ -86,6 +97,13 @@ class ConfigHandler(BaseHandler):
                 self.ui.slider_crop_h.setValue(int(value))
             self.save_config()
             self.app.events.schedule_crop_preview()
+            
+            # Update live preview box
+            c = self.config_manager.get_app_config()
+            self.ui.image_label.set_crop_preview(
+                c.crop_left_percent, c.crop_top_percent, 
+                c.crop_width_percent, c.crop_height_percent
+            )
         except ValueError:
             pass
 

@@ -38,6 +38,7 @@ class OCRImageLabel(QLabel):
     """Custom label for drawing OCR bounding boxes and handling drag selection and file drops."""
     selection_completed = Signal(tuple)
     files_dropped = Signal(list)
+    box_clicked = Signal(str, int) # ("main"|"sub", index/key)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -52,6 +53,8 @@ class OCRImageLabel(QLabel):
         self.end_pos = None
         self.is_selecting = False
         self.drag_enabled = True # Can be toggled
+        self.crop_preview_rect = None # (l, t, w, h) in percent
+        self.last_selection_pct = None # (l, t, r, b) in 0.0-1.0
 
         self.setText("No Image")
         # Enable mouse tracking if needed for hover, but drag works with press/move
@@ -72,6 +75,11 @@ class OCRImageLabel(QLabel):
             self.is_selecting = False
             self.update()
 
+    def set_crop_preview(self, l: float, t: float, w: float, h: float):
+        """Set the crop preview rectangle in percentage (0-100)."""
+        self.crop_preview_rect = (l, t, w, h)
+        self.update()
+
     def mousePressEvent(self, event):
         if self.drag_enabled and self.pixmap():
             self.start_pos = event.position().toPoint()
@@ -85,6 +93,9 @@ class OCRImageLabel(QLabel):
         if self.is_selecting and self.drag_enabled:
             self.end_pos = event.position().toPoint()
             self.update()
+        elif self.ocr_result and self.pixmap():
+            self._handle_hover(event.position().toPoint())
+            super().mouseMoveEvent(event)
         else:
             super().mouseMoveEvent(event)
 
@@ -95,7 +106,6 @@ class OCRImageLabel(QLabel):
             self.update()
             
             # Calculate selection relative to the pixmap
-            # Need to reverse the offset and scaling logic
             pix_size = self.pixmap().size()
             lbl_size = self.size()
             
@@ -119,8 +129,15 @@ class OCRImageLabel(QLabel):
                 t = min(y1, y2) / pix_size.height()
                 r = max(x1, x2) / pix_size.width()
                 b = max(y1, y2) / pix_size.height()
-                self.selection_completed.emit((l, t, r, b))
-            
+                self.last_selection_pct = (l, t, r, b)
+                self.selection_completed.emit(self.last_selection_pct)
+        elif self.ocr_result and self.pixmap():
+            # Check for click on OCR box
+            match = self._find_box_at(event.position().toPoint())
+            if match:
+                typeinfo, idx_or_key, _ = match
+                self.box_clicked.emit(typeinfo, idx_or_key)
+            super().mouseReleaseEvent(event)
         else:
             super().mouseReleaseEvent(event)
 
@@ -149,30 +166,51 @@ class OCRImageLabel(QLabel):
         else:
             super().dropEvent(event)
 
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        
-        if self.is_selecting and self.start_pos and self.end_pos:
-            painter = QPainter(self)
-            pen = QPen(QColor(255, 0, 0), 2, Qt.DashLine)
-            painter.setPen(pen)
-            rect = QRect(self.start_pos, self.end_pos).normalized()
-            painter.drawRect(rect)
-            return
-
-        if not self.ocr_result or not self.pixmap():
+        if not self.pixmap():
             return
 
         painter = QPainter(self)
         
-        # Determine scaling and offsets relative to the displayed pixmap
-        # QLabel centers the pixmap by default if alignment is centered
         pix_size = self.pixmap().size()
         lbl_size = self.size()
-        
-        # Calculate offsets to draw within the actual image area
         self.offset_x = (lbl_size.width() - pix_size.width()) // 2
         self.offset_y = (lbl_size.height() - pix_size.height()) // 2
+
+        # 1. Draw Mask / Selection / Preview
+        if self.is_selecting and self.start_pos and self.end_pos:
+            pen = QPen(QColor(255, 0, 0), 2, Qt.DashLine)
+            painter.setPen(pen)
+            rect = QRect(self.start_pos, self.end_pos).normalized()
+            painter.drawRect(rect)
+        elif self.crop_preview_rect:
+            l, t, w, h = self.crop_preview_rect
+            px_l = int(l * pix_size.width() / 100.0) + self.offset_x
+            px_t = int(t * pix_size.height() / 100.0) + self.offset_y
+            px_w = int(w * pix_size.width() / 100.0)
+            px_h = int(h * pix_size.height() / 100.0)
+            
+            crop_rect = QRect(px_l, px_t, px_w, px_h)
+            
+            # Draw semi-transparent mask outside crop area
+            painter.setBrush(QColor(0, 0, 0, 100))
+            painter.setPen(Qt.NoPen)
+            
+            # Top mask
+            painter.drawRect(self.offset_x, self.offset_y, pix_size.width(), px_t - self.offset_y)
+            # Bottom mask
+            painter.drawRect(self.offset_x, px_t + px_h, pix_size.width(), self.offset_y + pix_size.height() - (px_t + px_h))
+            # Left mask
+            painter.drawRect(self.offset_x, px_t, px_l - self.offset_x, px_h)
+            # Right mask
+            painter.drawRect(px_l + px_w, px_t, self.offset_x + pix_size.width() - (px_l + px_w), px_h)
+            
+            # Draw crop border
+            painter.setBrush(Qt.NoBrush)
+            painter.setPen(QPen(QColor(255, 50, 50), 2))
+            painter.drawRect(crop_rect)
+
+        if not self.ocr_result:
+            return
         
         # Calculate scale factor
         if self.original_crop_size:
@@ -196,17 +234,49 @@ class OCRImageLabel(QLabel):
             if sub.box:
                 self._draw_box(painter, sub.box)
 
-    def _draw_box(self, painter, box):
+    def _draw_box(self, painter, box, color=None):
         x, y, w, h = box
-        # Scale to match displayed pixmap (heuristic scaling)
-        # Note: In a robust impl, we'd pass the original cropped image size.
-        # Here we approximate.
+        if color:
+            painter.setPen(QPen(color, 2))
         painter.drawRect(
             int(x * self.scale_factor + self.offset_x),
             int(y * self.scale_factor + self.offset_y),
             int(w * self.scale_factor),
             int(h * self.scale_factor)
         )
+
+    def _find_box_at(self, pos):
+        if not self.ocr_result: return None
+        # Reverse scaling/offsets
+        target_x = (pos.x() - self.offset_x) / self.scale_factor
+        target_y = (pos.y() - self.offset_y) / self.scale_factor
+        # Check main/cost
+        for key, box in self.ocr_result.boxes.items():
+            x, y, w, h = box
+            if x <= target_x <= x + w and y <= target_y <= y + h:
+                return ("main", key, box)
+        # Check substats
+        for i, sub in enumerate(self.ocr_result.substats):
+            if sub.box:
+                x, y, w, h = sub.box
+                if x <= target_x <= x + w and y <= target_y <= y + h:
+                    return ("sub", i, sub)
+        return None
+
+    def _handle_hover(self, pos):
+        from PySide6.QtWidgets import QToolTip
+        match = self._find_box_at(pos)
+        if match:
+            typeinfo, key_idx, obj = match
+            if typeinfo == "main":
+                text = f"{key_idx.replace('_', ' ').title()}"
+            else:
+                text = f"{obj.stat_name}: {obj.value}"
+            QToolTip.showText(self.mapToGlobal(pos), text, self)
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+        else:
+            QToolTip.hideText()
+            self.setCursor(Qt.CursorShape.ArrowCursor)
 
 
 class UIComponents:
@@ -249,6 +319,7 @@ class UIComponents:
         self.btn_load = QPushButton()
         self.btn_paste = QPushButton()
         self.btn_crop = QPushButton()
+        self.btn_apply_crop = QPushButton()
         self.cb_auto_calculate = QCheckBox()
         self.lbl_crop_mode = QLabel()
         self.rb_crop_drag = QRadioButton()
@@ -357,6 +428,11 @@ class UIComponents:
         self.btn_crop.setText(self.app.tr("perform_crop"))
         self.btn_crop.clicked.connect(self.app.image_proc.perform_crop)
         btn_h.addWidget(self.btn_crop)
+
+        self.btn_apply_crop.setText(self.app.tr("apply_selection"))
+        self.btn_apply_crop.clicked.connect(self.app.events.apply_selection_to_crop)
+        self.btn_apply_crop.setVisible(False) # Hide by default, show in drag mode
+        btn_h.addWidget(self.btn_apply_crop)
         
         img_vbox.addLayout(btn_h)
 
@@ -592,6 +668,8 @@ class UIComponents:
         self.btn_paste.setToolTip(self.app.tr("tooltip_paste"))
         self.btn_crop.setText(self.app.tr("perform_crop"))
         self.btn_crop.setToolTip(self.app.tr("tooltip_crop"))
+        self.btn_apply_crop.setText(self.app.tr("apply_selection"))
+        self.btn_apply_crop.setToolTip(self.app.tr("tooltip_apply_selection"))
 
         self.btn_equip.setText(self.app.tr("set_equipped"))
         self.btn_score.setText(self.app.tr("scoreboard"))
@@ -643,6 +721,9 @@ class UIComponents:
         if hasattr(self, "btn_disp"): self.btn_disp.setText(self.app.tr("display_settings"))
         if hasattr(self, "btn_pre"): self.btn_pre.setText(self.app.tr("preprocess_settings"))
         if hasattr(self, "btn_help"): self.btn_help.setText(self.app.tr("help"))
+        if hasattr(self, "btn_apply_crop"):
+            self.btn_apply_crop.setText(self.app.tr("apply_selection"))
+            self.btn_apply_crop.setToolTip(self.app.tr("tooltip_apply_selection"))
 
         # Update character combo first item (placeholder)
         self.character_combo.setItemText(0, f"-- {self.app.tr('character')} --")
@@ -673,9 +754,21 @@ class UIComponents:
             "entry_crop_h",
             "slider_crop_h",
         ]:
-            w = getattr(self, attr, None)
-            if w:
-                w.setEnabled(is_ocr and is_p)
+            if hasattr(self, attr):
+                getattr(self, attr).setVisible(is_ocr and is_p)
+
+        if hasattr(self, "btn_apply_crop"):
+            self.btn_apply_crop.setVisible(is_ocr and not is_p)
+            
+        # Initialize/refresh preview box
+        if is_ocr and is_p:
+            c = self.app.app_config
+            self.image_label.set_crop_preview(
+                c.crop_left_percent, c.crop_top_percent, 
+                c.crop_width_percent, c.crop_height_percent
+            )
+        else:
+            self.image_label.set_crop_preview(0, 0, 0, 0)
 
     def filter_characters_by_config(self) -> None:
         key = getattr(self.app, "current_config_key", "")
