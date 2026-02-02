@@ -70,7 +70,7 @@ wuwacalc/
 1.  **画像入力**:
     - `Clipboard` または `File` から画像を取得し、`ImageProcessor` へ渡す。
 2.  **前処理 (`AppLogic._preprocess_for_ocr`)**:
-    - 設定に応じて **OpenCV (Adaptive Threshold)** または **Pillow** エンジンを使用。
+    - **Pillow エンジン** を使用。
     - グレースケール化、リサイズ（解像度不足時）、コントラスト調整、2値化を行い、OCR精度を最大化する。
 3.  **OCR実行 (`pytesseract`)**:
     - 言語設定 `jpn+eng` を使用。

@@ -14,7 +14,11 @@ from core.ocr_parser import OcrParser
 from pytesseract import Output
 
 from PySide6.QtCore import QObject, Signal
-from utils.constants import OCR_ENGINE_OPENCV
+from utils.constants import (
+    OCR_ENGINE_PILLOW,
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_ERROR,
+)
 
 try:
     from PIL import Image, ImageOps, ImageEnhance, ImageQt
@@ -29,13 +33,6 @@ try:
     is_pytesseract_installed = True
 except ImportError:
     is_pytesseract_installed = False
-try:
-    import numpy as np
-    import cv2
-
-    is_opencv_installed = True
-except ImportError:
-    is_opencv_installed = False
 
 
 class AppLogic(QObject):
@@ -127,42 +124,6 @@ class AppLogic(QObject):
 
         # Determine which engine to use
         engine = self.config_manager.get_app_config().ocr_engine
-
-        # If OpenCV is selected and available, use it
-        if engine == OCR_ENGINE_OPENCV:
-            if is_opencv_installed:
-                self.log_message.emit("Using OpenCV for advanced image preprocessing.")
-                # 1. Grayscale conversion and resizing (using Pillow)
-                processed_pil = image.convert("L")
-                max_side = max(processed_pil.size)
-                if max_side < 1600:
-                    scale = 2
-                    processed_pil = processed_pil.resize(
-                        (processed_pil.width * scale, processed_pil.height * scale), Image.Resampling.LANCZOS
-                    )
-
-                # 2. Convert Pillow image to OpenCV format (NumPy array)
-                open_cv_image = np.array(processed_pil)
-
-                # 3. Apply noise reduction (Median Blur)
-                open_cv_image = cv2.medianBlur(open_cv_image, 3)  # Kernel size 3
-
-                # 4. Apply adaptive thresholding
-                processed_cv = cv2.adaptiveThreshold(
-                    open_cv_image,
-                    maxValue=255,
-                    adaptiveMethod=cv2.ADAPTIVE_THRESH_MEAN_C,
-                    thresholdType=cv2.THRESH_BINARY,
-                    blockSize=21,
-                    C=4,
-                )
-
-                # 5. Convert back to Pillow image for Tesseract
-                final_image = Image.fromarray(processed_cv)
-                return final_image
-            else:
-                self.log_message.emit("OpenCV engine selected but not installed/available. Fallback to Pillow.")
-
         # --- Default Pillow-based preprocessing ---
         self.log_message.emit("Using standard Pillow image preprocessing.")
         processed = image.convert("L")

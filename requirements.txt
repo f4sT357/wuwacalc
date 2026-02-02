@@ -2,4 +2,4 @@ Pillow
 pytesseract
 PySide6
 ttkthemes
-opencv-python
+# opencv-python removed

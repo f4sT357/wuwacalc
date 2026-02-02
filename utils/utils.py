@@ -8,12 +8,7 @@ try:
     import pytesseract
 except ImportError:
     pytesseract = None
-try:
-    import cv2
-
-    is_opencv_installed = True
-except ImportError:
-    is_opencv_installed = False
+# OpenCV related logic removed
 
 
 def get_app_path() -> str:
@@ -230,9 +225,7 @@ def check_and_alert_environment(gui_log: "Callable[[str], None]") -> None:
         else:
             gui_log("Environment check: OCR feature is available.")
 
-        if not is_opencv_installed:
-            gui_log("Info: OpenCV is not installed. OCR accuracy may be reduced.")
-            gui_log("For best results, run: pip install opencv-python")
+
 
     except Exception as e:
         logger.warning(f"Environment check error: {e}", exc_info=True)

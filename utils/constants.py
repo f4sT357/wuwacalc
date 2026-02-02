@@ -98,7 +98,6 @@ DEFAULT_COST_CONFIG = "43311"
 
 # OCR engine constants
 OCR_ENGINE_PILLOW = "pillow"
-OCR_ENGINE_OPENCV = "opencv"
 
 # JSON key constants for data structures
 KEY_SUBSTATS = "substats"

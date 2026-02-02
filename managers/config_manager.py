@@ -55,7 +55,7 @@ class AppConfig:
     accent_mode: str = "auto"  # "auto" (element-based) or "custom"
     custom_accent_color: str = "#FFD700"  # Gold
     # OCR
-    ocr_engine: str = "pillow"  # pillow or opencv
+    ocr_engine: str = "pillow"  # Standard engine
     skip_duplicate_ocr: bool = True  # New setting for input skipping
 
     transparent_frames: bool = False

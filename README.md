@@ -30,7 +30,7 @@ Supports automatic input via OCR, character-specific weighting presets, and mult
 - **装備自動ロード**: キャラクター切り替え時、空いているタブに「装備中」のエコーを自動で読み込みます。
 - **5列スコアボード生成**: 現在のビルドを横一列にまとめた画像を生成。スコア評価から「%」を除いた正確な指標を表示。
 - **リアルタイム設定反映**: 言語設定や文字色が、再起動なしでUI全体に即座に反映されます。
-- **安全なOCR**: 重複防止機能や、高度な画像処理（OpenCV）エンジンを選択可能。
+- **安全なOCR**: 重複防止機能や、クロップ範囲の％指定による精密な読取設定が可能。
 
 ### English (EN)
 - **OCR Auto-Input**: Automatically recognize stats from screenshots or clipboard images.
@@ -40,7 +40,7 @@ Supports automatic input via OCR, character-specific weighting presets, and mult
 - **Equipped Auto-Load**: Automatically loads equipped echoes into empty tabs when switching characters.
 - **5-Column Scoreboard**: Creates a summary image in a clean single-row layout. Removes misleading "%" from scores.
 - **Real-time Updates**: Language and appearance settings are applied instantly to the entire UI.
-- **Advanced OCR**: Features duplicate skipping and optional OpenCV-based preprocessing.
+- **Advanced OCR**: Features duplicate skipping to protect manual edits and conflict detection to prevent accidental overwrites.
 
 ---
 
