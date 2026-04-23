@@ -9,13 +9,6 @@ class CalculationHandler(BaseHandler):
     
     def trigger_calculation(self) -> None:
         try:
-            if not self.app.character_var:
-                self.app._waiting_for_character = True
-                self.ui.result_text.setHtml(
-                    f"<h3 style='color: orange;'>{self.app.tr('waiting_for_character')}</h3>"
-                )
-                return
-
             self.app._waiting_for_character = False
             self.app.show_duplicate_entries()
 

@@ -120,10 +120,10 @@ class EchoData:
         self,
         stat_weights: Dict[str, float],
         substat_max_values: Dict[str, float]
-    ) -> float:
+    ) -> Tuple[float, List[str]]:
         """Calculate the theoretical maximum score for 5 ideal substat rolls."""
         if not stat_weights:
-            return 100.0
+            return 100.0, []
 
         # Sort weights to find the 5 best possible stats for this character
         weighted = sorted(
@@ -133,11 +133,13 @@ class EchoData:
         top_5 = weighted[:5]
 
         max_score = 0.0
+        ideal_names = []
         for name, weight in top_5:
             # Maximum normalized score for 1 slot is 20 * weight
             max_score += 20.0 * weight
+            ideal_names.append(name)
 
-        return max_score if max_score > 0 else 100.0
+        return (max_score if max_score > 0 else 100.0), ideal_names
 
     def evaluate_comprehensive(
         self,
@@ -170,7 +172,7 @@ class EchoData:
                 )
 
         # 2. Achievement Rate (Main Metric)
-        theo_max = self.calculate_theoretical_max_sub_score(character_weights, max_vals)
+        theo_max, ideal_list = self.calculate_theoretical_max_sub_score(character_weights, max_vals)
         current_sub_score = 0.0
         for stat_name, stat_value in self.substats.items():
             m_val = max_vals.get(stat_name, 1.0)
@@ -291,7 +293,10 @@ class EchoData:
             individual_scores=results,
             estimated_stats=estimated,
             consistency_advice=consistency_msg,
-            advice_list=advice_list
+            advice_list=advice_list,
+            theo_max_sub_score=theo_max,
+            current_sub_score=current_sub_score,
+            ideal_substats_list=ideal_list
         )
 
     # --- Rating Logic ---

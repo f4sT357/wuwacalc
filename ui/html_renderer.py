@@ -208,6 +208,17 @@ class HtmlRenderer:
 
         # Overall summary
         html += f"<b>{self.tr('overall_eval')}</b><br>"
+        
+        # New: Explain the math
+        if abs(evaluation.theo_max_sub_score) > 0.01:
+            html += f"<div style='font-size: 0.85em; color: {self.text_color}; opacity: 0.8; margin-bottom: 8px; border-left: 2px solid #888; padding-left: 6px;'>"
+            html += f"<b>{self.tr('achievement_calc_title')}</b><br>"
+            html += f"{self.tr('theo_max_score')}: {evaluation.theo_max_sub_score:.2f} pts<br>"
+            html += f"{self.tr('current_sub_score')}: {evaluation.current_sub_score:.2f} pts<br>"
+            ideal_str = ', '.join([self.tr(n) for n in evaluation.ideal_substats_list])
+            html += f"<small>{self.tr('ideal_substats_note', ideal_str)}</small>"
+            html += f"</div>"
+
         html += f"<b>{self.tr('achievement_rate_label')}: {evaluation.total_score:.2f}%</b><br>"
         html += self._get_progress_bar(evaluation.total_score)
 
@@ -243,16 +254,57 @@ class HtmlRenderer:
         html += f"<h3><u>{batch_title}</u></h3>"
         html += f"<b>{self.tr('calculated', calculated_count, total_count)}</b><br><hr>"
 
+        method_map = {
+            "normalized": self.tr("method_normalized"),
+            "ratio": self.tr("method_ratio"),
+            "roll": self.tr("method_roll"),
+            "effective": self.tr("method_effective"),
+            "cv": self.tr("method_cv"),
+        }
+
         for eval_data in all_evaluations:
+            html += f"<div class='score-block'>"
             html += f"<b>--- {eval_data['tab_name']} ---</b><br>"
             score = eval_data["total"]
             color = "#FF4500" if score >= 85 else "#E67E22" if score >= 70 else "#2980B9" if score >= 50 else "#27AE60"
-            html += f"<b>{self.tr('total_score')}: <span style='color:{color}'>{score:.2f}%</span></b><br>"
+            html += f"<b>{self.tr('total_score')}: <span style='color:{color}'>{score:.2f}%</span></b>"
             html += self._get_progress_bar(score, color)
-            html += f"<small>{self.tr('recommendation')}: {eval_data['recommendation']}</small><br><br>"
+            
+            # Print enabled methods
+            for m_id, label in method_map.items():
+                if enabled_methods.get(m_id, False) and m_id in eval_data:
+                    m_score = eval_data[m_id]
+                    html += f"&nbsp;&nbsp;• {label}: {m_score:.2f}<br>"
+
+            html += f"<br><small>{self.tr('recommendation')}: {eval_data['recommendation']}</small>"
+            html += "</div>"
 
         html += "<hr><b>Summary Averages</b><br>"
-        avg_total = total_scores["total"] / calculated_count
-        html += f"<b>Average Achievement: {avg_total:.2f}%</b><br>"
-        html += self._get_progress_bar(avg_total)
+        if calculated_count > 0:
+            
+            # New: Explain the math for the entire batch
+            first_eval = all_evaluations[0] if all_evaluations else None
+            if first_eval and abs(first_eval.get('theo_max_sub_score', 0)) > 0.01:
+                html += f"<div style='font-size: 0.85em; color: {self.text_color}; opacity: 0.8; margin-bottom: 8px; border-left: 2px solid #888; padding-left: 6px;'>"
+                html += f"<b>{self.tr('achievement_calc_title')}</b><br>"
+                html += f"{self.tr('theo_max_score')}: {first_eval['theo_max_sub_score']:.2f} pts<br>"
+                
+                # Calculate average current sub score sum
+                total_current_sub = sum([e.get('current_sub_score', 0) for e in all_evaluations])
+                avg_current_sub = total_current_sub / calculated_count
+                html += f"Average {self.tr('current_sub_score')}: {avg_current_sub:.2f} pts<br>"
+                
+                ideal_str = ', '.join([self.tr(n) for n in first_eval.get('ideal_substats_list', [])])
+                html += f"<small>{self.tr('ideal_substats_note', ideal_str)}</small>"
+                html += f"</div>"
+
+            avg_total = total_scores["total"] / calculated_count
+            html += f"<b>{self.tr('total_average')} ({self.tr('achievement_rate_label')}): {avg_total:.2f}%</b><br>"
+            html += self._get_progress_bar(avg_total)
+            
+            for m_id, label in method_map.items():
+                if enabled_methods.get(m_id, False) and m_id in total_scores:
+                    avg_m = total_scores[m_id] / calculated_count
+                    html += f"<b>Average {label}: {avg_m:.2f}</b><br>"
+                
         return html

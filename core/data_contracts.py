@@ -60,6 +60,9 @@ class EvaluationResult:
     comparison_diff: Optional[float] = None # New: Score difference compared to equipped echo
     consistency_advice: str = "" # New: Advice about main stat consistency
     advice_list: List[str] = field(default_factory=list) # New: List of build optimization advice
+    theo_max_sub_score: float = 0.0 # Theoretical max limit for achievement rate
+    current_sub_score: float = 0.0  # Current absolute sub score points
+    ideal_substats_list: List[str] = field(default_factory=list) # Top 5 ideal substats
 
 @dataclass
 class TabImageData:

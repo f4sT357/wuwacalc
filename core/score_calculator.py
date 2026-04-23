@@ -319,6 +319,9 @@ class ScoreCalculator(QObject):
             "recommendation": lang_dict.get(
                 evaluation.recommendation, evaluation.recommendation
             ),
+            "theo_max_sub_score": evaluation.theo_max_sub_score,
+            "current_sub_score": evaluation.current_sub_score,
+            "ideal_substats_list": evaluation.ideal_substats_list,
         }
 
         for method, score in evaluation.individual_scores.items():

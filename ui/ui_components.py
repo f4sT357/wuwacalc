@@ -796,7 +796,7 @@ class UIComponents:
         # Sort by display name
         formatted.sort(key=lambda x: x[0])
 
-        self.character_combo.addItem(f"-- {self.app.tr('character')} --", userData="")
+        # No placeholder item added, relying on General or previous.
         for display_name, internal_name in formatted:
             self.character_combo.addItem(display_name, userData=internal_name)
 

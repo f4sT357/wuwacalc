@@ -16,8 +16,6 @@ from pytesseract import Output
 from PySide6.QtCore import QObject, Signal
 from utils.constants import (
     OCR_ENGINE_PILLOW,
-    LOG_LEVEL_INFO,
-    LOG_LEVEL_ERROR,
 )
 
 try:

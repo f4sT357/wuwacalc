@@ -240,6 +240,10 @@ TRANSLATIONS = {
         "回折ダメージアップ": "回折ダメージアップ",
         "消滅ダメージアップ": "消滅ダメージアップ",
         "HP回復効果アップ": "HP回復効果アップ",
+        "achievement_calc_title": "【厳選達成率の計算基準】",
+        "theo_max_score": "理論上の最大サブステスコア",
+        "current_sub_score": "現在のサブステスコア",
+        "ideal_substats_note": "※理想のサブステ5種 ({}) がすべて最大値で付いた場合を100%の基準とします。",
         # Ratings
         "rating_sss_norm": "SS級 - 最高品質",
         "rating_ss_norm": "S級 - 優秀",
@@ -596,6 +600,10 @@ TRANSLATIONS = {
         "回折ダメージアップ": "Spectro DMG Bonus",
         "消滅ダメージアップ": "Havoc DMG Bonus",
         "HP回復効果アップ": "Healing Bonus",
+        "achievement_calc_title": "[Achievement Rate Calculation Basis]",
+        "theo_max_score": "Theoretical Max Substat Score",
+        "current_sub_score": "Current Substat Score",
+        "ideal_substats_note": "* 100% represents the case where these top 5 ideal substats ({}) all achieve their maximum roll values.",
         # Ratings
         "rating_sss_norm": "SS - Top Quality",
         "rating_ss_norm": "S - Excellent",

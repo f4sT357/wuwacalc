@@ -131,7 +131,7 @@ class ScoreCalculatorApp(QMainWindow):
         self.language = self.app_config.language
         self.current_config_key = self.app_config.current_config_key
         self.mode_var = self.app_config.mode_var
-        self.character_var = ""
+        self.character_var = self.app_config.character_var or "General"
         self.auto_apply_main_stats = self.app_config.auto_apply_main_stats
         self.score_mode_var = self.app_config.score_mode_var
         self.crop_mode_var = self.app_config.crop_mode

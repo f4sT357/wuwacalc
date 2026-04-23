@@ -8,12 +8,13 @@ class CharacterHandler(BaseHandler):
         if index < 0: return
         internal_name = self.ui.character_combo.itemData(index)
         if not internal_name:
-            self.app.character_var = ""
+            self.app.character_var = "General"
             self.tab_mgr.apply_character_main_stats()
             self.app.events.save_config()
             return
 
         self.app.character_var = internal_name
+        self.app.app_config.character_var = internal_name
         new_config = self.character_manager.get_character_config_key(internal_name)
         if new_config and new_config != self.app.current_config_key:
             if self.ui.config_combo:
@@ -30,11 +31,12 @@ class CharacterHandler(BaseHandler):
         if hasattr(self.app.events, 'ocr_handler'):
             self.app.events.ocr_handler.check_deferred_ocr()
 
-        if (getattr(self.app, "_waiting_for_character", False) or self.app.app_config.auto_calculate):
-            score_mode = self.app.score_mode_var
-            curr_idx = self.app.notebook.currentIndex()
-            if self.tab_mgr.has_calculatable_data(mode=score_mode, current_index=curr_idx):
-                self.app.trigger_calculation()
+        # Unconditionally recalculate score upon character change to provide immediate UI feedback
+        # without waiting for auto_calculate setting.
+        score_mode = self.app.score_mode_var
+        curr_idx = self.app.notebook.currentIndex()
+        if self.tab_mgr.has_calculatable_data(mode=score_mode, current_index=curr_idx):
+            self.app.trigger_calculation()
 
     def _load_equipped_echoes(self, internal_name: str) -> None:
         config_key = self.app.app_config.current_config_key
